@@ -13,6 +13,11 @@ ApplicationWindow {
     title: "Pomodoro"
     color: Color.background
 
+    onClosing: function(close) {
+        close.accepted = false;
+        hide();
+    }
+
     Service {
         id: service
         objectName: "pomodoroService"
