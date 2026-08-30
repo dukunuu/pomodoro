@@ -41,8 +41,9 @@ cmake -S . -B build -DCMAKE_PREFIX_PATH="C:\Qt\6.x.x\msvc2022_64"
 cmake --build build --config Release
 ```
 
-Or run `./build-windows.ps1` from PowerShell; it locates the first Qt Desktop
-kit under `C:\Qt`, builds Release, and runs `windeployqt`. No Linux Omarchy
+Or run `build-windows.cmd`; it invokes PowerShell with a process-scoped
+execution-policy bypass, locates the first Qt Desktop kit under `C:\Qt`,
+builds Release, and runs `windeployqt`. No Linux Omarchy
 files or commands are required by this project.
 
 ## Porting boundaries
