@@ -43,7 +43,8 @@ cmake --build build --config Release
 
 Or run `build-windows.cmd`; it invokes PowerShell with a process-scoped
 execution-policy bypass, locates the first Qt Desktop kit under `C:\Qt`,
-builds Release, and runs `windeployqt`. No Linux Omarchy
+builds Release, and runs `windeployqt`. Set `QT_ROOT` if Qt is installed
+elsewhere. No Linux Omarchy
 files or commands are required by this project.
 
 ## Porting boundaries
