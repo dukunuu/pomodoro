@@ -13,8 +13,8 @@ qt_policy(SET QTP0004 NEW)
 
 qt_add_executable(pomodoro-windows
     src/main.cpp
-    src/PomodoroService.cpp
-    src/PomodoroService.h
+    src/PlatformBridge.cpp
+    src/PlatformBridge.h
 )
 
 qt_add_qml_module(pomodoro-windows
@@ -22,9 +22,22 @@ qt_add_qml_module(pomodoro-windows
     VERSION 1.0
     QML_FILES
         qml/Main.qml
+        qml/Service.qml
+        qml/Dashboard.qml
+        qml/Color.qml
+        qml/Style.qml
+        qml/Border.qml
+        qml/KeyboardPanel.qml
+        qml/BorderSurface.qml
+        qml/Button.qml
+        qml/TextField.qml
+        qml/PanelSeparator.qml
+        qml/PanelToolTip.qml
     RESOURCES
         assets/pomodoro.svg
 )
+
+target_include_directories(pomodoro-windows PRIVATE src)
 
 target_link_libraries(pomodoro-windows
     PRIVATE

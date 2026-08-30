@@ -10,16 +10,15 @@ can run as a Windows tray application.
 
 - Qt 6 desktop window using QML
 - Windows-compatible system-tray host
-- Persistent timer state
+- Directly ported `Service.qml` timer, history, reports, timelines, and notes
 - 25-minute focus, 5-minute short break, and 15-minute long break defaults
 - Pause/resume using a wall-clock deadline, including overtime
-- Skip and finish controls
-- Local note field
-- Tray notification when a phase reaches its deadline
+- Existing history JSON shape retained; no history migration is planned
+- Tray notification seam for phase alarms and Whistler reminders
 
-History, reports, Google Calendar, and Whistler are intentionally next steps;
-the first milestone is to establish a portable host and preserve timer
-semantics before moving the rest of the Linux service across.
+Google Calendar and Whistler command bridges are the remaining integration
+work. The Windows frontend intentionally keeps the Linux service behavior and
+report calculations rather than introducing a second data model.
 
 ## Build on Linux
 
@@ -42,16 +41,18 @@ cmake -S . -B build -DCMAKE_PREFIX_PATH="C:\Qt\6.x.x\msvc2022_64"
 cmake --build build --config Release
 ```
 
-The eventual release build will use `windeployqt` and an installer. No Linux
-Omarchy files or commands are required by this project.
+Or run `./build-windows.ps1` from PowerShell; it locates the first Qt Desktop
+kit under `C:\Qt`, builds Release, and runs `windeployqt`. No Linux Omarchy
+files or commands are required by this project.
 
 ## Porting boundaries
 
-- `src/PomodoroService.*`: platform-neutral timer/state seam.
-- `qml/Main.qml`: desktop dashboard; it replaces the Omarchy bar widget.
-- `src/main.cpp`: tray, window lifetime, and native notifications.
-- Future `core/`: history, reports, calendar accounting, and Whistler payload
-  generation shared by the desktop UI and terminal client.
+- `qml/Service.qml`: direct port of the existing timer, history, and report
+  service.
+- `qml/Dashboard.qml`: direct port of the existing dashboard.
+- `qml/*` compatibility components: replacements for Omarchy shell controls.
+- `src/PlatformBridge.*`: filesystem, process, alarm, and notification seams.
+- `src/main.cpp`: tray and desktop-window host.
 
 Credentials will remain outside the QML layer. The Windows implementation will
 use the OS credential store or DPAPI rather than Linux file permissions.

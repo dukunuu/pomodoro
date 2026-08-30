@@ -1,10 +1,12 @@
-#include "PomodoroService.h"
+#include "PlatformBridge.h"
 
 #include <QAction>
 #include <QApplication>
 #include <QIcon>
+#include <QDebug>
 #include <QMenu>
 #include <QQmlApplicationEngine>
+#include <QUrl>
 #include <QQmlContext>
 #include <QSystemTrayIcon>
 #include <QWindow>
@@ -17,10 +19,15 @@ int main(int argc, char *argv[])
     QCoreApplication::setApplicationName(QStringLiteral("Pomodoro"));
     QApplication::setQuitOnLastWindowClosed(false);
 
-    PomodoroService service;
+    PlatformBridge platform;
     QQmlApplicationEngine engine;
-    engine.rootContext()->setContextProperty(QStringLiteral("pomodoroService"), &service);
-    engine.loadFromModule(QStringLiteral("PomodoroWindows"), QStringLiteral("Main"));
+    QObject::connect(&engine, &QQmlApplicationEngine::warnings, &app,
+                     [](const QList<QQmlError> &warnings) {
+                         for (const QQmlError &warning : warnings)
+                             qWarning().noquote() << warning.toString();
+                     });
+    engine.rootContext()->setContextProperty(QStringLiteral("platform"), &platform);
+    engine.load(QUrl(QStringLiteral("qrc:/qt/qml/PomodoroWindows/qml/Main.qml")));
 
     if (engine.rootObjects().isEmpty())
         return 1;
@@ -29,6 +36,7 @@ int main(int argc, char *argv[])
     if (!window)
         return 1;
 
+    auto *service = window->findChild<QObject *>(QStringLiteral("pomodoroService"));
     const QIcon icon(QStringLiteral(":/qt/qml/PomodoroWindows/assets/pomodoro.svg"));
     QSystemTrayIcon tray(icon);
     tray.setToolTip(QStringLiteral("Pomodoro"));
@@ -59,23 +67,18 @@ int main(int argc, char *argv[])
                              showWindow();
                          }
                      });
-    QObject::connect(&startPauseAction, &QAction::triggered, &service,
-                     &PomodoroService::toggle);
-    QObject::connect(&skipAction, &QAction::triggered, &service,
-                     &PomodoroService::skip);
+    if (service) {
+        QObject::connect(&startPauseAction, &QAction::triggered, &app, [service]() {
+            QMetaObject::invokeMethod(service, "toggle", Qt::QueuedConnection);
+        });
+        QObject::connect(&skipAction, &QAction::triggered, &app, [service]() {
+            QMetaObject::invokeMethod(service, "skip", Qt::QueuedConnection);
+        });
+    }
     QObject::connect(&quitAction, &QAction::triggered, &app, &QCoreApplication::quit);
-
-    QObject::connect(&service, &PomodoroService::stateChanged, &app, [&tray, &service]() {
-        tray.setToolTip(QStringLiteral("Pomodoro — %1 %2")
-                            .arg(service.phaseLabel(), service.remainingText()));
-    });
-    QObject::connect(&service, &PomodoroService::phaseReached, &app,
-                     [&tray](const QString &phase, const QString &nextPhase) {
-                         tray.showMessage(
-                             QStringLiteral("Pomodoro %1 reached").arg(phase),
-                             QStringLiteral("Continue working or move to %1.").arg(nextPhase),
-                             QSystemTrayIcon::Information,
-                             5000);
+    QObject::connect(&platform, &PlatformBridge::notificationRequested, &app,
+                     [&tray](const QString &title, const QString &body, const QString &) {
+                         tray.showMessage(title, body, QSystemTrayIcon::Information, 5000);
                      });
 
     tray.show();

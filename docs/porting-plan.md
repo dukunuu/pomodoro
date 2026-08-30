@@ -3,8 +3,9 @@
 ## Guiding rule
 
 The timer's behavior is the product. Omarchy is only one frontend. The
-Windows app must preserve deadlines, paused-time accounting, overtime, notes,
-and history semantics rather than copying the Linux shell integration.
+Windows app preserves the existing QML service, JSON shape, deadlines,
+paused-time accounting, overtime, notes, and report semantics rather than
+inventing a second history model.
 
 ## Milestones
 
@@ -15,19 +16,18 @@ and history semantics rather than copying the Linux shell integration.
 - Persistent wall-clock timer state
 - Start, pause, skip, finish, reset, and note controls
 
-### 2. Portable core
+### 2. Direct service port
 
-Move the logic currently living in `Service.qml` into a tested core module:
+Keep the existing `Service.qml` as the source of truth. Replace only the
+Quickshell seams around it:
 
-- phase state machine and local-day cycle handling
-- active segments and paused-time exclusion
-- session/history schema and migrations
-- daily/weekly/monthly/all-time reports
-- timeline clipping and formatting
+- filesystem-backed `FileView`
+- child-process `Process` and stream collectors
+- native alarm and notification calls
+- desktop paths and tray/window lifetime
 
-The QML service should become a thin adapter during this step. Keep the JSON
-schema compatible with the Linux files where practical so history can be
-copied or imported.
+The existing history JSON is read directly. No history migration or second
+core model is needed.
 
 ### 3. Integrations
 
@@ -35,7 +35,8 @@ copied or imported.
 - Keep descriptions, all-day events, and zero-duration events out of calendar
   accounting.
 - Run the existing Python Whistler importer as a bundled child process first;
-  port it into the core only after the desktop behavior is stable.
+  replace its Linux notification and path assumptions without changing its
+  allocation/worklog behavior.
 - Keep project/task classification in OpenRouter and all duration calculation
   local.
 - Replace `omarchy-notification-send` with the Windows toast bridge.
