@@ -1,0 +1,26 @@
+# Build output
+/build/
+/cmake-build-*/
+/out/
+
+# Qt and IDE files
+.vscode/
+.idea/
+*.user
+*.user.*
+
+# Runtime data
+*.log
+*.tmp
+/state/
+
+# Python artifacts (for the future importer bridge)
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# Windows packaging output
+*.exe
+*.msix
+*.msi
