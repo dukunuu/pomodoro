@@ -5,7 +5,9 @@ import PomodoroWindows 1.0
 ApplicationWindow {
     id: window
 
-    visible: true
+    // Windows starts with the compact timer widget; the full dashboard is
+    // opened from its OPEN button or the tray menu.
+    visible: Qt.platform.os !== "windows"
     width: 760
     height: 860
     minimumWidth: 520

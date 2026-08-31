@@ -65,15 +65,18 @@ int main(int argc, char *argv[])
         window->raise();
         window->requestActivate();
     };
+    const auto showTimerWidget = [timerWidget]() {
+        if (!timerWidget)
+            return;
+        timerWidget->show();
+        timerWidget->raise();
+        timerWidget->requestActivate();
+    };
 
     QObject::connect(&openAction, &QAction::triggered, &app, showWindow);
 #ifdef Q_OS_WIN
-    if (timerWidget) {
-        QObject::connect(&showTimerWidgetAction, &QAction::triggered, &app, [timerWidget]() {
-            timerWidget->show();
-            timerWidget->raise();
-        });
-    }
+    if (timerWidget)
+        QObject::connect(&showTimerWidgetAction, &QAction::triggered, &app, showTimerWidget);
 #endif
     QObject::connect(&tray, &QSystemTrayIcon::activated, &app,
                      [&showWindow](QSystemTrayIcon::ActivationReason reason) {
@@ -97,6 +100,13 @@ int main(int argc, char *argv[])
                      });
 
     tray.show();
+#ifdef Q_OS_WIN
+    if (timerWidget)
+        showTimerWidget();
+    else
+        showWindow();
+#else
     showWindow();
+#endif
     return app.exec();
 }

@@ -34,6 +34,13 @@ QString scriptPath(const QString &name)
     return QDir(scriptDirectory()).filePath(name);
 }
 
+QString powershellLiteral(const QString &value)
+{
+    QString escaped = value;
+    escaped.replace(QLatin1Char('\''), QStringLiteral("''"));
+    return QStringLiteral("'") + escaped + QStringLiteral("'");
+}
+
 QStringList nativeCommand(const QStringList &command)
 {
     if (command.isEmpty() || command.first().isEmpty())
@@ -142,32 +149,41 @@ void PlatformBridge::execDetached(const QStringList &command)
     QProcess::startDetached(native.first(), native.mid(1));
 }
 
-void PlatformBridge::openCommandWindow(const QStringList &command)
+bool PlatformBridge::openCommandWindow(const QStringList &command)
 {
     if (command.isEmpty() || command.first().isEmpty())
-        return;
+        return false;
 
 #ifdef Q_OS_WIN
     const QString suffix = QFileInfo(command.first()).suffix().toLower();
-    QStringList arguments;
-    arguments << QStringLiteral("/k") << QStringLiteral("call");
-    if (suffix == QStringLiteral("cmd") || suffix == QStringLiteral("bat")) {
-        arguments << command.first();
-        arguments += command.mid(1);
-    } else {
-        const QStringList native = nativeCommand(command);
-        if (native.isEmpty())
-            return;
-        arguments << native.first();
-        arguments += native.mid(1);
-    }
-    QProcess::startDetached(QStringLiteral("cmd.exe"), arguments);
+    const QStringList execution = (suffix == QStringLiteral("cmd") || suffix == QStringLiteral("bat"))
+        ? command
+        : nativeCommand(command);
+    if (execution.isEmpty())
+        return false;
+
+    // PowerShell's call operator handles spaces in the installed path more
+    // reliably than passing a quoted batch file through cmd.exe /k.
+    QString commandLine = QStringLiteral("& ") + powershellLiteral(execution.first());
+    for (const QString &argument : execution.mid(1))
+        commandLine += QStringLiteral(" ") + powershellLiteral(argument);
+
+    const QStringList arguments = {
+        QStringLiteral("-NoProfile"),
+        QStringLiteral("-ExecutionPolicy"),
+        QStringLiteral("Bypass"),
+        QStringLiteral("-NoExit"),
+        QStringLiteral("-Command"),
+        commandLine
+    };
+    return QProcess::startDetached(QStringLiteral("powershell.exe"),
+                                   arguments,
+                                   QCoreApplication::applicationDirPath());
 #else
     // The Windows frontend normally takes this branch only in development.
     // Keep setup usable on Linux too when the project is run from a terminal.
     const QStringList native = nativeCommand(command);
-    if (!native.isEmpty())
-        QProcess::startDetached(native.first(), native.mid(1));
+    return !native.isEmpty() && QProcess::startDetached(native.first(), native.mid(1));
 #endif
 }
 

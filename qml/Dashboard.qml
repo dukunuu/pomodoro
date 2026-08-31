@@ -835,6 +835,7 @@ KeyboardPanel {
                 property string reminderTimeDraft: root.service ? root.service.whistlerReminderTime : "18:00"
                 property bool reminderEnabledDraft: root.service ? root.service.whistlerReminderEnabled : false
                 property string saveMessage: ""
+                property string authMessage: ""
                 readonly property real viewportHeight: {
                     var maximum = Style.space(820) - root.verticalContentInset;
                     var available = root.availableCardHeight > 0 ? root.availableCardHeight - root.verticalContentInset : maximum;
@@ -925,7 +926,7 @@ KeyboardPanel {
                                             fontFamily: root.fontFamily
                                             fontSize: Style.font.caption
                                             bordered: true
-                                            onClicked: platform.openCommandWindow([platform.googleAuthCommand()])
+                                            onClicked: settingsPanel.authMessage = platform.openCommandWindow([platform.googleAuthCommand()]) ? "Google authorization console opened." : "Could not open Google authorization console."
                                         }
 
                                         Button {
@@ -935,7 +936,7 @@ KeyboardPanel {
                                             fontFamily: root.fontFamily
                                             fontSize: Style.font.caption
                                             bordered: true
-                                            onClicked: platform.openCommandWindow([platform.whistlerSetupCommand()])
+                                            onClicked: settingsPanel.authMessage = platform.openCommandWindow([platform.whistlerSetupCommand()]) ? "Whistler setup console opened." : "Could not open Whistler setup console."
                                         }
 
                                         Button {
@@ -948,6 +949,16 @@ KeyboardPanel {
                                             onClicked: platform.openDataDirectory()
                                         }
 
+                                    }
+
+                                    Text {
+                                        visible: settingsPanel.authMessage !== ""
+                                        width: parent.width
+                                        text: settingsPanel.authMessage
+                                        color: settingsPanel.authMessage.indexOf("Could not") === 0 ? Color.urgent : Color.accent
+                                        font.family: root.fontFamily
+                                        font.pixelSize: Style.font.caption
+                                        wrapMode: Text.Wrap
                                     }
 
                                     Text {

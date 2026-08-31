@@ -1771,7 +1771,8 @@ Item {
                 root.whistlerImportStatus = "Complete";
             } else {
                 root.whistlerImportProgress = 0;
-                root.whistlerImportStatus = "Import failed";
+                var detail = String(whistlerImportStderr.text || "").trim();
+                root.whistlerImportStatus = detail !== "" ? detail.split("\n")[0].slice(0, 180) : "Import failed";
             }
             whistlerImportStatusTimer.restart();
         }
@@ -1816,7 +1817,8 @@ Item {
             } else {
                 root.whistlerMonthStatusLoaded = false;
                 root.whistlerReminderStatusPending = false;
-                root.whistlerMonthStatusMessage = "Could not read Calendar / Whistler status.";
+                var detail = String(whistlerMonthStatusStderr.text || "").trim();
+                root.whistlerMonthStatusMessage = detail !== "" ? detail.split("\n")[0].slice(0, 180) : "Could not read Calendar / Whistler status.";
             }
         }
 

@@ -37,7 +37,7 @@ public:
     Q_INVOKABLE QString whistlerImportCommand() const;
     Q_INVOKABLE QString env(const QString &name) const;
     Q_INVOKABLE void execDetached(const QStringList &command);
-    Q_INVOKABLE void openCommandWindow(const QStringList &command);
+    Q_INVOKABLE bool openCommandWindow(const QStringList &command);
     Q_INVOKABLE void openDataDirectory();
     Q_INVOKABLE void setTaskbarWindow(QObject *window);
     Q_INVOKABLE void setTaskbarProgress(double progress, bool active);
