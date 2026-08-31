@@ -29,4 +29,11 @@ ApplicationWindow {
         anchors.fill: parent
         service: service
     }
+
+    TimerWidget {
+        id: timerWidget
+
+        service: service
+        dashboardWindow: window
+    }
 }

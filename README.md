@@ -15,12 +15,17 @@ can run as a Windows tray application.
 - Pause/resume using a wall-clock deadline, including overtime
 - Existing history JSON shape retained; no history migration is planned
 - Tray notification seam for phase alarms and Whistler reminders
+- Always-on-top Windows timer widget with active countdown and native taskbar
+  progress
 - Windows-path Python bridges for Google OAuth, Calendar focus events, Whistler
   login/setup, and the existing deterministic importer
 
-The integration bridges use Python's standard library only. The Windows
-frontend intentionally keeps the Linux service behavior and report calculations
-rather than introducing a second data model.
+The integration bridges use Python's standard library only. Windows does not
+permit arbitrary third-party controls to be embedded in the taskbar, so the
+app uses a native frameless companion widget above the taskbar plus the
+main taskbar button's progress indicator. The frontend intentionally keeps the
+Linux service behavior and report calculations rather than introducing a second
+data model.
 
 ## Build on Linux
 

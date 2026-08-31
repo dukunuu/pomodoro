@@ -32,6 +32,7 @@ qt_add_qml_module(pomodoro-windows
     VERSION 1.0
     QML_FILES
         qml/Main.qml
+        qml/TimerWidget.qml
         qml/Service.qml
         qml/Dashboard.qml
         qml/Color.qml
@@ -58,6 +59,10 @@ target_link_libraries(pomodoro-windows
         Qt6::Widgets
         Qt6::Svg
 )
+
+if (WIN32)
+    target_link_libraries(pomodoro-windows PRIVATE ole32 uuid)
+endif()
 
 set_target_properties(pomodoro-windows PROPERTIES
     WIN32_EXECUTABLE TRUE

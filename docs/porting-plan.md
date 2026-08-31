@@ -43,6 +43,7 @@ core model is needed.
 
 ### 4. Windows polish
 
+- Native always-on-top timer widget and taskbar progress indicator
 - Windows Credential Manager/DPAPI for local secrets (next security pass)
 - `%LOCALAPPDATA%` state paths
 - single-instance mutex

@@ -36,7 +36,9 @@ int main(int argc, char *argv[])
     if (!window)
         return 1;
 
+    platform.setTaskbarWindow(window);
     auto *service = window->findChild<QObject *>(QStringLiteral("pomodoroService"));
+    auto *timerWidget = qobject_cast<QWindow *>(window->findChild<QObject *>(QStringLiteral("timerWidget")));
     const QIcon icon(QStringLiteral(":/qt/qml/PomodoroWindows/assets/pomodoro.svg"));
     window->setIcon(icon);
     QSystemTrayIcon tray(icon);
@@ -47,6 +49,10 @@ int main(int argc, char *argv[])
     QAction startPauseAction(QStringLiteral("Start / pause"), &trayMenu);
     QAction skipAction(QStringLiteral("Skip phase"), &trayMenu);
     trayMenu.addAction(&openAction);
+#ifdef Q_OS_WIN
+    QAction showTimerWidgetAction(QStringLiteral("Show timer widget"), &trayMenu);
+    trayMenu.addAction(&showTimerWidgetAction);
+#endif
     trayMenu.addAction(&startPauseAction);
     trayMenu.addAction(&skipAction);
     trayMenu.addSeparator();
@@ -61,6 +67,14 @@ int main(int argc, char *argv[])
     };
 
     QObject::connect(&openAction, &QAction::triggered, &app, showWindow);
+#ifdef Q_OS_WIN
+    if (timerWidget) {
+        QObject::connect(&showTimerWidgetAction, &QAction::triggered, &app, [timerWidget]() {
+            timerWidget->show();
+            timerWidget->raise();
+        });
+    }
+#endif
     QObject::connect(&tray, &QSystemTrayIcon::activated, &app,
                      [&showWindow](QSystemTrayIcon::ActivationReason reason) {
                          if (reason == QSystemTrayIcon::Trigger ||

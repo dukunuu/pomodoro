@@ -10,6 +10,12 @@
 #include <QSaveFile>
 #include <QStandardPaths>
 #include <QUrl>
+#include <QWindow>
+
+#ifdef Q_OS_WIN
+#include <shobjidl.h>
+#include <windows.h>
+#endif
 
 #include <algorithm>
 
@@ -169,6 +175,52 @@ void PlatformBridge::openDataDirectory()
 {
     QDir().mkpath(dataDirectory());
     QDesktopServices::openUrl(QUrl::fromLocalFile(dataDirectory()));
+}
+
+void PlatformBridge::setTaskbarWindow(QObject *window)
+{
+    m_taskbarWindow = qobject_cast<QWindow *>(window);
+}
+
+void PlatformBridge::setTaskbarProgress(double progress, bool active)
+{
+#ifdef Q_OS_WIN
+    if (!m_taskbarWindow)
+        return;
+
+    const HWND handle = reinterpret_cast<HWND>(m_taskbarWindow->winId());
+    if (!handle)
+        return;
+
+    const HRESULT initResult = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    if (FAILED(initResult) && initResult != RPC_E_CHANGED_MODE)
+        return;
+    const bool shouldUninitialize = initResult == S_OK || initResult == S_FALSE;
+
+    ITaskbarList3 *taskbar = nullptr;
+    const HRESULT createResult = CoCreateInstance(CLSID_TaskbarList,
+                                                   nullptr,
+                                                   CLSCTX_INPROC_SERVER,
+                                                   IID_PPV_ARGS(&taskbar));
+    if (SUCCEEDED(createResult) && taskbar && SUCCEEDED(taskbar->HrInit())) {
+        if (active) {
+            const double clamped = std::max(0.0, std::min(1.0, progress));
+            taskbar->SetProgressState(handle, TBPF_NORMAL);
+            taskbar->SetProgressValue(handle,
+                                      static_cast<ULONGLONG>(clamped * 1000.0),
+                                      1000);
+        } else {
+            taskbar->SetProgressState(handle, TBPF_NOPROGRESS);
+        }
+        taskbar->Release();
+    }
+
+    if (shouldUninitialize)
+        CoUninitialize();
+#else
+    Q_UNUSED(progress);
+    Q_UNUSED(active);
+#endif
 }
 
 void PlatformBridge::notify(const QString &title, const QString &body, const QString &urgency)

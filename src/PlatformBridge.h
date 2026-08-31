@@ -1,12 +1,15 @@
 #pragma once
 
 #include <QFileSystemWatcher>
+#include <QPointer>
 #include <QProcess>
 #include <QStringList>
 #include <QTimer>
 #include <QVariant>
 
 #include <QtQml/qqmlregistration.h>
+
+class QWindow;
 
 // The Windows CRT exposes stdout/stderr as macros. They collide with the
 // Quickshell-compatible QML property names used by the direct Service.qml
@@ -36,6 +39,8 @@ public:
     Q_INVOKABLE void execDetached(const QStringList &command);
     Q_INVOKABLE void openCommandWindow(const QStringList &command);
     Q_INVOKABLE void openDataDirectory();
+    Q_INVOKABLE void setTaskbarWindow(QObject *window);
+    Q_INVOKABLE void setTaskbarProgress(double progress, bool active);
     Q_INVOKABLE void notify(const QString &title, const QString &body,
                             const QString &urgency = QStringLiteral("normal"));
     Q_INVOKABLE void playAlarm();
@@ -43,6 +48,9 @@ public:
 signals:
     void notificationRequested(const QString &title, const QString &body,
                                const QString &urgency);
+
+private:
+    QPointer<QWindow> m_taskbarWindow;
 };
 
 class DesktopStream : public QObject
