@@ -35,13 +35,6 @@ QString scriptPath(const QString &name)
     return QDir(scriptDirectory()).filePath(name);
 }
 
-QString powershellLiteral(const QString &value)
-{
-    QString escaped = value;
-    escaped.replace(QLatin1Char('\''), QStringLiteral("''"));
-    return QStringLiteral("'") + escaped + QStringLiteral("'");
-}
-
 QStringList nativeCommand(const QStringList &command)
 {
     if (command.isEmpty() || command.first().isEmpty())
@@ -157,38 +150,21 @@ bool PlatformBridge::openCommandWindow(const QStringList &command)
 
 #ifdef Q_OS_WIN
     const QString suffix = QFileInfo(command.first()).suffix().toLower();
-    const QStringList execution = (suffix == QStringLiteral("cmd") || suffix == QStringLiteral("bat"))
-        ? command
-        : nativeCommand(command);
-    if (execution.isEmpty())
-        return false;
-
-    // PowerShell's call operator handles spaces in the installed path more
-    // reliably than passing a quoted batch file through cmd.exe /k.
-    QString commandLine = QStringLiteral("& ") + powershellLiteral(execution.first());
-    for (const QString &argument : execution.mid(1))
-        commandLine += QStringLiteral(" ") + powershellLiteral(argument);
-
-    const QStringList arguments = {
-        QStringLiteral("-NoProfile"),
-        QStringLiteral("-ExecutionPolicy"),
-        QStringLiteral("Bypass"),
-        QStringLiteral("-NoExit"),
-        QStringLiteral("-Command"),
-        commandLine
-    };
-
-    // A GUI-subsystem Qt process does not always give a detached console
-    // process a visible console window. ShellExecute explicitly asks Windows
-    // to show PowerShell, which makes the interactive auth/setup prompts
-    // reliable from a QML button.
-    const QString shell = QStandardPaths::findExecutable(QStringLiteral("powershell.exe"));
-    if (!shell.isEmpty()) {
-        const QString parameters = QStringLiteral("-NoProfile -ExecutionPolicy Bypass -NoExit -Command \"")
-            + commandLine + QStringLiteral("\"");
+    if (suffix == QStringLiteral("cmd") || suffix == QStringLiteral("bat")) {
+        // ShellExecute knows how to run a batch file and explicitly creates a
+        // visible console. This avoids the fragile '&' quoting rules of
+        // powershell.exe -Command when the installation path contains spaces.
+        QString parameters;
+        for (const QString &argument : command.mid(1)) {
+            QString escaped = argument;
+            escaped.replace(QLatin1Char('"'), QStringLiteral("\\\""));
+            if (!parameters.isEmpty())
+                parameters += QLatin1Char(' ');
+            parameters += QLatin1Char('"') + escaped + QLatin1Char('"');
+        }
         const HINSTANCE result = ShellExecuteW(nullptr,
                                                 L"open",
-                                                reinterpret_cast<LPCWSTR>(shell.utf16()),
+                                                reinterpret_cast<LPCWSTR>(command.first().utf16()),
                                                 reinterpret_cast<LPCWSTR>(parameters.utf16()),
                                                 reinterpret_cast<LPCWSTR>(QCoreApplication::applicationDirPath().utf16()),
                                                 SW_SHOWNORMAL);
@@ -196,9 +172,10 @@ bool PlatformBridge::openCommandWindow(const QStringList &command)
             return true;
     }
 
-    return QProcess::startDetached(QStringLiteral("powershell.exe"),
-                                   arguments,
-                                   QCoreApplication::applicationDirPath());
+    const QStringList native = nativeCommand(command);
+    return !native.isEmpty() && QProcess::startDetached(native.first(),
+                                                         native.mid(1),
+                                                         QCoreApplication::applicationDirPath());
 #else
     // The Windows frontend normally takes this branch only in development.
     // Keep setup usable on Linux too when the project is run from a terminal.
