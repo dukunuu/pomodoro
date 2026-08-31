@@ -27,6 +27,12 @@ main taskbar button's progress indicator. The frontend intentionally keeps the
 Linux service behavior and report calculations rather than introducing a second
 data model.
 
+The resulting `dist` directory is a portable application bundle, not yet an
+installer. Share the complete directory (or a ZIP of it), never only the EXE.
+It contains Qt, MinGW, QML, and integration bridge files. Python 3 is still
+required for Google/Whistler integration, and each user must authorize their
+own Google account and configure their own Whistler/OpenRouter credentials.
+
 ## Build on Linux
 
 Qt 6, CMake, and a C++20 compiler are required:
@@ -54,7 +60,8 @@ selects its MinGW compiler instead of NMake, builds Release, and runs
 `windeployqt`. Set `QT_ROOT` if Qt is installed elsewhere. No Linux Omarchy
 files or commands are required by this project.
 
-Python 3 is required for the integration bridges. Install it with:
+Python 3 is required for the integration bridges. Install it on the target
+machine with:
 
 ```powershell
 winget install --id Python.Python.3.12 --exact
