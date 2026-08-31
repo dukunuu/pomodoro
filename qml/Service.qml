@@ -82,7 +82,7 @@ Item {
     readonly property int shortBreakSeconds: shortBreakMinutes * 60
     readonly property int longBreakSeconds: longBreakMinutes * 60
     readonly property string phaseLabel: phase === "focus" ? "Focus" : (phase === "long" ? "Long break" : "Short break")
-    readonly property string phaseIcon: phase === "focus" ? "󰔛" : "󰅶"
+    readonly property string phaseIcon: phase === "focus" ? "⏱" : "☕"
     readonly property string remainingText: formatDuration(remainingSeconds)
     readonly property string statusLabel: running ? (remainingSeconds < 0 ? "Overtime" : "Running") : (remainingSeconds === durationForPhase(phase) ? "Ready" : "Paused")
 

@@ -38,6 +38,7 @@ int main(int argc, char *argv[])
 
     auto *service = window->findChild<QObject *>(QStringLiteral("pomodoroService"));
     const QIcon icon(QStringLiteral(":/qt/qml/PomodoroWindows/assets/pomodoro.svg"));
+    window->setIcon(icon);
     QSystemTrayIcon tray(icon);
     tray.setToolTip(QStringLiteral("Pomodoro"));
 

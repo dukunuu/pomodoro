@@ -4,6 +4,7 @@ import QtQuick
 
 QtObject {
     readonly property int cornerRadius: 8
+    readonly property string iconFamily: "Segoe UI Symbol"
 
     function space(value) {
         var number = Number(value);

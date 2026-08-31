@@ -51,7 +51,7 @@ Item {
             visible: root.iconText !== ""
             text: root.iconText
             color: root.selected || root.active ? root.accent : root.foreground
-            font.family: root.fontFamily
+            font.family: Style.iconFamily
             font.pixelSize: root.iconSize
             anchors.verticalCenter: parent.verticalCenter
         }

@@ -373,7 +373,7 @@ KeyboardPanel {
 
                     Text {
                         anchors.centerIn: parent
-                        text: "󰔛"
+                        text: "⏱"
                         color: Color.accent
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.icon
@@ -488,7 +488,7 @@ KeyboardPanel {
                             id: phaseBadgeText
 
                             anchors.centerIn: parent
-                            text: (root.service ? root.service.phaseIcon : "󰔛") + " " + (root.service ? root.service.phaseLabel.toUpperCase() : "FOCUS")
+                            text: (root.service ? root.service.phaseIcon : "⏱") + " " + (root.service ? root.service.phaseLabel.toUpperCase() : "FOCUS")
                             color: root.currentPhaseColor
                             font.family: root.fontFamily
                             font.pixelSize: Style.font.caption
@@ -548,7 +548,7 @@ KeyboardPanel {
 
                     Button {
                         text: root.service && root.service.running ? "Pause" : "Start"
-                        iconText: root.service && root.service.running ? "󰏤" : "󰐊"
+                        iconText: root.service && root.service.running ? "⏸" : "▶"
                         foreground: root.foreground
                         accent: Color.accent
                         fontFamily: root.fontFamily
@@ -562,7 +562,7 @@ KeyboardPanel {
 
                     Button {
                         text: root.phaseOvertime ? (root.service.phase === "focus" ? "End Focus" : "End Break") : "Skip"
-                        iconText: root.phaseOvertime ? "󰄬" : "󰒭"
+                        iconText: root.phaseOvertime ? "✓" : "⏭"
                         foreground: root.foreground
                         accent: Color.accent
                         fontFamily: root.fontFamily
