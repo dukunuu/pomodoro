@@ -32,9 +32,9 @@ cmake --build build
 
 ## Build on Windows
 
-Install Qt 6 with the Desktop MinGW or MSVC kit, CMake, and the matching
-compiler. Then configure with the selected Qt installation on `PATH` (or set
-`CMAKE_PREFIX_PATH`):
+Install Qt 6 with the Desktop **MinGW 64-bit** kit, its matching MinGW
+compiler, and CMake. Then configure with the selected Qt installation on
+`PATH` (or set `CMAKE_PREFIX_PATH`):
 
 ```powershell
 cmake -S . -B build -DCMAKE_PREFIX_PATH="C:\Qt\6.x.x\msvc2022_64"
@@ -43,8 +43,8 @@ cmake --build build --config Release
 
 Or run `build-windows.cmd`; it invokes PowerShell with a process-scoped
 execution-policy bypass, locates the first Qt Desktop kit under `C:\Qt`,
-builds Release, and runs `windeployqt`. Set `QT_ROOT` if Qt is installed
-elsewhere. No Linux Omarchy
+selects its MinGW compiler instead of NMake, builds Release, and runs
+`windeployqt`. Set `QT_ROOT` if Qt is installed elsewhere. No Linux Omarchy
 files or commands are required by this project.
 
 ## Porting boundaries
