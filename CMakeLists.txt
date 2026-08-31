@@ -66,7 +66,7 @@ target_link_libraries(pomodoro-windows
 )
 
 if (WIN32)
-    target_link_libraries(pomodoro-windows PRIVATE ole32 uuid)
+    target_link_libraries(pomodoro-windows PRIVATE ole32 shell32 uuid)
 endif()
 
 set_target_properties(pomodoro-windows PROPERTIES

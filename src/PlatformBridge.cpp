@@ -13,6 +13,7 @@
 #include <QWindow>
 
 #ifdef Q_OS_WIN
+#include <shellapi.h>
 #include <shobjidl.h>
 #include <windows.h>
 #endif
@@ -176,6 +177,25 @@ bool PlatformBridge::openCommandWindow(const QStringList &command)
         QStringLiteral("-Command"),
         commandLine
     };
+
+    // A GUI-subsystem Qt process does not always give a detached console
+    // process a visible console window. ShellExecute explicitly asks Windows
+    // to show PowerShell, which makes the interactive auth/setup prompts
+    // reliable from a QML button.
+    const QString shell = QStandardPaths::findExecutable(QStringLiteral("powershell.exe"));
+    if (!shell.isEmpty()) {
+        const QString parameters = QStringLiteral("-NoProfile -ExecutionPolicy Bypass -NoExit -Command \"")
+            + commandLine + QStringLiteral("\"");
+        const HINSTANCE result = ShellExecuteW(nullptr,
+                                                L"open",
+                                                reinterpret_cast<LPCWSTR>(shell.utf16()),
+                                                reinterpret_cast<LPCWSTR>(parameters.utf16()),
+                                                reinterpret_cast<LPCWSTR>(QCoreApplication::applicationDirPath().utf16()),
+                                                SW_SHOWNORMAL);
+        if (reinterpret_cast<quintptr>(result) > 32)
+            return true;
+    }
+
     return QProcess::startDetached(QStringLiteral("powershell.exe"),
                                    arguments,
                                    QCoreApplication::applicationDirPath());
