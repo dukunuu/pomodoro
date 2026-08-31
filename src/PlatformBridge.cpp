@@ -2,18 +2,73 @@
 
 #include <QApplication>
 #include <QCoreApplication>
+#include <QDesktopServices>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QSaveFile>
 #include <QStandardPaths>
+#include <QUrl>
 
 #include <algorithm>
+
+namespace {
+
+QString scriptDirectory()
+{
+    const QString overrideDirectory = qEnvironmentVariable("POMODORO_SCRIPT_DIR");
+    if (!overrideDirectory.isEmpty())
+        return QDir::cleanPath(overrideDirectory);
+    return QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("scripts"));
+}
+
+QString scriptPath(const QString &name)
+{
+    return QDir(scriptDirectory()).filePath(name);
+}
+
+QStringList nativeCommand(const QStringList &command)
+{
+    if (command.isEmpty() || command.first().isEmpty())
+        return {};
+
+    const QString program = command.first();
+    const QString suffix = QFileInfo(program).suffix().toLower();
+    QStringList result;
+#ifdef Q_OS_WIN
+    if (suffix == QStringLiteral("cmd") || suffix == QStringLiteral("bat")) {
+        result << QStringLiteral("cmd.exe") << QStringLiteral("/c") << QStringLiteral("call")
+               << program;
+        result += command.mid(1);
+        return result;
+    }
+    if (suffix == QStringLiteral("py")) {
+        const QString python = qEnvironmentVariable("POMODORO_PYTHON", "python.exe");
+        result << python << program;
+        result += command.mid(1);
+        return result;
+    }
+#else
+    if (suffix == QStringLiteral("py")) {
+        const QString python = qEnvironmentVariable("POMODORO_PYTHON", "python3");
+        result << python << program;
+        result += command.mid(1);
+        return result;
+    }
+#endif
+    return command;
+}
+
+} // namespace
 
 PlatformBridge::PlatformBridge(QObject *parent)
     : QObject(parent)
 {
+    // Keep the Python bridges and QML service on exactly the same per-user
+    // directory, including when Qt chooses a platform-specific path.
+    if (qEnvironmentVariableIsEmpty("POMODORO_DATA_DIR"))
+        qputenv("POMODORO_DATA_DIR", stateDirectory().toUtf8());
 }
 
 QString PlatformBridge::homeDirectory() const
@@ -23,7 +78,48 @@ QString PlatformBridge::homeDirectory() const
 
 QString PlatformBridge::stateDirectory() const
 {
+    return dataDirectory();
+}
+
+QString PlatformBridge::dataDirectory() const
+{
     return QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+}
+
+QString PlatformBridge::integrationCommand() const
+{
+#ifdef Q_OS_WIN
+    return scriptPath(QStringLiteral("pomodoro_integrations.cmd"));
+#else
+    return scriptPath(QStringLiteral("pomodoro_integrations.py"));
+#endif
+}
+
+QString PlatformBridge::googleAuthCommand() const
+{
+#ifdef Q_OS_WIN
+    return scriptPath(QStringLiteral("pomodoro_google_auth.cmd"));
+#else
+    return scriptPath(QStringLiteral("pomodoro_google_auth.py"));
+#endif
+}
+
+QString PlatformBridge::whistlerSetupCommand() const
+{
+#ifdef Q_OS_WIN
+    return scriptPath(QStringLiteral("pomodoro_whistler_setup.cmd"));
+#else
+    return scriptPath(QStringLiteral("pomodoro_whistler_setup.py"));
+#endif
+}
+
+QString PlatformBridge::whistlerImportCommand() const
+{
+#ifdef Q_OS_WIN
+    return scriptPath(QStringLiteral("pomodoro_whistler_import.cmd"));
+#else
+    return scriptPath(QStringLiteral("pomodoro_whistler_import.py"));
+#endif
 }
 
 QString PlatformBridge::env(const QString &name) const
@@ -33,10 +129,46 @@ QString PlatformBridge::env(const QString &name) const
 
 void PlatformBridge::execDetached(const QStringList &command)
 {
+    const QStringList native = nativeCommand(command);
+    if (native.isEmpty())
+        return;
+
+    QProcess::startDetached(native.first(), native.mid(1));
+}
+
+void PlatformBridge::openCommandWindow(const QStringList &command)
+{
     if (command.isEmpty() || command.first().isEmpty())
         return;
 
-    QProcess::startDetached(command.first(), command.mid(1));
+#ifdef Q_OS_WIN
+    const QString suffix = QFileInfo(command.first()).suffix().toLower();
+    QStringList arguments;
+    arguments << QStringLiteral("/k") << QStringLiteral("call");
+    if (suffix == QStringLiteral("cmd") || suffix == QStringLiteral("bat")) {
+        arguments << command.first();
+        arguments += command.mid(1);
+    } else {
+        const QStringList native = nativeCommand(command);
+        if (native.isEmpty())
+            return;
+        arguments << native.first();
+        arguments += native.mid(1);
+    }
+    QProcess::startDetached(QStringLiteral("cmd.exe"), arguments);
+#else
+    // The Windows frontend normally takes this branch only in development.
+    // Keep setup usable on Linux too when the project is run from a terminal.
+    const QStringList native = nativeCommand(command);
+    if (!native.isEmpty())
+        QProcess::startDetached(native.first(), native.mid(1));
+#endif
+}
+
+void PlatformBridge::openDataDirectory()
+{
+    QDir().mkpath(dataDirectory());
+    QDesktopServices::openUrl(QUrl::fromLocalFile(dataDirectory()));
 }
 
 void PlatformBridge::notify(const QString &title, const QString &body, const QString &urgency)

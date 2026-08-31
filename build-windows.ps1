@@ -105,6 +105,10 @@ if (-not (Test-Path $Windeployqt)) {
 New-Item -ItemType Directory -Force -Path $Dist | Out-Null
 & $Windeployqt --release --qmldir (Join-Path $Root "qml") --no-translations $Executable
 Copy-Item $Executable (Join-Path $Dist "pomodoro-windows.exe") -Force
+$Scripts = Join-Path $Build "scripts"
+if (Test-Path $Scripts) {
+    Copy-Item $Scripts (Join-Path $Dist "scripts") -Recurse -Force
+}
 
 Write-Host "Built: $Executable"
 Write-Host "Run:   $Dist\pomodoro-windows.exe"

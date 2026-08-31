@@ -9,10 +9,15 @@
 *.user
 *.user.*
 
-# Runtime data
+# Runtime data and local credentials
 *.log
 *.tmp
 /state/
+pomodoro-*.env
+pomodoro-google-token.json
+google-calendar-client.json
+pomodoro-integrations.json
+pomodoro-whistler-imports.json
 
 # Python artifacts (for the future importer bridge)
 __pycache__/

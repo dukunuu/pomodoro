@@ -9,14 +9,14 @@ inventing a second history model.
 
 ## Milestones
 
-### 1. Desktop vertical slice (current)
+### 1. Desktop vertical slice (complete)
 
 - Standalone Qt/QML window
 - Tray host and native notification seam
 - Persistent wall-clock timer state
 - Start, pause, skip, finish, reset, and note controls
 
-### 2. Direct service port
+### 2. Direct service port (complete)
 
 Keep the existing `Service.qml` as the source of truth. Replace only the
 Quickshell seams around it:
@@ -29,21 +29,21 @@ Quickshell seams around it:
 The existing history JSON is read directly. No history migration or second
 core model is needed.
 
-### 3. Integrations
+### 3. Integrations (bridge phase in progress)
 
-- Port Google Calendar provisional/finalized events to the native host.
-- Keep descriptions, all-day events, and zero-duration events out of calendar
-  accounting.
-- Run the existing Python Whistler importer as a bundled child process first;
-  replace its Linux notification and path assumptions without changing its
-  allocation/worklog behavior.
+- Google OAuth now uses a local loopback callback and stores the refresh token
+  in the Windows Pomodoro data directory.
+- Google Calendar provisional/finalized events run through a Python standard
+  library bridge beside the executable.
+- Whistler setup validates OpenRouter, signs in, and stores only the generated
+  session token; the existing deterministic importer runs as a child process.
 - Keep project/task classification in OpenRouter and all duration calculation
   local.
-- Replace `omarchy-notification-send` with the Windows toast bridge.
+- Replace the importer console notification line with the Windows toast bridge.
 
 ### 4. Windows polish
 
-- Windows Credential Manager/DPAPI for local secrets
+- Windows Credential Manager/DPAPI for local secrets (next security pass)
 - `%LOCALAPPDATA%` state paths
 - single-instance mutex
 - startup registration

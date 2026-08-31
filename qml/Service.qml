@@ -43,8 +43,8 @@ Item {
     property int phasePlannedSeconds: 0
     property var phaseSegments: []
     property bool phaseRang: false
-    readonly property string integrationCommand: "omarchy-pomodoro-integrations"
-    readonly property string whistlerImportCommand: "omarchy-pomodoro-whistler-import"
+    readonly property string integrationCommand: platform.integrationCommand()
+    readonly property string whistlerImportCommand: platform.whistlerImportCommand()
     property int whistlerImportProgress: 0
     property string whistlerImportStatus: ""
     readonly property bool whistlerImportRunning: whistlerImportProcess.running

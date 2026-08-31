@@ -15,10 +15,12 @@ can run as a Windows tray application.
 - Pause/resume using a wall-clock deadline, including overtime
 - Existing history JSON shape retained; no history migration is planned
 - Tray notification seam for phase alarms and Whistler reminders
+- Windows-path Python bridges for Google OAuth, Calendar focus events, Whistler
+  login/setup, and the existing deterministic importer
 
-Google Calendar and Whistler command bridges are the remaining integration
-work. The Windows frontend intentionally keeps the Linux service behavior and
-report calculations rather than introducing a second data model.
+The integration bridges use Python's standard library only. The Windows
+frontend intentionally keeps the Linux service behavior and report calculations
+rather than introducing a second data model.
 
 ## Build on Linux
 
@@ -37,7 +39,7 @@ compiler, and CMake. Then configure with the selected Qt installation on
 `PATH` (or set `CMAKE_PREFIX_PATH`):
 
 ```powershell
-cmake -S . -B build -DCMAKE_PREFIX_PATH="C:\Qt\6.x.x\msvc2022_64"
+cmake -S . -B build -G "MinGW Makefiles" -DCMAKE_PREFIX_PATH="C:\Qt\6.x.x\mingw_64"
 cmake --build build --config Release
 ```
 
@@ -46,6 +48,12 @@ execution-policy bypass, locates the first Qt Desktop kit under `C:\Qt`,
 selects its MinGW compiler instead of NMake, builds Release, and runs
 `windeployqt`. Set `QT_ROOT` if Qt is installed elsewhere. No Linux Omarchy
 files or commands are required by this project.
+
+Python 3 is required for the integration bridges. Install it with:
+
+```powershell
+winget install --id Python.Python.3.12 --exact
+```
 
 ## Porting boundaries
 
@@ -56,5 +64,23 @@ files or commands are required by this project.
 - `src/PlatformBridge.*`: filesystem, process, alarm, and notification seams.
 - `src/main.cpp`: tray and desktop-window host.
 
-Credentials will remain outside the QML layer. The Windows implementation will
-use the OS credential store or DPAPI rather than Linux file permissions.
+Credentials remain outside the QML layer. During this initial bridge phase,
+OAuth/configuration files are stored under `%LOCALAPPDATA%\Dukunuu\Pomodoro`.
+The next security pass will move refresh/session/API secrets to Windows
+Credential Manager or DPAPI while retaining the same QML commands.
+
+## Configure integrations on Windows
+
+1. Create a Google Calendar OAuth **Desktop app** client in Google Cloud and
+   place the downloaded JSON in `%LOCALAPPDATA%\Dukunuu\Pomodoro\google-calendar-client.json`.
+2. Open the dashboard, choose **Settings → AUTHORIZE GOOGLE**, and approve the
+   Calendar events scope in the browser.
+3. Choose **CONFIGURE WHISTLER** in the same panel. It validates OpenRouter,
+   signs in to Whistler, asks for the Calendar ID (usually `primary`), and
+   stores only the resulting session token—not the Whistler password.
+4. Start or finish a focus session. The integration creates a provisional
+   Calendar focus event and finalizes it with the note and active duration.
+
+The setup consoles are ordinary Windows command windows so OAuth redirects and
+interactive prompts remain visible. No credentials are sent through QML or a
+browser page.

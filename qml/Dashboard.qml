@@ -876,6 +876,93 @@ KeyboardPanel {
                             spacing: Style.space(8)
 
                             BorderSurface {
+                                id: integrationSurface
+
+                                width: parent.width
+                                implicitHeight: integrationContent.implicitHeight + Style.space(24)
+                                height: implicitHeight
+                                radius: Style.cornerRadius
+                                color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.04)
+                                borderSpec: Border.none()
+
+                                Column {
+                                    id: integrationContent
+
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.top: parent.top
+                                    anchors.leftMargin: Style.space(12)
+                                    anchors.rightMargin: Style.space(12)
+                                    anchors.topMargin: Style.space(12)
+                                    spacing: Style.space(7)
+
+                                    Text {
+                                        text: "AUTHENTICATION"
+                                        color: root.foreground
+                                        font.family: root.fontFamily
+                                        font.pixelSize: Style.font.body
+                                        font.bold: true
+                                        font.letterSpacing: 1.1
+                                    }
+
+                                    Text {
+                                        width: parent.width
+                                        text: "Authorize Google Calendar first, then configure the Whistler session and OpenRouter key. Credentials stay in the local Pomodoro data folder."
+                                        color: Qt.darker(root.foreground, 1.45)
+                                        font.family: root.fontFamily
+                                        font.pixelSize: Style.font.caption
+                                        wrapMode: Text.Wrap
+                                    }
+
+                                    Row {
+                                        spacing: Style.space(6)
+
+                                        Button {
+                                            text: "AUTHORIZE GOOGLE"
+                                            foreground: root.foreground
+                                            accent: Color.accent
+                                            fontFamily: root.fontFamily
+                                            fontSize: Style.font.caption
+                                            bordered: true
+                                            onClicked: platform.openCommandWindow([platform.googleAuthCommand()])
+                                        }
+
+                                        Button {
+                                            text: "CONFIGURE WHISTLER"
+                                            foreground: root.foreground
+                                            accent: Color.accent
+                                            fontFamily: root.fontFamily
+                                            fontSize: Style.font.caption
+                                            bordered: true
+                                            onClicked: platform.openCommandWindow([platform.whistlerSetupCommand()])
+                                        }
+
+                                        Button {
+                                            text: "OPEN DATA FOLDER"
+                                            foreground: root.foreground
+                                            accent: Color.accent
+                                            fontFamily: root.fontFamily
+                                            fontSize: Style.font.caption
+                                            bordered: true
+                                            onClicked: platform.openDataDirectory()
+                                        }
+
+                                    }
+
+                                    Text {
+                                        width: parent.width
+                                        text: "Place the downloaded Google OAuth Desktop client JSON in this folder as google-calendar-client.json before authorizing."
+                                        color: Qt.darker(root.foreground, 1.6)
+                                        font.family: root.fontFamily
+                                        font.pixelSize: Style.font.caption
+                                        wrapMode: Text.Wrap
+                                    }
+
+                                }
+
+                            }
+
+                            BorderSurface {
                                 id: settingsSurface
 
                                 width: settingsScroll.width

@@ -53,3 +53,12 @@ set_target_properties(pomodoro-windows PROPERTIES
     WIN32_EXECUTABLE TRUE
     MACOSX_BUNDLE TRUE
 )
+
+# The integration bridges are intentionally plain Python so the same Calendar
+# and Whistler request logic can be inspected and tested outside the QML host.
+# Copy them beside the executable for both development builds and packaging.
+add_custom_command(TARGET pomodoro-windows POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_CURRENT_SOURCE_DIR}/scripts
+            $<TARGET_FILE_DIR:pomodoro-windows>/scripts
+)

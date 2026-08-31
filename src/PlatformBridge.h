@@ -27,8 +27,15 @@ public:
 
     Q_INVOKABLE QString homeDirectory() const;
     Q_INVOKABLE QString stateDirectory() const;
+    Q_INVOKABLE QString dataDirectory() const;
+    Q_INVOKABLE QString integrationCommand() const;
+    Q_INVOKABLE QString googleAuthCommand() const;
+    Q_INVOKABLE QString whistlerSetupCommand() const;
+    Q_INVOKABLE QString whistlerImportCommand() const;
     Q_INVOKABLE QString env(const QString &name) const;
     Q_INVOKABLE void execDetached(const QStringList &command);
+    Q_INVOKABLE void openCommandWindow(const QStringList &command);
+    Q_INVOKABLE void openDataDirectory();
     Q_INVOKABLE void notify(const QString &title, const QString &body,
                             const QString &urgency = QStringLiteral("normal"));
     Q_INVOKABLE void playAlarm();
