@@ -17,6 +17,16 @@ qt_add_executable(pomodoro-windows
     src/PlatformBridge.h
 )
 
+# CMake does not infer pragma Singleton for QML source files on every Qt
+# release. Mark these explicitly so Color, Style, and Border are usable as
+# module singletons in a deployed Windows build.
+set_source_files_properties(
+    qml/Color.qml
+    qml/Style.qml
+    qml/Border.qml
+    PROPERTIES QT_QML_SINGLETON_TYPE TRUE
+)
+
 qt_add_qml_module(pomodoro-windows
     URI PomodoroWindows
     VERSION 1.0
