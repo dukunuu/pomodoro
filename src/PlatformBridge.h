@@ -8,6 +8,16 @@
 
 #include <QtQml/qqmlregistration.h>
 
+// The Windows CRT exposes stdout/stderr as macros. They collide with the
+// Quickshell-compatible QML property names used by the direct Service.qml
+// port, so keep those names visible to moc and QML.
+#ifdef stdout
+#undef stdout
+#endif
+#ifdef stderr
+#undef stderr
+#endif
+
 class PlatformBridge final : public QObject
 {
     Q_OBJECT
