@@ -103,8 +103,12 @@ if (-not (Test-Path $Windeployqt)) {
     throw "windeployqt.exe was not found beside the Qt kit."
 }
 New-Item -ItemType Directory -Force -Path $Dist | Out-Null
-& $Windeployqt --release --qmldir (Join-Path $Root "qml") --no-translations $Executable
-Copy-Item $Executable (Join-Path $Dist "pomodoro-windows.exe") -Force
+# Deploy the complete Qt runtime into dist, not only beside the build copy.
+& $Windeployqt --release --qmldir (Join-Path $Root "qml") --no-translations --dir $Dist $Executable
+$DistExecutable = Join-Path $Dist "pomodoro-windows.exe"
+if (-not (Test-Path $DistExecutable)) {
+    Copy-Item $Executable $DistExecutable -Force
+}
 $Scripts = Join-Path $Build "scripts"
 if (Test-Path $Scripts) {
     Copy-Item $Scripts (Join-Path $Dist "scripts") -Recurse -Force
