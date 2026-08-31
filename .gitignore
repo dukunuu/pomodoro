@@ -16,6 +16,7 @@
 pomodoro-*.env
 pomodoro-google-token.json
 google-calendar-client.json
+scripts/google-calendar-client.json
 pomodoro-integrations.json
 pomodoro-whistler-imports.json
 

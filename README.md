@@ -83,8 +83,8 @@ Credential Manager or DPAPI while retaining the same QML commands.
 
 ## Configure integrations on Windows
 
-1. Create a Google Calendar OAuth **Desktop app** client in Google Cloud and
-   place the downloaded JSON in `%LOCALAPPDATA%\Dukunuu\Pomodoro\google-calendar-client.json`.
+1. The release bundle includes the app's Google Calendar OAuth **Desktop app**
+   client. Source builds may provide their own client JSON in the data folder.
 2. Open the dashboard, choose **Settings → AUTHORIZE GOOGLE**, and approve the
    Calendar events scope in the browser.
 3. Choose **CONFIGURE WHISTLER** in the same panel. It validates OpenRouter,

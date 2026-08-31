@@ -963,7 +963,7 @@ KeyboardPanel {
 
                                     Text {
                                         width: parent.width
-                                        text: "Place the downloaded Google OAuth Desktop client JSON in this folder as google-calendar-client.json before authorizing."
+                                        text: "The release already contains the Google OAuth client. Source builds can place a client JSON here as google-calendar-client.json if needed."
                                         color: Qt.darker(root.foreground, 1.6)
                                         font.family: root.fontFamily
                                         font.pixelSize: Style.font.caption
