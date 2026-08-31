@@ -371,13 +371,14 @@ KeyboardPanel {
                     border.color: Qt.rgba(Color.accent.r, Color.accent.g, Color.accent.b, 0.24)
                     border.width: 1
 
-                    Text {
+                    Image {
                         anchors.centerIn: parent
-                        text: "⏱"
-                        color: Color.accent
-                        font.family: root.fontFamily
-                        font.pixelSize: Style.font.icon
-                        font.bold: true
+                        width: Style.space(22)
+                        height: Style.space(22)
+                        source: "qrc:/qt/qml/PomodoroWindows/assets/pomodoro.svg"
+                        sourceSize.width: width
+                        sourceSize.height: height
+                        fillMode: Image.PreserveAspectFit
                     }
 
                 }

@@ -82,11 +82,13 @@ Window {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 6
 
-                    Text {
-                        text: root.service ? root.service.phaseIcon : "⏱"
-                        color: Color.accent
-                        font.family: Style.iconFamily
-                        font.pixelSize: 15
+                    Image {
+                        width: 18
+                        height: 18
+                        source: "qrc:/qt/qml/PomodoroWindows/assets/pomodoro.svg"
+                        sourceSize.width: width
+                        sourceSize.height: height
+                        fillMode: Image.PreserveAspectFit
                         anchors.verticalCenter: parent.verticalCenter
                     }
 

@@ -17,6 +17,10 @@ qt_add_executable(pomodoro-windows
     src/PlatformBridge.h
 )
 
+if (WIN32)
+    target_sources(pomodoro-windows PRIVATE assets/pomodoro.rc)
+endif()
+
 # CMake does not infer pragma Singleton for QML source files on every Qt
 # release. Mark these explicitly so Color, Style, and Border are usable as
 # module singletons in a deployed Windows build.
@@ -46,6 +50,7 @@ qt_add_qml_module(pomodoro-windows
         qml/PanelToolTip.qml
     RESOURCES
         assets/pomodoro.svg
+        assets/pomodoro.ico
 )
 
 target_include_directories(pomodoro-windows PRIVATE src)

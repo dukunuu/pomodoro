@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
     platform.setTaskbarWindow(window);
     auto *service = window->findChild<QObject *>(QStringLiteral("pomodoroService"));
     auto *timerWidget = qobject_cast<QWindow *>(window->findChild<QObject *>(QStringLiteral("timerWidget")));
-    const QIcon icon(QStringLiteral(":/qt/qml/PomodoroWindows/assets/pomodoro.svg"));
+    const QIcon icon(QStringLiteral(":/qt/qml/PomodoroWindows/assets/pomodoro.ico"));
     window->setIcon(icon);
     QSystemTrayIcon tray(icon);
     tray.setToolTip(QStringLiteral("Pomodoro"));
