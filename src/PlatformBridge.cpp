@@ -13,9 +13,9 @@
 #include <QWindow>
 
 #ifdef Q_OS_WIN
+#include <windows.h>
 #include <shellapi.h>
 #include <shobjidl.h>
-#include <windows.h>
 #endif
 
 #include <algorithm>
