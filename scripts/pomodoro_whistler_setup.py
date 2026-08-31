@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from pomodoro_paths import (
+    BUNDLED_GOOGLE_CLIENT_FILE,
     GOOGLE_CLIENT_FILE,
     GOOGLE_TOKEN_FILE,
     WHISTLER_CONFIG_FILE,
@@ -238,6 +239,9 @@ def main() -> int:
     token_file = Path(
         ask("Google OAuth token file", existing.get("GOOGLE_TOKEN_FILE", str(DEFAULT_TOKEN_FILE)))
     ).expanduser()
+    if not client_file.is_file() and BUNDLED_GOOGLE_CLIENT_FILE.is_file():
+        print("The configured Google client file is unavailable; using the bundled client.")
+        client_file = BUNDLED_GOOGLE_CLIENT_FILE
     validate_google_files(client_file, token_file)
 
     values = {

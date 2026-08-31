@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from pomodoro_paths import (
+    BUNDLED_GOOGLE_CLIENT_FILE,
     CONFIG_FILE,
     GOOGLE_CLIENT_FILE,
     GOOGLE_TOKEN_FILE,
@@ -223,6 +224,8 @@ def google_access_token(config: dict[str, str]) -> str:
         return direct
 
     client_path = Path(config.get("GOOGLE_CLIENT_FILE", str(GOOGLE_CLIENT_FILE))).expanduser()
+    if not client_path.is_file() and BUNDLED_GOOGLE_CLIENT_FILE.is_file():
+        client_path = BUNDLED_GOOGLE_CLIENT_FILE
     token_path = Path(config.get("GOOGLE_TOKEN_FILE", str(GOOGLE_TOKEN_FILE))).expanduser()
     try:
         client = read_json(client_path)

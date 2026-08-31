@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from pomodoro_paths import (
+    BUNDLED_GOOGLE_CLIENT_FILE,
     GOOGLE_CLIENT_FILE,
     GOOGLE_TOKEN_FILE,
     WHISTLER_CONFIG_FILE,
@@ -235,6 +236,10 @@ def read_json(path: Path, label: str) -> dict[str, Any]:
 
 def google_access_token(config: dict[str, str]) -> str:
     client_path = Path(config.get("GOOGLE_CLIENT_FILE", str(DEFAULT_CLIENT_FILE))).expanduser()
+    if not client_path.is_file() and BUNDLED_GOOGLE_CLIENT_FILE.is_file():
+        # A saved config may point at an older dist directory. Resolve the
+        # bundled client beside the currently running bridge instead.
+        client_path = BUNDLED_GOOGLE_CLIENT_FILE
     token_path = Path(config.get("GOOGLE_TOKEN_FILE", str(DEFAULT_TOKEN_FILE))).expanduser()
     client = read_json(client_path, "Google OAuth client file")
     token = read_json(token_path, "Google OAuth token file")

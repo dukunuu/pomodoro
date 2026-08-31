@@ -115,6 +115,12 @@ $Scripts = Join-Path $Build "scripts"
 if (Test-Path $Scripts) {
     Copy-Item $Scripts (Join-Path $Dist "scripts") -Recurse -Force
 }
+$BundledClient = Join-Path $Root "scripts\google-calendar-client.json"
+if (Test-Path $BundledClient) {
+    $DistScripts = Join-Path $Dist "scripts"
+    New-Item -ItemType Directory -Force -Path $DistScripts | Out-Null
+    Copy-Item $BundledClient (Join-Path $DistScripts "google-calendar-client.json") -Force
+}
 
 Write-Host "Built: $Executable"
 Write-Host "Run:   $Dist\pomodoro-windows.exe"
