@@ -167,6 +167,12 @@ Item {
         return true;
     }
 
+    function reloadWhistlerInstructions() {
+        if (root.stateDirectoryReady)
+            whistlerInstructionsFile.reload();
+
+    }
+
     function loadWhistlerSettings(raw) {
         var parsed = null;
         try {

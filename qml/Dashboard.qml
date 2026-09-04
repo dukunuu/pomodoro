@@ -1016,7 +1016,13 @@ KeyboardPanel {
                                             fontFamily: root.fontFamily
                                             fontSize: Style.font.caption
                                             bordered: true
-                                            onClicked: settingsPanel.promptMessage = platform.openWhistlerInstructions() ? "AI instructions opened in your text editor." : "Could not open AI instructions."
+                                            onClicked: {
+                                                var opened = platform.openWhistlerInstructions();
+                                                if (opened && root.service)
+                                                    root.service.reloadWhistlerInstructions();
+
+                                                settingsPanel.promptMessage = opened ? "AI instructions opened in your text editor." : "Could not open AI instructions.";
+                                            }
                                         }
 
                                     }
