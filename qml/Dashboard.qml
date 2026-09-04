@@ -1017,11 +1017,10 @@ KeyboardPanel {
                                             fontSize: Style.font.caption
                                             bordered: true
                                             onClicked: {
-                                                var opened = platform.openWhistlerInstructions();
-                                                if (opened && root.service)
-                                                    root.service.reloadWhistlerInstructions();
-
-                                                settingsPanel.promptMessage = opened ? "AI instructions opened in your text editor." : "Could not open AI instructions.";
+                                                if (root.service && root.service.openWhistlerInstructions())
+                                                    settingsPanel.promptMessage = "AI instructions opened in your text editor.";
+                                                else
+                                                    settingsPanel.promptMessage = "Could not open AI instructions.";
                                             }
                                         }
 

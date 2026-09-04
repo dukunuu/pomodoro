@@ -14,6 +14,7 @@ Item {
     readonly property string historyPath: stateDir + "/pomodoro-history.json"
     readonly property string whistlerSettingsPath: stateDir + "/pomodoro-whistler-settings.json"
     readonly property string whistlerInstructionsPath: stateDir + "/pomodoro-whistler-instructions.txt"
+    readonly property string whistlerInstructionsTemplate: "# Optional instructions for project and client mapping.\n# This text is added to the AI classification prompt.\n# Example: Events containing Eventomy are work for the Whistler project Quotomy.\n# Remove the # characters and add your own rules.\n"
     readonly property string whistlerImportStatePath: stateDir + "/pomodoro-whistler-imports.json"
     readonly property string alarmSoundPath: ""
     property date currentDate: new Date()
@@ -171,6 +172,17 @@ Item {
         if (root.stateDirectoryReady)
             whistlerInstructionsFile.reload();
 
+    }
+
+    function openWhistlerInstructions() {
+        if (!root.stateDirectoryReady)
+            return false;
+
+        var opened = platform.openWhistlerInstructions();
+        if (opened)
+            root.reloadWhistlerInstructions();
+
+        return opened;
     }
 
     function loadWhistlerSettings(raw) {
@@ -1968,7 +1980,14 @@ Item {
         atomicWrites: true
         printErrors: false
         onLoaded: root.loadWhistlerInstructions(text())
-        onLoadFailed: root.loadWhistlerInstructions("")
+        onLoadFailed: {
+            if (root.stateDirectoryReady) {
+                setText(root.whistlerInstructionsTemplate);
+                root.loadWhistlerInstructions(root.whistlerInstructionsTemplate);
+            } else {
+                root.loadWhistlerInstructions("");
+            }
+        }
         onFileChanged: reload()
     }
 
