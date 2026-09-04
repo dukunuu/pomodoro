@@ -1091,7 +1091,7 @@ KeyboardPanel {
 
                                     Text {
                                         width: parent.width
-                                        text: "AI reviews every timed Calendar event and assigns only clear project work. All-day events are always excluded."
+                                        text: "AI evaluates every valid timed Calendar event against your custom instructions and assigns each to a Whistler project. All-day events are excluded."
                                         color: Qt.darker(root.foreground, 1.45)
                                         font.family: root.fontFamily
                                         font.pixelSize: Style.font.caption

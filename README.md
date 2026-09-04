@@ -104,7 +104,8 @@ Credential Manager or DPAPI while retaining the same QML commands.
    not appear in the event title.
    ```
 
-   The importer still enforces valid Whistler project IDs and calculates all
+   Every valid timed event is evaluated and must be assigned to a Whistler
+   project. The importer still enforces valid project IDs and calculates all
    durations locally; the file controls classification and alias decisions.
 
 The setup consoles are ordinary Windows command windows so OAuth redirects and
