@@ -951,6 +951,30 @@ KeyboardPanel {
 
                                     }
 
+                                    Row {
+                                        spacing: Style.space(6)
+
+                                        Button {
+                                            text: "EDIT AI INSTRUCTIONS"
+                                            foreground: root.foreground
+                                            accent: Color.accent
+                                            fontFamily: root.fontFamily
+                                            fontSize: Style.font.caption
+                                            bordered: true
+                                            onClicked: settingsPanel.authMessage = platform.openWhistlerInstructions() ? "AI instructions opened in your text editor." : "Could not open AI instructions."
+                                        }
+
+                                    }
+
+                                    Text {
+                                        width: parent.width
+                                        text: "Add natural-language mapping rules here, such as: Eventomy is the client label for the Whistler project Quotomy. The text is inserted into the classification prompt for every import."
+                                        color: Qt.darker(root.foreground, 1.6)
+                                        font.family: root.fontFamily
+                                        font.pixelSize: Style.font.caption
+                                        wrapMode: Text.Wrap
+                                    }
+
                                     Text {
                                         visible: settingsPanel.authMessage !== ""
                                         width: parent.width

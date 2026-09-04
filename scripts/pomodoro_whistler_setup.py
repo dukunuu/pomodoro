@@ -20,6 +20,7 @@ from pomodoro_paths import (
     GOOGLE_CLIENT_FILE,
     GOOGLE_TOKEN_FILE,
     WHISTLER_CONFIG_FILE,
+    WHISTLER_INSTRUCTIONS_FILE,
 )
 
 DEFAULT_CONFIG = WHISTLER_CONFIG_FILE
@@ -258,6 +259,7 @@ def main() -> int:
     write_config(config_path, values)
     print(f"Saved secure importer configuration to {config_path}")
     print("The password was not saved; the generated Whistler session token was saved instead.")
+    print(f"Optional AI mapping instructions: {WHISTLER_INSTRUCTIONS_FILE}")
     print("Return to the dashboard and choose SEND TO WHISTLER for a day.")
     return 0
 

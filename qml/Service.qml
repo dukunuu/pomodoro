@@ -13,6 +13,7 @@ Item {
     readonly property string statePath: stateDir + "/pomodoro.json"
     readonly property string historyPath: stateDir + "/pomodoro-history.json"
     readonly property string whistlerSettingsPath: stateDir + "/pomodoro-whistler-settings.json"
+    readonly property string whistlerInstructionsPath: stateDir + "/pomodoro-whistler-instructions.txt"
     readonly property string whistlerImportStatePath: stateDir + "/pomodoro-whistler-imports.json"
     readonly property string alarmSoundPath: ""
     property date currentDate: new Date()
@@ -1636,7 +1637,6 @@ Item {
 
     function playAlarm() {
         platform.playAlarm();
-
     }
 
     function nextPhaseFor(phaseName) {
@@ -1934,6 +1934,5 @@ Item {
         onLoadFailed: root.loadWhistlerImportState("")
         onFileChanged: reload()
     }
-
 
 }

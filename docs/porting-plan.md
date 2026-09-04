@@ -39,6 +39,9 @@ core model is needed.
   session token; the existing deterministic importer runs as a child process.
 - Keep project/task classification in OpenRouter and all duration calculation
   local.
+- Allow user-authored multiline project/client mapping instructions beside the
+  per-user data files; append them to the classification prompt without
+  allowing the model to change event IDs or durations.
 - Replace the importer console notification line with the Windows toast bridge.
 
 ### 4. Windows polish

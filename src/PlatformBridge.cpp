@@ -190,6 +190,33 @@ void PlatformBridge::openDataDirectory()
     QDesktopServices::openUrl(QUrl::fromLocalFile(dataDirectory()));
 }
 
+QString PlatformBridge::whistlerInstructionsFile() const
+{
+    return QDir(dataDirectory()).filePath(QStringLiteral("pomodoro-whistler-instructions.txt"));
+}
+
+bool PlatformBridge::openWhistlerInstructions()
+{
+    const QString path = whistlerInstructionsFile();
+    if (!QDir().mkpath(dataDirectory()))
+        return false;
+
+    if (!QFile::exists(path)) {
+        QSaveFile file(path);
+        if (!file.open(QIODevice::WriteOnly))
+            return false;
+        const QByteArray templateText = QByteArrayLiteral(
+            "# Optional instructions for project and client mapping.\n"
+            "# This text is added to the AI classification prompt.\n"
+            "# Example: Events containing Eventomy are work for the Whistler project Quotomy.\n"
+            "# Remove the # characters and add your own rules.\n");
+        if (file.write(templateText) != templateText.size() || !file.commit())
+            return false;
+    }
+
+    return QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+}
+
 void PlatformBridge::setTaskbarWindow(QObject *window)
 {
     m_taskbarWindow = qobject_cast<QWindow *>(window);

@@ -41,4 +41,5 @@ GOOGLE_CLIENT_FILE = (
 )
 GOOGLE_TOKEN_FILE = data_path("pomodoro-google-token.json")
 WHISTLER_IMPORT_STATE = data_path("pomodoro-whistler-imports.json")
+WHISTLER_INSTRUCTIONS_FILE = data_path("pomodoro-whistler-instructions.txt")
 WHISTLER_LOG_FILE = data_path("pomodoro-whistler.log")

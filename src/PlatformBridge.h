@@ -39,6 +39,8 @@ public:
     Q_INVOKABLE void execDetached(const QStringList &command);
     Q_INVOKABLE bool openCommandWindow(const QStringList &command);
     Q_INVOKABLE void openDataDirectory();
+    Q_INVOKABLE QString whistlerInstructionsFile() const;
+    Q_INVOKABLE bool openWhistlerInstructions();
     Q_INVOKABLE void setTaskbarWindow(QObject *window);
     Q_INVOKABLE void setTaskbarProgress(double progress, bool active);
     Q_INVOKABLE void notify(const QString &title, const QString &body,
