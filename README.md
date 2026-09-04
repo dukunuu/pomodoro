@@ -92,10 +92,11 @@ Credential Manager or DPAPI while retaining the same QML commands.
    stores only the resulting session token—not the Whistler password.
 4. Start or finish a focus session. The integration creates a provisional
    Calendar focus event and finalizes it with the note and active duration.
-5. Choose **EDIT AI INSTRUCTIONS** in Settings to open the user-authored
-   mapping prompt. It is stored at
+5. Use the **AI MAPPING INSTRUCTIONS** editor in Settings and choose
+   **SAVE AI INSTRUCTIONS**. The text is stored at
    `%LOCALAPPDATA%\Dukunuu\Pomodoro\pomodoro-whistler-instructions.txt` and
-   is included in every OpenRouter classification request. For example:
+   is included in every OpenRouter classification request. You can also use
+   **OPEN FILE** to edit it in an external editor. For example:
 
    ```text
    Eventomy is the client label used in Calendar. Treat Eventomy events as

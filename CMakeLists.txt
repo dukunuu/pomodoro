@@ -43,6 +43,7 @@ qt_add_qml_module(pomodoro-windows
         qml/Style.qml
         qml/Border.qml
         qml/KeyboardPanel.qml
+        qml/TextArea.qml
         qml/BorderSurface.qml
         qml/Button.qml
         qml/TextField.qml

@@ -50,11 +50,15 @@ Item {
     property string whistlerImportStatus: ""
     readonly property bool whistlerImportRunning: whistlerImportProcess.running
     property bool whistlerSettingsLoaded: false
+    property bool whistlerInstructionsLoaded: false
+    property string whistlerInstructionsText: ""
     property bool whistlerReminderEnabled: false
     property string whistlerReminderTime: "18:00"
     property string whistlerLastReminderDate: ""
     property bool whistlerReminderStatusPending: false
     property string pendingWhistlerSettingsText: ""
+    property string pendingWhistlerInstructionsText: ""
+    property bool pendingWhistlerInstructionsPersist: false
     property var whistlerImportedDays: []
     property string whistlerMonthStatusKey: ""
     property bool whistlerMonthStatusLoading: false
@@ -141,6 +145,26 @@ Item {
     function normalizeWhistlerReminderTime(value) {
         var match = String(value || "").trim().match(/^([01][0-9]|2[0-3]):([0-5][0-9])$/);
         return match ? match[1] + ":" + match[2] : "";
+    }
+
+    function loadWhistlerInstructions(raw) {
+        root.whistlerInstructionsText = String(raw || "");
+        root.whistlerInstructionsLoaded = true;
+    }
+
+    function saveWhistlerInstructions(value) {
+        var text = String(value || "");
+        root.whistlerInstructionsText = text;
+        if (!root.stateDirectoryReady) {
+            root.pendingWhistlerInstructionsText = text;
+            root.pendingWhistlerInstructionsPersist = true;
+            if (!ensureStateDir.running)
+                ensureStateDir.running = true;
+
+        } else {
+            whistlerInstructionsFile.setText(text);
+        }
+        return true;
     }
 
     function loadWhistlerSettings(raw) {
@@ -1870,10 +1894,17 @@ Item {
                 root.pendingWhistlerSettingsText = "";
                 whistlerSettingsFile.setText(pendingSettings);
             }
+            if (root.pendingWhistlerInstructionsPersist) {
+                var pendingInstructions = root.pendingWhistlerInstructionsText;
+                root.pendingWhistlerInstructionsText = "";
+                root.pendingWhistlerInstructionsPersist = false;
+                whistlerInstructionsFile.setText(pendingInstructions);
+            }
             Qt.callLater(function() {
                 stateFile.reload();
                 historyFile.reload();
                 whistlerSettingsFile.reload();
+                whistlerInstructionsFile.reload();
                 whistlerImportStateFile.reload();
             });
         }
@@ -1920,6 +1951,18 @@ Item {
         printErrors: false
         onLoaded: root.loadWhistlerSettings(text())
         onLoadFailed: root.loadWhistlerSettings("")
+        onFileChanged: reload()
+    }
+
+    FileView {
+        id: whistlerInstructionsFile
+
+        path: root.whistlerInstructionsPath
+        watchChanges: true
+        atomicWrites: true
+        printErrors: false
+        onLoaded: root.loadWhistlerInstructions(text())
+        onLoadFailed: root.loadWhistlerInstructions("")
         onFileChanged: reload()
     }
 

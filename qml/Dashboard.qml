@@ -834,8 +834,10 @@ KeyboardPanel {
 
                 property string reminderTimeDraft: root.service ? root.service.whistlerReminderTime : "18:00"
                 property bool reminderEnabledDraft: root.service ? root.service.whistlerReminderEnabled : false
+                property string promptDraft: root.service ? root.service.whistlerInstructionsText : ""
                 property string saveMessage: ""
                 property string authMessage: ""
+                property string promptMessage: ""
                 readonly property real viewportHeight: {
                     var maximum = Style.space(820) - root.verticalContentInset;
                     var available = root.availableCardHeight > 0 ? root.availableCardHeight - root.verticalContentInset : maximum;
@@ -951,25 +953,79 @@ KeyboardPanel {
 
                                     }
 
+                                    Text {
+                                        text: "AI MAPPING INSTRUCTIONS"
+                                        color: root.foreground
+                                        font.family: root.fontFamily
+                                        font.pixelSize: Style.font.caption
+                                        font.bold: true
+                                        font.letterSpacing: 0.8
+                                    }
+
+                                    Text {
+                                        width: parent.width
+                                        text: "Write natural-language rules for client names, aliases, project mapping, and task grouping. This text is inserted into the classification prompt for every import."
+                                        color: Qt.darker(root.foreground, 1.6)
+                                        font.family: root.fontFamily
+                                        font.pixelSize: Style.font.caption
+                                        wrapMode: Text.Wrap
+                                    }
+
+                                    TextArea {
+                                        id: promptField
+
+                                        width: parent.width
+                                        height: Style.space(132)
+                                        text: settingsPanel.promptDraft
+                                        placeholderText: "Example: Eventomy is the client label for the Whistler project Quotomy."
+                                        foreground: root.foreground
+                                        accent: Color.accent
+                                        font.family: root.fontFamily
+                                        font.pixelSize: Style.font.caption
+                                        horizontalPadding: Style.space(9)
+                                        verticalPadding: Style.space(7)
+                                        onTextChanged: {
+                                            if (activeFocus)
+                                                settingsPanel.promptDraft = text;
+
+                                        }
+                                    }
+
                                     Row {
                                         spacing: Style.space(6)
 
                                         Button {
-                                            text: "EDIT AI INSTRUCTIONS"
+                                            text: "SAVE AI INSTRUCTIONS"
                                             foreground: root.foreground
                                             accent: Color.accent
                                             fontFamily: root.fontFamily
                                             fontSize: Style.font.caption
                                             bordered: true
-                                            onClicked: settingsPanel.authMessage = platform.openWhistlerInstructions() ? "AI instructions opened in your text editor." : "Could not open AI instructions."
+                                            onClicked: {
+                                                if (root.service && root.service.saveWhistlerInstructions(settingsPanel.promptDraft))
+                                                    settingsPanel.promptMessage = "Saved. It will be used on the next import.";
+                                                else
+                                                    settingsPanel.promptMessage = "Could not save AI instructions.";
+                                            }
+                                        }
+
+                                        Button {
+                                            text: "OPEN FILE"
+                                            foreground: root.foreground
+                                            accent: Color.accent
+                                            fontFamily: root.fontFamily
+                                            fontSize: Style.font.caption
+                                            bordered: true
+                                            onClicked: settingsPanel.promptMessage = platform.openWhistlerInstructions() ? "AI instructions opened in your text editor." : "Could not open AI instructions."
                                         }
 
                                     }
 
                                     Text {
+                                        visible: settingsPanel.promptMessage !== ""
                                         width: parent.width
-                                        text: "Add natural-language mapping rules here, such as: Eventomy is the client label for the Whistler project Quotomy. The text is inserted into the classification prompt for every import."
-                                        color: Qt.darker(root.foreground, 1.6)
+                                        text: settingsPanel.promptMessage
+                                        color: settingsPanel.promptMessage.indexOf("Could not") === 0 ? Color.urgent : Color.accent
                                         font.family: root.fontFamily
                                         font.pixelSize: Style.font.caption
                                         wrapMode: Text.Wrap
