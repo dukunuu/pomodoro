@@ -1,13 +1,15 @@
 import QtQuick
 import QtQuick.Controls
-import PomodoroWindows 1.0
+import qs.Commons
 
 ApplicationWindow {
     id: window
 
-    // Windows starts with the compact timer widget; the full dashboard is
-    // opened from its OPEN button or the tray menu.
-    visible: Qt.platform.os !== "windows"
+    // Windows starts with the compact timer widget and macOS with the menu-bar
+    // countdown, matching how Omarchy keeps the timer in the bar. Both open the
+    // full dashboard on demand. A plain Linux desktop has no such host surface,
+    // so it opens the dashboard directly.
+    visible: Qt.platform.os !== "windows" && Qt.platform.os !== "osx"
     width: 760
     height: 860
     minimumWidth: 520

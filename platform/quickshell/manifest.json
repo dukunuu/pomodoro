@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "id": "dukunuu.pomodoro",
+  "name": "Pomodoro",
+  "version": "1.6.0",
+  "author": "dukunuu",
+  "description": "Persistent focus timer with notes, reports, and optional work integrations",
+  "kinds": [
+    "service",
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "service": "Service.qml",
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Pomodoro",
+    "description": "Focus timer, notes, timeline, and reports",
+    "category": "Productivity",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "focusMinutes": 25,
+      "shortBreakMinutes": 5,
+      "longBreakMinutes": 15,
+      "longBreakEvery": 4
+    },
+    "schema": [
+      {
+        "key": "focusMinutes",
+        "type": "number",
+        "label": "Focus minutes"
+      },
+      {
+        "key": "shortBreakMinutes",
+        "type": "number",
+        "label": "Short break minutes"
+      },
+      {
+        "key": "longBreakMinutes",
+        "type": "number",
+        "label": "Long break minutes"
+      },
+      {
+        "key": "longBreakEvery",
+        "type": "number",
+        "label": "Long break after focus sessions"
+      }
+    ]
+  }
+}

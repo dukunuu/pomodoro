@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls as Controls
+import qs.Commons
 
 Controls.ToolTip {
     id: root

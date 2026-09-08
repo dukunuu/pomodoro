@@ -1,59 +1,29 @@
 #pragma once
 
+// Emulation of the Quickshell.Io types that the shared service uses.
+//
+// Service.qml is the same file that runs as an Omarchy Quickshell plugin, so
+// rather than rewriting it for the desktop hosts this module registers types
+// with the same names and the same API under the QML module URI
+// "Quickshell.Io". On Linux/Omarchy the real Quickshell provides them; here
+// they are backed by QProcess, QFile, and QFileSystemWatcher.
+
 #include <QFileSystemWatcher>
-#include <QPointer>
 #include <QProcess>
 #include <QStringList>
-#include <QTimer>
 #include <QVariant>
 
 #include <QtQml/qqmlregistration.h>
 
-class QWindow;
-
 // The Windows CRT exposes stdout/stderr as macros. They collide with the
-// Quickshell-compatible QML property names used by the direct Service.qml
-// port, so keep those names visible to moc and QML.
+// Quickshell property names used by the shared service, so keep those names
+// visible to moc and QML.
 #ifdef stdout
 #undef stdout
 #endif
 #ifdef stderr
 #undef stderr
 #endif
-
-class PlatformBridge final : public QObject
-{
-    Q_OBJECT
-
-public:
-    explicit PlatformBridge(QObject *parent = nullptr);
-
-    Q_INVOKABLE QString homeDirectory() const;
-    Q_INVOKABLE QString stateDirectory() const;
-    Q_INVOKABLE QString dataDirectory() const;
-    Q_INVOKABLE QString integrationCommand() const;
-    Q_INVOKABLE QString googleAuthCommand() const;
-    Q_INVOKABLE QString whistlerSetupCommand() const;
-    Q_INVOKABLE QString whistlerImportCommand() const;
-    Q_INVOKABLE QString env(const QString &name) const;
-    Q_INVOKABLE void execDetached(const QStringList &command);
-    Q_INVOKABLE bool openCommandWindow(const QStringList &command);
-    Q_INVOKABLE void openDataDirectory();
-    Q_INVOKABLE QString whistlerInstructionsFile() const;
-    Q_INVOKABLE bool openWhistlerInstructions();
-    Q_INVOKABLE void setTaskbarWindow(QObject *window);
-    Q_INVOKABLE void setTaskbarProgress(double progress, bool active);
-    Q_INVOKABLE void notify(const QString &title, const QString &body,
-                            const QString &urgency = QStringLiteral("normal"));
-    Q_INVOKABLE void playAlarm();
-
-signals:
-    void notificationRequested(const QString &title, const QString &body,
-                               const QString &urgency);
-
-private:
-    QPointer<QWindow> m_taskbarWindow;
-};
 
 class DesktopStream : public QObject
 {
@@ -187,4 +157,27 @@ private:
     bool m_atomicWrites = false;
     bool m_printErrors = true;
     QFileSystemWatcher m_watcher;
+};
+
+// Quickshell exposes the running shell over an IPC socket so `qs ipc call ...`
+// can drive it. The desktop hosts have no shell to talk to, but Service.qml
+// declares its IPC surface unconditionally, so provide the element and let the
+// declared functions exist without a transport behind them.
+class DesktopIpcHandler : public QObject
+{
+    Q_OBJECT
+    QML_NAMED_ELEMENT(IpcHandler)
+    Q_PROPERTY(QString target READ target WRITE setTarget NOTIFY targetChanged)
+
+public:
+    explicit DesktopIpcHandler(QObject *parent = nullptr);
+
+    QString target() const;
+    void setTarget(const QString &target);
+
+signals:
+    void targetChanged();
+
+private:
+    QString m_target;
 };

@@ -1,4 +1,5 @@
 import QtQuick
+import qs.Commons
 
 Rectangle {
     property color foreground: Color.foreground

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Pomodoro
+GenericName=Focus timer
+Comment=Focus timer with notes, reports, and Calendar/Whistler integrations
+Exec=pomodoro
+Icon=pomodoro
+Terminal=false
+Categories=Utility;Office;ProjectManagement;
+StartupNotify=false
+Keywords=pomodoro;timer;focus;productivity;

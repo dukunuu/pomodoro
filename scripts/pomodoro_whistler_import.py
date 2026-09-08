@@ -19,6 +19,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from pomodoro_notify import notify
 from pomodoro_paths import (
     BUNDLED_GOOGLE_CLIENT_FILE,
     GOOGLE_CLIENT_FILE,
@@ -604,7 +605,7 @@ def generate_plan(
     )
     if not api_key:
         raise ImportFailure(
-            "OPENROUTER_API_KEY is not configured. Use Settings → CONFIGURE WHISTLER."
+            "OPENROUTER_API_KEY is not configured. Use Settings -> CONFIGURE WHISTLER."
         )
     model = config.get("OPENROUTER_MODEL", "openai/gpt-4o-mini")
     safe_events = []
@@ -716,7 +717,7 @@ def get_whistler_token(config: dict[str, str], base_url: str) -> str:
     password = config.get("WHISTLER_PASSWORD", "")
     if not email or not password:
         raise ImportFailure(
-            "Whistler authentication is not configured. Use Settings → CONFIGURE WHISTLER."
+            "Whistler authentication is not configured. Use Settings -> CONFIGURE WHISTLER."
         )
     response = http_json(
         f"{base_url}/api/auth/signin",
@@ -980,11 +981,6 @@ def build_worklog(
     return body, result
 
 
-def notify(title: str, body: str, urgency: str = "normal") -> None:
-    # The QML host turns process status into native Windows notifications. Keep
-    # the standalone bridge useful as well by writing a concise console line.
-    del urgency
-    print(f"{title}: {body}", file=sys.stderr, flush=True)
 
 
 def report_progress(percent: int, message: str) -> None:

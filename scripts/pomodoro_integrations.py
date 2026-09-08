@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Synchronize completed focus phases with Google Calendar.
 
 This is the Windows/Python counterpart of the Linux shell integration. It is
@@ -406,10 +407,12 @@ def finish_event(
 
 
 def usage() -> str:
+    # Installed under a different name on each host, so report the invoked one.
+    name = Path(sys.argv[0]).name or "pomodoro_integrations.py"
     return (
         "Usage:\n"
-        "  pomodoro_integrations.py focus-start SESSION SEGMENT_START_MS END_MS\n"
-        "  pomodoro_integrations.py focus-end SESSION START_MS END_MS ACTIVE_SECONDS STATUS NOTE\n"
+        f"  {name} focus-start SESSION SEGMENT_START_MS END_MS\n"
+        f"  {name} focus-end SESSION START_MS END_MS ACTIVE_SECONDS STATUS NOTE\n"
     )
 
 

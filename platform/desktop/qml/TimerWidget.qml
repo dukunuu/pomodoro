@@ -1,11 +1,14 @@
 import QtQuick
 import QtQuick.Window
-import PomodoroWindows 1.0
+import qs.Commons
 
-// Windows does not allow arbitrary QML controls to be embedded in the taskbar.
-// This compact native Tool window is the full-size companion: it stays above
-// the taskbar, shows the live timer, and the main taskbar button receives a
-// native progress indicator.
+// A compact always-on-top companion window.
+//
+// Omarchy shows the timer in the bar itself. Windows does not allow arbitrary
+// controls in the taskbar, so this window is the equivalent: it floats above
+// the taskbar and the main taskbar button carries a native progress indicator.
+// macOS draws the countdown in the menu bar instead, so there the widget is
+// off by default and opened from the menu when wanted.
 Window {
     id: root
 
@@ -42,12 +45,7 @@ Window {
 
     onVisibleChanged: {
         if (!visible)
-            platform.setTaskbarProgress(0, false);
-    }
-
-    Component.onCompleted: {
-        if (windowsPlatform)
-            platform.setTaskbarWindow(dashboardWindow);
+            Bridge.setTaskbarProgress(0, false);
     }
 
     Timer {
@@ -55,7 +53,7 @@ Window {
         repeat: true
         running: root.windowsPlatform && root.visible
         triggeredOnStart: true
-        onTriggered: platform.setTaskbarProgress(root.phaseProgress, !!root.service && root.service.running)
+        onTriggered: Bridge.setTaskbarProgress(root.phaseProgress, !!root.service && root.service.running)
     }
 
     Rectangle {

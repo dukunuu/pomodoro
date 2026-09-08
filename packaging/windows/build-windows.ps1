@@ -1,6 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$Root = Split-Path -Parent $MyInvocation.MyCommand.Path
+# This script lives in packaging/windows; the project root is two levels up.
+$Root = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path))
 $QtCMakePath = $null
 
 if ($env:QT_ROOT) {
@@ -90,9 +91,9 @@ if ($MingwBin) {
 & $QtCMakePath @ConfigureArgs
 & $CMakePath --build $Build --config Release --parallel
 
-$Executable = Join-Path $Build "Release\pomodoro-windows.exe"
+$Executable = Join-Path $Build "Release\pomodoro.exe"
 if (-not (Test-Path $Executable)) {
-    $Executable = Join-Path $Build "pomodoro-windows.exe"
+    $Executable = Join-Path $Build "pomodoro.exe"
 }
 if (-not (Test-Path $Executable)) {
     throw "The Windows executable was not produced."
@@ -107,7 +108,7 @@ New-Item -ItemType Directory -Force -Path $Dist | Out-Null
 # copy into dist for normal use.
 & $Windeployqt --release --compiler-runtime --qmldir (Join-Path $Root "qml") --no-translations $Executable
 & $Windeployqt --release --compiler-runtime --qmldir (Join-Path $Root "qml") --no-translations --dir $Dist $Executable
-$DistExecutable = Join-Path $Dist "pomodoro-windows.exe"
+$DistExecutable = Join-Path $Dist "pomodoro.exe"
 if (-not (Test-Path $DistExecutable)) {
     Copy-Item $Executable $DistExecutable -Force
 }
@@ -123,4 +124,4 @@ if (Test-Path $BundledClient) {
 }
 
 Write-Host "Built: $Executable"
-Write-Host "Run:   $Dist\pomodoro-windows.exe"
+Write-Host "Run:   $Dist\pomodoro.exe"

@@ -1,5 +1,6 @@
 import QtQuick
-import PomodoroWindows 1.0
+import qs.Commons
+import qs.Ui
 
 // Expanded Pomodoro view. The bar remains a quick control; this card is the
 // visual journal for focus and break time.
@@ -7,6 +8,12 @@ KeyboardPanel {
     id: root
 
     property var service: null
+    // Bound to properties rather than declared as children: the Omarchy
+    // KeyboardPanel's default property takes Items only.
+    readonly property Platform platform: Platform {
+    }
+    readonly property IconSet icons: IconSet {
+    }
     property string reportView: "day"
     property int dayOffset: 0
     property int weekOffset: 0
@@ -375,7 +382,7 @@ KeyboardPanel {
                         anchors.centerIn: parent
                         width: Style.space(22)
                         height: Style.space(22)
-                        source: "qrc:/qt/qml/PomodoroWindows/assets/pomodoro.svg"
+                        source: root.platform.appIconSource
                         sourceSize.width: width
                         sourceSize.height: height
                         fillMode: Image.PreserveAspectFit
@@ -428,7 +435,7 @@ KeyboardPanel {
                 fontFamily: root.fontFamily
                 fontSize: Style.font.caption
                 bordered: true
-                tooltipText: "Configure Whistler reminders and monthly status"
+                tooltipText: "Configure Whistler filters, reminders, and monthly status"
                 onClicked: root.reportView = root.reportView === "settings" ? "day" : "settings"
             }
 
@@ -489,7 +496,7 @@ KeyboardPanel {
                             id: phaseBadgeText
 
                             anchors.centerIn: parent
-                            text: (root.service ? root.service.phaseIcon : "⏱") + " " + (root.service ? root.service.phaseLabel.toUpperCase() : "FOCUS")
+                            text: (root.service ? root.service.phaseIcon : root.icons.focus) + " " + (root.service ? root.service.phaseLabel.toUpperCase() : "FOCUS")
                             color: root.currentPhaseColor
                             font.family: root.fontFamily
                             font.pixelSize: Style.font.caption
@@ -549,7 +556,7 @@ KeyboardPanel {
 
                     Button {
                         text: root.service && root.service.running ? "Pause" : "Start"
-                        iconText: root.service && root.service.running ? "⏸" : "▶"
+                        iconText: root.service && root.service.running ? root.icons.pause : root.icons.play
                         foreground: root.foreground
                         accent: Color.accent
                         fontFamily: root.fontFamily
@@ -563,7 +570,7 @@ KeyboardPanel {
 
                     Button {
                         text: root.phaseOvertime ? (root.service.phase === "focus" ? "End Focus" : "End Break") : "Skip"
-                        iconText: root.phaseOvertime ? "✓" : "⏭"
+                        iconText: root.phaseOvertime ? root.icons.check : root.icons.skipNext
                         foreground: root.foreground
                         accent: Color.accent
                         fontFamily: root.fontFamily
@@ -928,7 +935,7 @@ KeyboardPanel {
                                             fontFamily: root.fontFamily
                                             fontSize: Style.font.caption
                                             bordered: true
-                                            onClicked: settingsPanel.authMessage = platform.openCommandWindow([platform.googleAuthCommand()]) ? "Google authorization console opened." : "Could not open Google authorization console."
+                                            onClicked: settingsPanel.authMessage = root.platform.openCommandWindow([root.platform.googleAuthCommand]) ? "Google authorization console opened." : "Could not open Google authorization console."
                                         }
 
                                         Button {
@@ -938,7 +945,7 @@ KeyboardPanel {
                                             fontFamily: root.fontFamily
                                             fontSize: Style.font.caption
                                             bordered: true
-                                            onClicked: settingsPanel.authMessage = platform.openCommandWindow([platform.whistlerSetupCommand()]) ? "Whistler setup console opened." : "Could not open Whistler setup console."
+                                            onClicked: settingsPanel.authMessage = root.platform.openCommandWindow([root.platform.whistlerSetupCommand]) ? "Whistler setup console opened." : "Could not open Whistler setup console."
                                         }
 
                                         Button {
@@ -948,7 +955,7 @@ KeyboardPanel {
                                             fontFamily: root.fontFamily
                                             fontSize: Style.font.caption
                                             bordered: true
-                                            onClicked: platform.openDataDirectory()
+                                            onClicked: root.platform.openDataDirectory()
                                         }
 
                                     }

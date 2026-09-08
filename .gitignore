@@ -30,3 +30,8 @@ __pycache__/
 *.exe
 *.msix
 *.msi
+
+# Multi-platform build directories
+/build-linux/
+/build-macos/
+/dist/

@@ -1,5 +1,5 @@
 import QtQuick
-import PomodoroWindows 1.0
+import Quickshell.Io
 
 Item {
     id: root
@@ -9,14 +9,18 @@ Item {
     property var shell: null
     property var settings: ({
     })
-    readonly property string stateDir: platform.stateDirectory()
+    // Every platform seam lives in Platform.qml. Service.qml itself is shared
+    // verbatim by the Omarchy plugin, the Windows app, and the macOS app.
+    // Bound to properties rather than declared as children, so the same
+    // declaration is valid whatever the host root type turns out to be.
+    readonly property Platform platform: platformSeam
+    readonly property IconSet icons: iconSetSeam
+    readonly property string stateDir: platformSeam.stateDirectory
     readonly property string statePath: stateDir + "/pomodoro.json"
     readonly property string historyPath: stateDir + "/pomodoro-history.json"
     readonly property string whistlerSettingsPath: stateDir + "/pomodoro-whistler-settings.json"
     readonly property string whistlerInstructionsPath: stateDir + "/pomodoro-whistler-instructions.txt"
-    readonly property string whistlerInstructionsTemplate: "# Optional instructions for project and client mapping.\n# This text is added to the AI classification prompt.\n# Example: Events containing Eventomy are work for the Whistler project Quotomy.\n# Remove the # characters and add your own rules.\n"
     readonly property string whistlerImportStatePath: stateDir + "/pomodoro-whistler-imports.json"
-    readonly property string alarmSoundPath: ""
     property date currentDate: new Date()
     readonly property string todayKey: dateKey(currentDate)
     property string phase: "focus"
@@ -45,8 +49,9 @@ Item {
     property int phasePlannedSeconds: 0
     property var phaseSegments: []
     property bool phaseRang: false
-    readonly property string integrationCommand: platform.integrationCommand()
-    readonly property string whistlerImportCommand: platform.whistlerImportCommand()
+    readonly property string integrationCommand: platformSeam.integrationCommand
+    readonly property string whistlerImportCommand: platformSeam.whistlerImportCommand
+    readonly property string whistlerInstructionsTemplate: "# Optional instructions for project and client mapping.\n# This text is added to the AI classification prompt.\n# Example: Events containing Eventomy are work for the Whistler project Quotomy.\n# Remove the # characters and add your own rules.\n"
     property int whistlerImportProgress: 0
     property string whistlerImportStatus: ""
     readonly property bool whistlerImportRunning: whistlerImportProcess.running
@@ -88,7 +93,7 @@ Item {
     readonly property int shortBreakSeconds: shortBreakMinutes * 60
     readonly property int longBreakSeconds: longBreakMinutes * 60
     readonly property string phaseLabel: phase === "focus" ? "Focus" : (phase === "long" ? "Long break" : "Short break")
-    readonly property string phaseIcon: phase === "focus" ? "⏱" : "☕"
+    readonly property string phaseIcon: phase === "focus" ? iconSetSeam.focus : iconSetSeam.rest
     readonly property string remainingText: formatDuration(remainingSeconds)
     readonly property string statusLabel: running ? (remainingSeconds < 0 ? "Overtime" : "Running") : (remainingSeconds === durationForPhase(phase) ? "Ready" : "Paused")
 
@@ -115,6 +120,39 @@ Item {
 
     function setActiveNote(value) {
         root.activeNote = root.normalizeNote(value);
+    }
+
+    function openWhistlerInstructions() {
+        if (!root.stateDirectoryReady)
+            return false;
+
+        return platformSeam.openPath(root.whistlerInstructionsPath);
+    }
+
+    function reloadWhistlerInstructions() {
+        if (root.stateDirectoryReady)
+            whistlerInstructionsFile.reload();
+
+    }
+
+    function loadWhistlerInstructions(raw) {
+        root.whistlerInstructionsText = String(raw || "");
+        root.whistlerInstructionsLoaded = true;
+    }
+
+    function saveWhistlerInstructions(value) {
+        var text = String(value || "");
+        root.whistlerInstructionsText = text;
+        if (!root.stateDirectoryReady) {
+            root.pendingWhistlerInstructionsText = text;
+            root.pendingWhistlerInstructionsPersist = true;
+            if (!ensureStateDir.running)
+                ensureStateDir.running = true;
+
+        } else {
+            whistlerInstructionsFile.setText(text);
+        }
+        return true;
     }
 
     function importWhistlerDay(key) {
@@ -146,43 +184,6 @@ Item {
     function normalizeWhistlerReminderTime(value) {
         var match = String(value || "").trim().match(/^([01][0-9]|2[0-3]):([0-5][0-9])$/);
         return match ? match[1] + ":" + match[2] : "";
-    }
-
-    function loadWhistlerInstructions(raw) {
-        root.whistlerInstructionsText = String(raw || "");
-        root.whistlerInstructionsLoaded = true;
-    }
-
-    function saveWhistlerInstructions(value) {
-        var text = String(value || "");
-        root.whistlerInstructionsText = text;
-        if (!root.stateDirectoryReady) {
-            root.pendingWhistlerInstructionsText = text;
-            root.pendingWhistlerInstructionsPersist = true;
-            if (!ensureStateDir.running)
-                ensureStateDir.running = true;
-
-        } else {
-            whistlerInstructionsFile.setText(text);
-        }
-        return true;
-    }
-
-    function reloadWhistlerInstructions() {
-        if (root.stateDirectoryReady)
-            whistlerInstructionsFile.reload();
-
-    }
-
-    function openWhistlerInstructions() {
-        if (!root.stateDirectoryReady)
-            return false;
-
-        var opened = platform.openWhistlerInstructions();
-        if (opened)
-            root.reloadWhistlerInstructions();
-
-        return opened;
     }
 
     function loadWhistlerSettings(raw) {
@@ -495,7 +496,7 @@ Item {
 
         root.whistlerLastReminderDate = key;
         root.saveWhistlerSettings(root.whistlerReminderEnabled, root.whistlerReminderTime);
-        platform.notify("Whistler log reminder", "Review today's Calendar events and send the worklog to Whistler.", "normal");
+        platformSeam.notify("Whistler log reminder", "Review today's Calendar events and send the worklog to Whistler.", "normal", iconSetSeam.focus);
     }
 
     function saveActiveNote(value) {
@@ -1342,14 +1343,14 @@ Item {
         if (root.phase !== "focus" || root.phaseStartedAt <= 0 || root.phaseRunStartedAt <= 0)
             return ;
 
-        platform.execDetached([root.integrationCommand, "focus-start", String(root.phaseStartedAt), String(root.phaseRunStartedAt), String(root.endAt)]);
+        platformSeam.execDetached([root.integrationCommand, "focus-start", String(root.phaseStartedAt), String(root.phaseRunStartedAt), String(root.endAt)]);
     }
 
     function syncFocusEnd(startedAt, endedAt, activeSeconds, status, note) {
         if (root.phase !== "focus" || startedAt <= 0)
             return ;
 
-        platform.execDetached([root.integrationCommand, "focus-end", String(startedAt), String(startedAt), String(endedAt), String(Math.max(0, Math.floor(activeSeconds))), String(status), String(note || "")]);
+        platformSeam.execDetached([root.integrationCommand, "focus-end", String(startedAt), String(startedAt), String(endedAt), String(Math.max(0, Math.floor(activeSeconds))), String(status), String(note || "")]);
     }
 
     function phaseElapsedAt(now) {
@@ -1678,7 +1679,7 @@ Item {
     }
 
     function playAlarm() {
-        platform.playAlarm();
+        platformSeam.playAlarm();
     }
 
     function nextPhaseFor(phaseName) {
@@ -1693,7 +1694,7 @@ Item {
         var nextPhase = upcomingPhase || root.nextPhaseFor(phaseName);
         var title = phaseName === "focus" ? "Focus time reached" : "Break complete";
         var body = phaseName === "focus" ? (nextPhase === "long" ? "Continue working or skip when ready for a long break." : "Continue working or skip when ready for a short break.") : "Ready for another focus session.";
-        platform.notify(title, body, "normal");
+        platformSeam.notify(title, body, "normal", phaseName === "focus" ? iconSetSeam.focus : iconSetSeam.rest);
     }
 
     function finishPhase(announce) {
@@ -1893,6 +1894,14 @@ Item {
         }
     }
 
+    Platform {
+        id: platformSeam
+    }
+
+    IconSet {
+        id: iconSetSeam
+    }
+
     Process {
         id: ensureStateDir
 
@@ -2001,6 +2010,44 @@ Item {
         onLoaded: root.loadWhistlerImportState(text())
         onLoadFailed: root.loadWhistlerImportState("")
         onFileChanged: reload()
+    }
+
+    IpcHandler {
+        function status() : string {
+            return root.statusJson();
+        }
+
+        function start() : string {
+            root.start();
+            return root.statusJson();
+        }
+
+        function pause() : string {
+            root.pause();
+            return root.statusJson();
+        }
+
+        function toggle() : string {
+            root.toggle();
+            return root.statusJson();
+        }
+
+        function reset() : string {
+            root.reset();
+            return root.statusJson();
+        }
+
+        function skip() : string {
+            root.skip();
+            return root.statusJson();
+        }
+
+        function resetAll() : string {
+            root.resetAll();
+            return root.statusJson();
+        }
+
+        target: "dukunuu.pomodoro"
     }
 
 }
