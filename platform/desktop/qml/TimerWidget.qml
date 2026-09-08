@@ -83,7 +83,7 @@ Window {
                     Image {
                         width: 18
                         height: 18
-                        source: "qrc:/qt/qml/PomodoroWindows/assets/pomodoro.svg"
+                        source: "qrc:/qt/qml/Pomodoro/assets/pomodoro.svg"
                         sourceSize.width: width
                         sourceSize.height: height
                         fillMode: Image.PreserveAspectFit
