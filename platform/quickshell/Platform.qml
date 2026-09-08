@@ -41,7 +41,13 @@ QtObject {
     function openCommandWindow(command) {
         // Google OAuth and Whistler setup are interactive prompts, so they need
         // a real terminal rather than a detached background process.
-        var argv = [root.terminal, "-e"];
+        //
+        // xdg-terminal-exec implements the Default Terminal specification and
+        // takes the command after an optional "--"; it rejects the "-e" that
+        // every conventional terminal emulator expects.
+        var launcher = String(root.terminal);
+        var separator = launcher.split("/").pop() === "xdg-terminal-exec" ? "--" : "-e";
+        var argv = [launcher, separator];
         for (var i = 0; i < command.length; i++) argv.push(String(command[i]));
         Quickshell.execDetached(argv);
         return true;

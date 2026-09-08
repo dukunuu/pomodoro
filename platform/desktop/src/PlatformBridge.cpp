@@ -243,12 +243,17 @@ bool PlatformBridge::openCommandWindow(const QStringList &command)
     QStringList terminals;
     if (!configured.isEmpty())
         terminals << configured;
-    terminals << QStringLiteral("alacritty") << QStringLiteral("ghostty") << QStringLiteral("kitty")
-              << QStringLiteral("foot") << QStringLiteral("x-terminal-emulator") << QStringLiteral("xterm");
+    terminals << QStringLiteral("xdg-terminal-exec") << QStringLiteral("alacritty")
+              << QStringLiteral("ghostty") << QStringLiteral("kitty") << QStringLiteral("foot")
+              << QStringLiteral("x-terminal-emulator") << QStringLiteral("xterm");
     for (const QString &terminal : std::as_const(terminals)) {
         if (QStandardPaths::findExecutable(terminal).isEmpty())
             continue;
-        QStringList arguments{QStringLiteral("-e")};
+        // xdg-terminal-exec implements the Default Terminal specification and
+        // takes the command after an optional "--"; it rejects the "-e" that
+        // every conventional terminal emulator expects.
+        const bool xdgLauncher = QFileInfo(terminal).fileName() == QLatin1String("xdg-terminal-exec");
+        QStringList arguments{xdgLauncher ? QStringLiteral("--") : QStringLiteral("-e")};
         arguments += native;
         if (QProcess::startDetached(terminal, arguments))
             return true;
