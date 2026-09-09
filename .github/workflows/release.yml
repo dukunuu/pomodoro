@@ -127,13 +127,16 @@ jobs:
           GOOGLE_OAUTH_CLIENT_JSON: ${{ secrets.GOOGLE_OAUTH_CLIENT_JSON }}
         run: ./build-windows.ps1
 
+      # The portable zip is always produced; the installer needs Inno Setup on
+      # the runner, so it is uploaded when present rather than required.
       - uses: actions/upload-artifact@v4
         if: steps.detect.outputs.exists == 'true'
         with:
           name: windows
           path: |
             windows/dist/*.exe
-            windows/dist/*.exe.sha256
+            windows/dist/*.zip
+            windows/dist/*.sha256
           if-no-files-found: error
 
   publish:

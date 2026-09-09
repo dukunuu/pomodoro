@@ -113,6 +113,22 @@ jobs:
             -p:Configuration=Release -p:Platform=x64 -p:RuntimeIdentifier=win-x64 -v:minimal
           if ($LASTEXITCODE -ne 0) { throw 'WinUI build failed' }
 
+      # A downloadable build on every run, so the app can be tried in a VM
+      # without a Windows toolchain. No credentials: this is not a release.
+      - name: Package portable build
+        working-directory: windows
+        shell: pwsh
+        run: ./build-windows.ps1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pomodoro-windows-ci
+          path: |
+            windows/dist/*.exe
+            windows/dist/*.zip
+            windows/dist/*.sha256
+          if-no-files-found: error
+
       - name: Report resolved package versions
         if: always()
         working-directory: windows
