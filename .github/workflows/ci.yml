@@ -74,28 +74,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # The WinUI 3 app is being written; until its solution exists this job
-      # is a deliberate no-op so the pipeline is in place and green.
-      - name: Detect project
-        id: detect
-        shell: bash
-        run: |
-          if [ -f windows/Pomodoro.sln ]; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::windows/Pomodoro.sln not present yet; skipping"
-          fi
-
       - uses: actions/setup-dotnet@v4
-        if: steps.detect.outputs.exists == 'true'
         with:
           dotnet-version: '8.0.x'
 
-      - name: Restore, build and test
-        if: steps.detect.outputs.exists == 'true'
-        working-directory: windows
+      - name: Show toolchain
+        shell: bash
         run: |
-          dotnet restore
-          dotnet build --configuration Release --no-restore
-          dotnet test --configuration Release --no-build
+          dotnet --version
+          node --version
+          python --version
+
+      - name: Build
+        working-directory: windows
+        run: dotnet build Pomodoro.sln --configuration Release --nologo
+
+      # The same reference and fixtures the macOS test uses, so both ports are
+      # held to one behavior rather than to each other.
+      - name: Differential test
+        working-directory: windows
+        shell: pwsh
+        run: ./test-windows.ps1

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Differential test: proves the Swift report logic still matches qml/Service.qml.
+# Differential test: proves the Swift report logic still matches the QML service.
 #
 # It runs the real QML functions under node and the Swift implementation over
 # the same fixtures, then diffs every derived figure. Run this after touching
@@ -7,6 +7,7 @@
 set -eu
 
 ROOT=$(cd "$(dirname "$0")" && pwd)
+REPO=$(cd "$ROOT/.." && pwd)
 WORK=${TMPDIR:-/tmp}/pomodoro-difftest.$$
 trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK"
@@ -28,13 +29,13 @@ for fixture in generated hostile; do
     dir="$WORK/$fixture"
     mkdir -p "$dir"
     printf '%s\n' "$IDLE_STATE" > "$dir/pomodoro.json"
-    python3 "$ROOT/Tools/fixtures.py" "$fixture" "$dir"
+    python3 "$REPO/tools/fixtures.py" "$fixture" "$dir"
 
-    node "$ROOT/Tools/qml-reference.js" "$dir" "$WORK/$fixture-reference.json" >/dev/null
+    node "$REPO/tools/qml-reference.js" "$dir" "$WORK/$fixture-reference.json" >/dev/null
     POMODORO_DATA_DIR="$dir" "$BIN" --report-dump "$WORK/$fixture-swift.json" >/dev/null
 
     printf '%-10s ' "$fixture"
-    python3 "$ROOT/Tools/compare-reports.py" \
+    python3 "$REPO/tools/compare-reports.py" \
         "$WORK/$fixture-reference.json" "$WORK/$fixture-swift.json" || status=1
 done
 

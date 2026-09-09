@@ -8,7 +8,7 @@ The timer's behavior, the history JSON, and the report semantics are inherited
 from the QML service this app was ported from (originally an Omarchy Quickshell
 plugin, then a Qt/Windows port). Those front ends are no longer in this
 repository, but the data format is unchanged, so an existing history loads
-as-is. `macos/Tools/reference/Service.qml` keeps a frozen copy of that service
+as-is. `tools/reference/Service.qml` keeps a frozen copy of that service
 purely as the differential test's fixture.
 
 ## Build
@@ -151,6 +151,6 @@ POMODORO_DATA_DIR=/tmp/fixture ./.build/release/Pomodoro --report-dump /tmp/out.
 | `macos/Sources/Pomodoro/Core` | Timer, history, reports, Whistler, bridges |
 | `macos/Sources/Pomodoro/UI` | Dashboard, reports, settings, theme |
 | `macos/Sources/Pomodoro/Platform` | Menu bar, floating panel, Dock, notifications |
-| `macos/Tools` | Differential test harness and fixtures |
+| `tools` | Differential test harness and fixtures |
 | `scripts` | Python integration bridges |
 | `assets` | Icon source |

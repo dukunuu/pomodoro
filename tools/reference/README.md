@@ -6,7 +6,7 @@ port was taken from (`164243b`). The Qt front end itself has been removed from
 this repository; this file is kept **only** as the fixture for the differential
 test.
 
-`Tools/qml-reference.js` extracts its report functions and executes them under
+`tools/qml-reference.js` extracts its report functions and executes them under
 node, and `test-macos.sh` diffs the result against the Swift implementation.
 That is what holds the Swift port to the original's behavior, including the
 history JSON format the file defines.

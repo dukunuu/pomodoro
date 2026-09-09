@@ -35,7 +35,7 @@ final class PomodoroService: ObservableObject {
     private(set) var phaseStartedAt: EpochMillis = 0
     private var phaseRunStartedAt: EpochMillis = 0
     private var phaseElapsedSeconds = 0
-    private var phasePlannedSeconds = 0
+    private(set) var phasePlannedSeconds = 0
     private var phaseSegments: [Segment] = []
     private var phaseRang = false
 

@@ -176,7 +176,7 @@ extension PomodoroService {
                     status: running ? .running : .paused,
                     startedAt: phaseStartedAt,
                     endedAt: now,
-                    plannedSeconds: duration(for: phase),
+                    plannedSeconds: phasePlannedSeconds > 0 ? phasePlannedSeconds : duration(for: phase),
                     activeSeconds: phaseElapsed(at: now),
                     segments: clippedSegments(phaseSegments(at: now), from: dayStart, to: dayEnd),
                     note: phase == .focus ? activeNote : "",

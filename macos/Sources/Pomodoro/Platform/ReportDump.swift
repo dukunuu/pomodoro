@@ -49,6 +49,7 @@ enum ReportDump {
                     "startedAt": Persistence.millis(entry.startedAt),
                     "endedAt": Persistence.millis(entry.endedAt),
                     "activeSeconds": entry.activeSeconds,
+                    "plannedSeconds": entry.plannedSeconds,
                     "note": entry.note,
                     "segments": entry.segments.map {
                         ["startedAt": Persistence.millis($0.startedAt),

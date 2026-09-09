@@ -123,6 +123,7 @@ for (const key of [...keys].sort()) {
     startedAt: entry.startedAt,
     endedAt: entry.endedAt,
     activeSeconds: entry.activeSeconds,
+    plannedSeconds: entry.plannedSeconds,
     note: entry.note || '',
     segments: entry.segments.map((s) => ({ startedAt: s.startedAt, endedAt: s.endedAt })),
   }));

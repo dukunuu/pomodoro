@@ -95,15 +95,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Detect project
+      # Gated on the packaging script, not the solution: Pomodoro.Core builds
+      # today, but there is no WinUI app to install yet. Releases stay
+      # macOS-only until build-windows.ps1 lands.
+      - name: Detect installer
         id: detect
         shell: bash
         run: |
-          if [ -f windows/Pomodoro.sln ]; then
+          if [ -f windows/build-windows.ps1 ]; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::windows/Pomodoro.sln not present yet; no Windows artifact"
+            echo "::notice::windows/build-windows.ps1 not present yet; no Windows artifact"
           fi
 
       - uses: actions/setup-dotnet@v4
