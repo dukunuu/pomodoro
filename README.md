@@ -112,6 +112,10 @@ Tag and push to publish:
 git tag v1.0.0 && git push origin v1.0.0
 ```
 
+Releases publish a macOS `.dmg` (universal — Apple silicon and Intel) and,
+once the WinUI app lands, a Windows `.exe` installer, both with SHA-256
+checksums.
+
 Release builds carry the project's own Google OAuth client, so a user only has
 to authorize Google and configure Whistler — they do not create a Cloud
 project. That requires one repository secret,
@@ -120,8 +124,9 @@ per-user install flow. See [docs/releasing.md](docs/releasing.md), which also
 covers what shipping a Desktop OAuth client does and does not protect, and
 Google's verification limits for the calendar scope.
 
-CI (`.github/workflows/ci.yml`) runs the differential test and a credential-free
-build on every push and pull request.
+CI (`.github/workflows/ci.yml`) runs the differential test, a credential-free
+build, and DMG packaging on every push and pull request, so packaging breakage
+surfaces before a release rather than during one.
 
 ## Development helpers
 

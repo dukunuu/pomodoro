@@ -9,8 +9,25 @@ git push origin v1.0.0
 
 That runs `.github/workflows/release.yml`: it resolves the version from the
 tag, runs the differential test, builds each platform with the OAuth client
-baked in, packages a zip plus a SHA-256 checksum, and publishes a GitHub
-Release with generated notes.
+baked in, packages the installers, and publishes a GitHub Release with
+generated notes.
+
+## Artifacts
+
+| Platform | Asset | Notes |
+| --- | --- | --- |
+| macOS | `Pomodoro-<version>-macos-universal.dmg` | Drag-to-install image with an `/Applications` symlink. Universal: arm64 + x86_64. |
+| Windows | `Pomodoro-<version>-windows-x64.exe` | Inno Setup installer around a self-contained publish. |
+
+Each is accompanied by a `.sha256`. The release job refuses to publish a tag
+whose artifacts contain no DMG, so a silently failed build cannot produce an
+empty release.
+
+macOS builds **must** be universal. `swift build --arch arm64 --arch x86_64`
+needs Xcode's `xcbuild`, which the Command Line Tools do not ship, so
+`build-macos.sh` builds each slice separately and joins them with `lipo` when
+`UNIVERSAL=1`. Without it the artifact is arm64-only and will not launch on an
+Intel Mac at all.
 
 To rehearse a build without publishing, use the workflow's
 `workflow_dispatch` trigger and pass a version — it builds and uploads

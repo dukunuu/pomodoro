@@ -9,6 +9,8 @@
 #   VERSION                     marketing version (default 0.0.0-dev)
 #   BUILD_NUMBER                CFBundleVersion (default: git commit count)
 #   CONFIG                      debug | release (default release)
+#   UNIVERSAL=1                 build arm64 + x86_64 (required for releases,
+#                               or the artifact will not run on Intel Macs)
 #   GOOGLE_OAUTH_CLIENT_JSON    OAuth client JSON, inline; baked into the app
 #   GOOGLE_OAUTH_CLIENT_FILE    ...or a path to the same JSON
 set -eu
@@ -29,13 +31,30 @@ fi
 
 echo "==> Building ($CONFIG, version $VERSION build $BUILD)"
 cd "$ROOT"
-swift build -c "$CONFIG"
-BIN=$(swift build -c "$CONFIG" --show-bin-path)
+
+# A single `swift build --arch arm64 --arch x86_64` needs Xcode's xcbuild,
+# which the Command Line Tools do not ship. Building each slice separately
+# works with plain CLT, and lipo joins them.
+if [ "${UNIVERSAL:-0}" = "1" ]; then
+    for arch in arm64 x86_64; do
+        echo "    slice: $arch"
+        swift build -c "$CONFIG" --arch "$arch"
+    done
+    ARM_BIN=$(swift build -c "$CONFIG" --arch arm64 --show-bin-path)/Pomodoro
+    X86_BIN=$(swift build -c "$CONFIG" --arch x86_64 --show-bin-path)/Pomodoro
+else
+    swift build -c "$CONFIG"
+    BIN=$(swift build -c "$CONFIG" --show-bin-path)
+fi
 
 echo "==> Assembling $APP"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/scripts"
-cp "$BIN/Pomodoro" "$APP/Contents/MacOS/Pomodoro"
+if [ "${UNIVERSAL:-0}" = "1" ]; then
+    lipo -create -output "$APP/Contents/MacOS/Pomodoro" "$ARM_BIN" "$X86_BIN"
+else
+    cp "$BIN/Pomodoro" "$APP/Contents/MacOS/Pomodoro"
+fi
 
 # The Python bridges hold all the Google and Whistler protocol work.
 cp "$REPO/scripts"/*.py "$APP/Contents/Resources/scripts/"
@@ -116,4 +135,5 @@ fi
 
 echo
 echo "Built $APP"
+echo "    $(lipo -archs "$APP/Contents/MacOS/Pomodoro" 2>/dev/null || echo unknown)"
 echo "Run it with:  open '$APP'"

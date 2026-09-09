@@ -46,11 +46,14 @@ jobs:
       # docs/releasing.md — a Desktop client's secret is not confidential and
       # is extractable from any distributed binary; PKCE is what protects the
       # flow, and the auth bridge already uses S256.
-      - name: Build signed bundle
+      # UNIVERSAL=1 is required for a release: a single-slice arm64 build
+      # will not launch on an Intel Mac at all.
+      - name: Build universal bundle
         working-directory: macos
         env:
           VERSION: ${{ needs.version.outputs.version }}
           BUILD_NUMBER: ${{ github.run_number }}
+          UNIVERSAL: '1'
           GOOGLE_OAUTH_CLIENT_JSON: ${{ secrets.GOOGLE_OAUTH_CLIENT_JSON }}
         run: |
           if [ -z "${GOOGLE_OAUTH_CLIENT_JSON:-}" ]; then
@@ -59,18 +62,30 @@ jobs:
           fi
           ./build-macos.sh
 
-      - name: Package
+      - name: Package DMG
         working-directory: macos
         env:
           VERSION: ${{ needs.version.outputs.version }}
         run: ./package-macos.sh
 
+      - name: Verify DMG
+        working-directory: macos
+        run: |
+          DMG=$(ls dist/*.dmg)
+          hdiutil attach "$DMG" -nobrowse -readonly -mountpoint /tmp/dmgcheck -quiet
+          test -d /tmp/dmgcheck/Pomodoro.app
+          test -L /tmp/dmgcheck/Applications
+          lipo -archs /tmp/dmgcheck/Pomodoro.app/Contents/MacOS/Pomodoro \
+            | tee /dev/stderr | grep -q arm64
+          lipo -archs /tmp/dmgcheck/Pomodoro.app/Contents/MacOS/Pomodoro | grep -q x86_64
+          hdiutil detach /tmp/dmgcheck -quiet
+
       - uses: actions/upload-artifact@v4
         with:
           name: macos
           path: |
-            macos/dist/*.zip
-            macos/dist/*.sha256
+            macos/dist/*.dmg
+            macos/dist/*.dmg.sha256
           if-no-files-found: error
 
   windows:
@@ -96,22 +111,26 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Publish self-contained
+      # Contract for when the WinUI app lands: build-windows.ps1 publishes a
+      # self-contained x64 build, wraps it in an Inno Setup installer, and
+      # writes windows/dist/Pomodoro-<version>-windows-x64.exe plus a
+      # .sha256 beside it.
+      - name: Build installer
         if: steps.detect.outputs.exists == 'true'
         working-directory: windows
-        shell: bash
+        shell: pwsh
         env:
           VERSION: ${{ needs.version.outputs.version }}
           GOOGLE_OAUTH_CLIENT_JSON: ${{ secrets.GOOGLE_OAUTH_CLIENT_JSON }}
-        run: ./build-windows.sh
+        run: ./build-windows.ps1
 
       - uses: actions/upload-artifact@v4
         if: steps.detect.outputs.exists == 'true'
         with:
           name: windows
           path: |
-            windows/dist/*.zip
-            windows/dist/*.sha256
+            windows/dist/*.exe
+            windows/dist/*.exe.sha256
           if-no-files-found: error
 
   publish:
@@ -133,8 +152,27 @@ jobs:
           VERSION: ${{ needs.version.outputs.version }}
         run: |
           ls -la artifacts
+          # A tag with no macOS artifact means the build silently failed.
+          test -n "$(ls artifacts/*.dmg 2>/dev/null)" || {
+            echo "no DMG in artifacts" >&2
+            exit 1
+          }
+          cat > notes.md <<'NOTES'
+          ### Downloads
+
+          - **macOS** — `.dmg`, universal (Apple silicon and Intel). Open it and
+            drag Pomodoro to Applications.
+          - **Windows** — `.exe` installer (x64).
+
+          Builds carry the project's Google OAuth client, so setup is just:
+          authorize Google, then configure Whistler.
+
+          Both downloads are unsigned. On macOS, right-click the app and choose
+          Open the first time; on Windows, More info → Run anyway. SHA-256
+          checksums are attached.
+          NOTES
           gh release create "v$VERSION" \
             --title "v$VERSION" \
             --generate-notes \
-            --notes "Builds carry the project's Google OAuth client, so setup is: authorize Google, then configure Whistler. Downloads are unsigned — macOS: right-click → Open; Windows: More info → Run anyway." \
+            --notes-file notes.md \
             artifacts/*

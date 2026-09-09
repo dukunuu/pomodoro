@@ -51,6 +51,20 @@ jobs:
           fi
           ./dist/Pomodoro.app/Contents/MacOS/Pomodoro --status
 
+      # Build the DMG on every run so packaging breakage surfaces here rather
+      # than during a release. No credentials, so this is not distributable.
+      - name: Package DMG
+        working-directory: macos
+        env:
+          VERSION: 0.0.0-ci
+        run: |
+          ./package-macos.sh
+          DMG=$(ls dist/*.dmg)
+          hdiutil attach "$DMG" -nobrowse -readonly -mountpoint /tmp/dmgcheck -quiet
+          test -d /tmp/dmgcheck/Pomodoro.app
+          test -L /tmp/dmgcheck/Applications
+          hdiutil detach /tmp/dmgcheck -quiet
+
       - name: Lint Python bridges
         run: python3 -m compileall -q scripts
 
