@@ -30,7 +30,9 @@ const WANTED = new Set([
   'durationForPhase', 'normalizeNote', 'focusCountForDay',
 ]);
 
-const lines = fs.readFileSync(qmlPath, 'utf8').split('\n');
+// Split on either line ending: a Windows checkout converts the reference to
+// CRLF, which would leave a \r on every line and match nothing below.
+const lines = fs.readFileSync(qmlPath, 'utf8').split(/\r?\n/);
 const extracted = [];
 const names = [];
 for (let i = 0; i < lines.length; i++) {

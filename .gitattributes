@@ -1,0 +1,8 @@
+# The differential harness parses this file by exact indentation and line
+# content; a CRLF checkout would break the extraction. Keep it LF everywhere.
+tools/reference/Service.qml text eol=lf
+
+# Shell scripts must stay LF to remain executable on macOS and Linux.
+*.sh text eol=lf
+*.py text eol=lf
+*.js text eol=lf
