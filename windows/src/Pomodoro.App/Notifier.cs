@@ -9,7 +9,7 @@ namespace Pomodoro.App;
 /// register with the notification manager, which is why the app is
 /// WindowsAppSDKSelfContained rather than MSIX.
 /// </summary>
-public static partial class Notifier
+public static class Notifier
 {
     private static bool _registered;
 
@@ -56,9 +56,11 @@ public static partial class Notifier
     // System.Media.SystemSounds lives in System.Windows.Extensions, which is a
     // WinForms/WPF dependency this app has no other use for. MessageBeep is in
     // user32 and plays the same system sound.
-    [LibraryImport("user32.dll", SetLastError = true)]
+    // DllImport rather than LibraryImport: the source-generated version
+    // requires AllowUnsafeBlocks project-wide for a single call.
+    [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool MessageBeep(uint type);
+    private static extern bool MessageBeep(uint type);
 
     private const uint MbIconAsterisk = 0x00000040;
 
