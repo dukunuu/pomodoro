@@ -7,6 +7,9 @@
 #ifndef SourceDir
   #define SourceDir "src\Pomodoro.App\bin\x64\Release\net8.0-windows10.0.19041.0\win-x64\publish"
 #endif
+#ifndef Arch
+  #define Arch "x64"
+#endif
 
 [Setup]
 AppId={{7C3F2A64-9E1B-4D5A-9C77-2F1B6E4A8D31}
@@ -21,13 +24,20 @@ DisableProgramGroupPage=yes
 PrivilegesRequiredOverridesAllowed=dialog
 PrivilegesRequired=lowest
 OutputDir=dist
-OutputBaseFilename=Pomodoro-{#AppVersion}-windows-x64
+OutputBaseFilename=Pomodoro-{#AppVersion}-windows-{#Arch}
 SetupIconFile=src\Pomodoro.App\Assets\pomodoro.ico
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
+; An ARM64 build must refuse to install on x64; an x64 build is allowed on
+; ARM64, where Windows runs it under emulation.
+#if Arch == "arm64"
+ArchitecturesAllowed=arm64
+ArchitecturesInstallIn64BitMode=arm64
+#else
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
+#endif
 UninstallDisplayIcon={app}\Pomodoro.exe
 
 [Languages]

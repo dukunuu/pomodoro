@@ -137,6 +137,8 @@ jobs:
             windows/dist/*.exe
             windows/dist/*.zip
             windows/dist/*.sha256
+          # Both x64 and arm64 installers; Windows on ARM can run the x64
+          # build under emulation but the native one is what it should get.
           if-no-files-found: error
 
   publish:
