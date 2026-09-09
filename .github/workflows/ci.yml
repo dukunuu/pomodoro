@@ -96,13 +96,22 @@ jobs:
         shell: pwsh
         run: ./test-windows.ps1
 
-      # WinUI needs an explicit platform, so the app builds outside the
-      # Any CPU solution. This is the only compiler available for it.
+      # WinUI must be built with Visual Studio's MSBuild, not `dotnet build`:
+      # the resource-index (PRI) tasks WindowsAppSDK invokes ship with VS, not
+      # with the .NET SDK, so the SDK's MSBuild fails with MSB4062.
       - name: Build WinUI app
         working-directory: windows
-        run: >
-          dotnet build src/Pomodoro.App/Pomodoro.App.csproj
-          --configuration Release -p:Platform=x64 -p:RuntimeIdentifier=win-x64 --nologo
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $msbuild = & $vswhere -latest -products * `
+            -requires Microsoft.Component.MSBuild `
+            -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
+          if (-not $msbuild) { throw 'MSBuild not found' }
+          Write-Host "using $msbuild"
+          & $msbuild src\Pomodoro.App\Pomodoro.App.csproj -restore `
+            -p:Configuration=Release -p:Platform=x64 -p:RuntimeIdentifier=win-x64 -v:minimal
+          if ($LASTEXITCODE -ne 0) { throw 'WinUI build failed' }
 
       - name: Report resolved package versions
         if: always()

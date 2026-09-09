@@ -12,7 +12,6 @@
          than an MSIX. WindowsAppSDKSelfContained means no runtime install. -->
     <WindowsPackageType>None</WindowsPackageType>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
-    <EnableMsixTooling>false</EnableMsixTooling>
     <ApplicationIcon>Assets\pomodoro.ico</ApplicationIcon>
     <AssemblyName>Pomodoro</AssemblyName>
     <!-- XAML generated code trips analyzers we cannot edit. -->
