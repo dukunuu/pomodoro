@@ -21,9 +21,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Floating patch versions: pinned exact builds are easy to guess wrong
-         and fail to restore. CI logs what resolved; pin once it is known. -->
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.*" />
+    <!-- Pinned to the build CI resolved, so restores are reproducible. -->
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.250602001" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.*" />
   </ItemGroup>
 

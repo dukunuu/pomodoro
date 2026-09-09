@@ -1,4 +1,4 @@
-using System.Media;
+using System.Runtime.InteropServices;
 using Microsoft.Windows.AppNotifications;
 using Microsoft.Windows.AppNotifications.Builder;
 
@@ -9,7 +9,7 @@ namespace Pomodoro.App;
 /// register with the notification manager, which is why the app is
 /// WindowsAppSDKSelfContained rather than MSIX.
 /// </summary>
-public static class Notifier
+public static partial class Notifier
 {
     private static bool _registered;
 
@@ -53,9 +53,18 @@ public static class Notifier
         }
     }
 
+    // System.Media.SystemSounds lives in System.Windows.Extensions, which is a
+    // WinForms/WPF dependency this app has no other use for. MessageBeep is in
+    // user32 and plays the same system sound.
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool MessageBeep(uint type);
+
+    private const uint MbIconAsterisk = 0x00000040;
+
     public static void PlayAlarm()
     {
-        try { SystemSounds.Asterisk.Play(); }
+        try { MessageBeep(MbIconAsterisk); }
         catch (Exception) { /* no audio device */ }
     }
 }
