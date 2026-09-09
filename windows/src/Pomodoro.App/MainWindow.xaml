@@ -208,6 +208,59 @@
 
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel Spacing="10">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="MONTH COVERAGE"
+                                               Style="{StaticResource CardTitleStyle}"
+                                               VerticalAlignment="Center" />
+                                    <Button Grid.Column="1" x:Name="RefreshMonthButton"
+                                            Content="Refresh" Click="OnRefreshMonth" />
+                                </Grid>
+                                <TextBlock x:Name="MonthStatusText" TextWrapping="Wrap" FontSize="12"
+                                           Foreground="{StaticResource TextMutedBrush}"
+                                           Text="Refresh to compare Google Calendar against Whistler for this month." />
+                                <StackPanel x:Name="MonthSummary" Visibility="Collapsed" Spacing="10">
+                                    <Grid ColumnSpacing="14">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" /><ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" /><ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" Spacing="3">
+                                            <TextBlock Text="TARGET" Style="{StaticResource StatLabelStyle}" />
+                                            <TextBlock x:Name="MonthTarget" Style="{StaticResource StatValueStyle}" />
+                                            <TextBlock x:Name="MonthTargetDetail" Style="{StaticResource StatDetailStyle}" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Spacing="3">
+                                            <TextBlock Text="LOGGED" Style="{StaticResource StatLabelStyle}" />
+                                            <TextBlock x:Name="MonthLogged" Style="{StaticResource StatValueStyle}"
+                                                       Foreground="{StaticResource FocusBrightBrush}" />
+                                            <TextBlock x:Name="MonthLoggedDetail" Style="{StaticResource StatDetailStyle}" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2" Spacing="3">
+                                            <TextBlock Text="TO DATE" Style="{StaticResource StatLabelStyle}" />
+                                            <TextBlock x:Name="MonthToDate" Style="{StaticResource StatValueStyle}" />
+                                            <TextBlock x:Name="MonthToDateDetail" Style="{StaticResource StatDetailStyle}" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="3" Spacing="3">
+                                            <TextBlock Text="BALANCE" Style="{StaticResource StatLabelStyle}" />
+                                            <TextBlock x:Name="MonthBalance" Style="{StaticResource StatValueStyle}" />
+                                            <TextBlock x:Name="MonthBalanceDetail" Style="{StaticResource StatDetailStyle}" />
+                                        </StackPanel>
+                                    </Grid>
+                                    <ProgressBar x:Name="MonthProgress" Minimum="0" Maximum="1" Height="6"
+                                                 Background="{StaticResource RaisedBrush}"
+                                                 Foreground="{StaticResource FocusBrush}" />
+                                    <StackPanel x:Name="MonthProjects" Spacing="4" />
+                                    <StackPanel x:Name="MonthDays" Spacing="4" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel Spacing="10">
                                 <TextBlock Text="AI MAPPING INSTRUCTIONS" Style="{StaticResource CardTitleStyle}" />
                                 <TextBlock TextWrapping="Wrap" FontSize="12"
                                            Foreground="{StaticResource TextMutedBrush}"

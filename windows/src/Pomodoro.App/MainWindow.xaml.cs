@@ -530,6 +530,146 @@ public sealed partial class MainWindow : Window
         InstructionsSaved.Text = string.Empty;
     }
 
+    // ---- Month coverage ---------------------------------------------------
+
+    private async void OnRefreshMonth(object sender, RoutedEventArgs e)
+    {
+        RefreshMonthButton.IsEnabled = false;
+        MonthStatusText.Text = "Checking Calendar and Whistler…";
+        MonthStatusText.Foreground = Brush("TextMutedBrush");
+        try
+        {
+            var month = Service.TodayKey[..7];
+            var config = IntegrationStatus.ReadEnv(DataPaths.WhistlerConfig);
+            var status = await Task.Run(() => MonthStatus.FetchAsync(config, month));
+            RenderMonth(status);
+        }
+        catch (Exception error)
+        {
+            MonthSummary.Visibility = Visibility.Collapsed;
+            MonthStatusText.Text = error.Message;
+            MonthStatusText.Foreground = Brush("UrgentBrush");
+        }
+        finally
+        {
+            RefreshMonthButton.IsEnabled = true;
+        }
+    }
+
+    private void RenderMonth(MonthStatusResult status)
+    {
+        var stats = status.Stats;
+        MonthSummary.Visibility = Visibility.Visible;
+
+        MonthTarget.Text = Fmt.WhistlerMinutes(stats.ExpectedMinutes);
+        MonthTargetDetail.Text = $"{stats.WorkdayCount} workdays";
+        MonthLogged.Text = Fmt.WhistlerMinutes(stats.LoggedMinutes);
+        MonthLoggedDetail.Text = $"{stats.LoggedDays} days";
+        MonthToDate.Text = Fmt.WhistlerMinutes(stats.LoggedToDateMinutes);
+        MonthToDateDetail.Text = $"of {Fmt.WhistlerMinutes(stats.ExpectedToDateMinutes)}";
+        MonthBalance.Text = Fmt.WhistlerSignedMinutes(stats.BalanceMinutes);
+        MonthBalance.Foreground = stats.BalanceMinutes >= 0
+            ? Brush("LongBreakBrush") : Brush("UrgentBrush");
+        MonthBalanceDetail.Text = stats.BalanceMinutes >= 0 ? "ahead" : "behind";
+
+        MonthProgress.Value = stats.ExpectedMinutes > 0
+            ? Math.Min(1, (double)stats.LoggedMinutes / stats.ExpectedMinutes)
+            : 0;
+
+        MonthProjects.Children.Clear();
+        foreach (var project in status.ProjectTotals)
+        {
+            var row = new Grid();
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            var name = new TextBlock
+            {
+                Text = project.Name,
+                FontSize = 12,
+                Foreground = Brush("TextBrush"),
+                TextTrimming = TextTrimming.CharacterEllipsis
+            };
+            Grid.SetColumn(name, 0);
+            row.Children.Add(name);
+            var minutes = new TextBlock
+            {
+                Text = Fmt.WhistlerMinutes(project.Minutes),
+                FontSize = 12,
+                Foreground = Brush("TextMutedBrush")
+            };
+            Grid.SetColumn(minutes, 1);
+            row.Children.Add(minutes);
+            MonthProjects.Children.Add(row);
+        }
+
+        // Only days Calendar says you worked can be missing, so list those
+        // rather than painting a whole month grid of mostly-empty cells.
+        MonthDays.Children.Clear();
+        var incomplete = status.IncompleteDays.ToHashSet(StringComparer.Ordinal);
+        foreach (var day in status.EventDays)
+        {
+            var logged = status.WorklogDetails.FirstOrDefault(detail => detail.Key == day);
+            var missing = incomplete.Contains(day);
+            var row = new Grid { Padding = new Thickness(0, 3, 0, 3) };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(10) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(96) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var dot = new Ellipse
+            {
+                Width = 8,
+                Height = 8,
+                Fill = missing ? Brush("UrgentBrush") : Brush("LongBreakBrush"),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(dot, 0);
+            row.Children.Add(dot);
+
+            var key = new TextBlock
+            {
+                Text = day,
+                FontSize = 12,
+                Foreground = Brush("TextBrush"),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(key, 1);
+            row.Children.Add(key);
+
+            var state = new TextBlock
+            {
+                Text = missing ? "not logged in Whistler" : "covered",
+                FontSize = 11,
+                Foreground = missing ? Brush("UrgentBrush") : Brush("TextMutedBrush"),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(state, 2);
+            row.Children.Add(state);
+
+            var amount = new TextBlock
+            {
+                Text = logged is null ? string.Empty : Fmt.WhistlerMinutes(logged.Minutes),
+                FontSize = 12,
+                Foreground = Brush("TextBrightBrush"),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(amount, 3);
+            row.Children.Add(amount);
+
+            MonthDays.Children.Add(row);
+        }
+
+        MonthStatusText.Text = status.IncompleteDays.Count switch
+        {
+            0 when status.EventDays.Count > 0 => "All counted event days are complete.",
+            0 => "No counted Calendar event days.",
+            1 => "1 Calendar day missing in Whistler.",
+            var count => $"{count} Calendar days missing in Whistler."
+        };
+        MonthStatusText.Foreground = status.IncompleteDays.Count == 0
+            ? Brush("LongBreakBrush") : Brush("UrgentBrush");
+    }
+
     // ---- Updates ----------------------------------------------------------
 
     private void OnUpdatesChanged() => DispatcherQueue.TryEnqueue(RefreshUpdateBanner);
