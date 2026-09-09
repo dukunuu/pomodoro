@@ -1,0 +1,86 @@
+<!--
+  The "Low Signal" palette from ~/.config/ghostty/themes, so the app sits in
+  the same visual register as the terminal. Ghostty runs window-theme = dark,
+  so this app commits to dark and paints every surface explicitly.
+-->
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Terminal roles, named as the theme file names them. -->
+    <Color x:Key="LsBackground">#FF171C22</Color>
+    <Color x:Key="LsForeground">#FFD9D6CF</Color>
+    <Color x:Key="LsBrightForeground">#FFEEE9DF</Color>
+    <Color x:Key="LsSelection">#FF35464D</Color>
+    <Color x:Key="LsBlack">#FF20262E</Color>
+    <Color x:Key="LsRed">#FFC0807E</Color>
+    <Color x:Key="LsGreen">#FF91A58B</Color>
+    <Color x:Key="LsYellow">#FFB88F76</Color>
+    <Color x:Key="LsBlue">#FF849AAF</Color>
+    <Color x:Key="LsMagenta">#FFA092B4</Color>
+    <Color x:Key="LsCyan">#FF7FA6A2</Color>
+    <Color x:Key="LsMuted">#FF73808C</Color>
+    <Color x:Key="LsBrightRed">#FFD39893</Color>
+    <Color x:Key="LsBrightYellow">#FFCBA68A</Color>
+
+    <!-- Surfaces derived from the palette rather than system materials. -->
+    <Color x:Key="LsSurface">#FF1C222A</Color>
+    <Color x:Key="LsRaised">#FF20262E</Color>
+    <Color x:Key="LsBorder">#FF2B333D</Color>
+
+    <SolidColorBrush x:Key="BackgroundBrush" Color="{StaticResource LsBackground}" />
+    <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource LsSurface}" />
+    <SolidColorBrush x:Key="RaisedBrush" Color="{StaticResource LsRaised}" />
+    <SolidColorBrush x:Key="BorderBrush2" Color="{StaticResource LsBorder}" />
+    <SolidColorBrush x:Key="TextBrush" Color="{StaticResource LsForeground}" />
+    <SolidColorBrush x:Key="TextBrightBrush" Color="{StaticResource LsBrightForeground}" />
+    <SolidColorBrush x:Key="TextMutedBrush" Color="{StaticResource LsMuted}" />
+    <SolidColorBrush x:Key="FocusBrush" Color="{StaticResource LsYellow}" />
+    <SolidColorBrush x:Key="FocusBrightBrush" Color="{StaticResource LsBrightYellow}" />
+    <SolidColorBrush x:Key="ShortBreakBrush" Color="{StaticResource LsBlue}" />
+    <SolidColorBrush x:Key="LongBreakBrush" Color="{StaticResource LsGreen}" />
+    <SolidColorBrush x:Key="UrgentBrush" Color="{StaticResource LsBrightRed}" />
+    <SolidColorBrush x:Key="SelectionBrush" Color="{StaticResource LsSelection}" />
+
+    <!-- Card: flat, bordered, low contrast — the terminal register. -->
+    <Style x:Key="CardStyle" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush2}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="14" />
+    </Style>
+
+    <Style x:Key="CardTitleStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+        <Setter Property="FontSize" Value="10" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="CharacterSpacing" Value="90" />
+    </Style>
+
+    <Style x:Key="StatValueStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}" />
+        <Setter Property="FontSize" Value="19" />
+        <Setter Property="FontWeight" Value="Medium" />
+    </Style>
+
+    <Style x:Key="StatLabelStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+        <Setter Property="FontSize" Value="9" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="CharacterSpacing" Value="80" />
+    </Style>
+
+    <Style x:Key="StatDetailStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+        <Setter Property="FontSize" Value="10" />
+        <Setter Property="Opacity" Value="0.75" />
+    </Style>
+
+    <Style x:Key="ClockStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="Cascadia Mono, Consolas, Courier New" />
+        <Setter Property="FontSize" Value="38" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}" />
+    </Style>
+</ResourceDictionary>

@@ -95,3 +95,21 @@ jobs:
         working-directory: windows
         shell: pwsh
         run: ./test-windows.ps1
+
+      # WinUI needs an explicit platform, so the app builds outside the
+      # Any CPU solution. This is the only compiler available for it.
+      - name: Build WinUI app
+        working-directory: windows
+        run: >
+          dotnet build src/Pomodoro.App/Pomodoro.App.csproj
+          --configuration Release -p:Platform=x64 -p:RuntimeIdentifier=win-x64 --nologo
+
+      - name: Report resolved package versions
+        if: always()
+        working-directory: windows
+        shell: bash
+        run: |
+          # The csproj floats patch versions; record what actually resolved so
+          # they can be pinned deliberately.
+          grep -hoE '"(Microsoft\.WindowsAppSDK|Microsoft\.Windows\.SDK\.BuildTools)/[0-9][^"]*"' \
+            src/Pomodoro.App/obj/project.assets.json 2>/dev/null | sort -u || true

@@ -1,0 +1,124 @@
+<Window
+    x:Class="Pomodoro.App.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid Background="{StaticResource BackgroundBrush}" RowSpacing="0">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Pinned timer: the app is the timer, every panel below is a report
+             about it, so it never scrolls away. -->
+        <Border Grid.Row="0" Background="{StaticResource SurfaceBrush}"
+                BorderBrush="{StaticResource BorderBrush2}" BorderThickness="0,0,0,1"
+                Padding="18,14">
+            <Grid ColumnSpacing="18">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Spacing="4">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Ellipse x:Name="PhaseDot" Width="8" Height="8"
+                                 Fill="{StaticResource FocusBrush}"
+                                 VerticalAlignment="Center" />
+                        <TextBlock x:Name="PhaseLabel" Text="Focus" FontSize="14"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextBrightBrush}" />
+                        <TextBlock x:Name="StatusLabel" Text="Ready" FontSize="12"
+                                   VerticalAlignment="Center"
+                                   Foreground="{StaticResource TextMutedBrush}" />
+                    </StackPanel>
+                    <TextBlock x:Name="Clock" Text="25:00" Style="{StaticResource ClockStyle}" />
+                    <StackPanel x:Name="CycleDots" Orientation="Horizontal" Spacing="4"
+                                Margin="0,2,0,0" />
+                </StackPanel>
+
+                <ProgressBar Grid.Column="1" x:Name="PhaseProgress"
+                             VerticalAlignment="Center" Height="4" Minimum="0" Maximum="1"
+                             Background="{StaticResource RaisedBrush}"
+                             Foreground="{StaticResource FocusBrush}" />
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6"
+                            VerticalAlignment="Center">
+                    <Button x:Name="ToggleButton" Content="Start" Click="OnToggle"
+                            MinWidth="82" />
+                    <Button Content="Skip" Click="OnSkip" />
+                    <Button Content="Reset" Click="OnReset" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="1" Padding="16">
+            <StackPanel Spacing="14">
+                <Border Style="{StaticResource CardStyle}">
+                    <Grid ColumnSpacing="14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Spacing="3">
+                            <TextBlock Text="FOCUS" Style="{StaticResource StatLabelStyle}" />
+                            <TextBlock x:Name="FocusValue" Text="0m"
+                                       Style="{StaticResource StatValueStyle}"
+                                       Foreground="{StaticResource FocusBrightBrush}" />
+                            <TextBlock Text="active time" Style="{StaticResource StatDetailStyle}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="3">
+                            <TextBlock Text="BREAKS" Style="{StaticResource StatLabelStyle}" />
+                            <TextBlock x:Name="BreakValue" Text="0m"
+                                       Style="{StaticResource StatValueStyle}" />
+                            <TextBlock x:Name="BreakDetail" Text="0 taken"
+                                       Style="{StaticResource StatDetailStyle}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Spacing="3">
+                            <TextBlock Text="SESSIONS" Style="{StaticResource StatLabelStyle}" />
+                            <TextBlock x:Name="SessionsValue" Text="0"
+                                       Style="{StaticResource StatValueStyle}"
+                                       Foreground="{StaticResource FocusBrightBrush}" />
+                            <TextBlock Text="completed" Style="{StaticResource StatDetailStyle}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="3" Spacing="3">
+                            <TextBlock Text="PHASES" Style="{StaticResource StatLabelStyle}" />
+                            <TextBlock x:Name="PhasesValue" Text="0"
+                                       Style="{StaticResource StatValueStyle}" />
+                            <TextBlock Text="recorded" Style="{StaticResource StatDetailStyle}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Border Style="{StaticResource CardStyle}">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="WHAT ARE YOU FOCUSING ON?"
+                                   Style="{StaticResource CardTitleStyle}" />
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0" x:Name="NoteBox"
+                                     PlaceholderText="Add a note for this session" />
+                            <Button Grid.Column="1" Content="Save" Click="OnSaveNote" />
+                        </Grid>
+                        <TextBlock Text="Saved with the session when this focus phase ends."
+                                   Style="{StaticResource StatDetailStyle}" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource CardStyle}">
+                    <StackPanel Spacing="10">
+                        <TextBlock x:Name="DayLabel" Text="Today"
+                                   Style="{StaticResource CardTitleStyle}" />
+                        <ItemsControl x:Name="PhaseList" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Window>
