@@ -12,6 +12,11 @@
          than an MSIX. WindowsAppSDKSelfContained means no runtime install. -->
     <WindowsPackageType>None</WindowsPackageType>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <!-- Required even for an unpackaged app: this is what brings in the
+         resource-index targets. Without it no resources.pri is produced, and
+         a WinUI app cannot resolve its own compiled XAML at runtime — it
+         throws during initialization and exits with no window. -->
+    <EnableMsixTooling>true</EnableMsixTooling>
     <ApplicationIcon>Assets\pomodoro.ico</ApplicationIcon>
     <AssemblyName>Pomodoro</AssemblyName>
     <!-- WindowsAppSDK ships ~100 localized .mui sets; shipping only English
