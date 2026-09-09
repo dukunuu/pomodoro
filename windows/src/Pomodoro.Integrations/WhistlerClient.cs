@@ -49,6 +49,10 @@ public sealed class WhistlerClient(string baseUrl, string token)
             : new WhistlerClient(baseUrl, signed);
     }
 
+    /// <summary>A plain GET, for callers that read their own shapes.</summary>
+    public Task<JsonNode?> GetAsync(string path, CancellationToken cancellation = default) =>
+        RequestAsync(path, cancellation: cancellation);
+
     private Task<JsonNode?> RequestAsync(
         string path, HttpMethod? method = null, JsonNode? payload = null,
         CancellationToken cancellation = default) =>
