@@ -1,5 +1,6 @@
 using Microsoft.UI.Dispatching;
 using Pomodoro.Core;
+using WinRT.Interop;
 
 namespace Pomodoro.App;
 
@@ -18,6 +19,9 @@ public sealed class AppState
     private DispatcherQueueTimer? _tick;
     private DispatcherQueueTimer? _minute;
     private MainWindow? _dashboard;
+    private FloatingTimerWindow? _floating;
+    private TrayIcon? _tray;
+    private string _lastTooltip = string.Empty;
 
     public AppState()
     {
@@ -27,8 +31,13 @@ public sealed class AppState
         Integrations = new IntegrationStatus();
         Updates = new UpdateChecker();
 
-        Preferences.Changed += () => Service.SettingsChanged();
+        Preferences.Changed += () =>
+        {
+            Service.SettingsChanged();
+            ApplyFloatingPreference();
+        };
         Service.PhaseRang += OnPhaseRang;
+        Service.Changed += OnServiceChanged;
     }
 
     public void Start()
@@ -46,10 +55,80 @@ public sealed class AppState
         _minute.Tick += (_, _) => Service.MinuteTick();
         _minute.Start();
 
+        CreateTray();
+        ApplyFloatingPreference();
         ShowDashboard();
 
         // Quiet, once a day: it only reports, never installs.
         _ = Updates.CheckOnLaunchAsync();
+    }
+
+    private void CreateTray()
+    {
+        _tray = new TrayIcon();
+        // Tray callbacks arrive on the message-only window's thread; hop back
+        // to the UI thread before touching the service or any window.
+        void OnUi(Action action) => _dispatcher.TryEnqueue(() => action());
+        _tray.OpenRequested += () => OnUi(ShowDashboard);
+        _tray.ToggleRequested += () => OnUi(Service.Toggle);
+        _tray.SkipRequested += () => OnUi(Service.Skip);
+        _tray.ResetRequested += () => OnUi(Service.Reset);
+        _tray.QuitRequested += () => OnUi(Shutdown);
+        UpdateTray();
+    }
+
+    private void OnServiceChanged()
+    {
+        UpdateTray();
+        UpdateTaskbarProgress();
+    }
+
+    private void UpdateTray()
+    {
+        if (_tray is null) return;
+        var tooltip = Preferences.TrayShowsCountdown && Service.PhaseStartedAt > 0
+            ? $"Pomodoro — {Service.PhaseLabel} {Service.RemainingText}"
+            : "Pomodoro";
+        // Shell_NotifyIcon redraws the tooltip on every call; only send changes.
+        if (tooltip == _lastTooltip) return;
+        _lastTooltip = tooltip;
+        _tray.SetTooltip(tooltip);
+    }
+
+    private void UpdateTaskbarProgress()
+    {
+        if (_dashboard is null) return;
+        TaskbarProgress.Update(
+            WindowNative.GetWindowHandle(_dashboard),
+            Service.PhaseProgress,
+            Service.PhaseStartedAt > 0,
+            Service.IsOvertime);
+    }
+
+    private void ApplyFloatingPreference()
+    {
+        if (Preferences.ShowFloatingTimer)
+        {
+            if (_floating is null)
+            {
+                _floating = new FloatingTimerWindow();
+                _floating.Closed += (_, _) => _floating = null;
+            }
+            _floating.Activate();
+        }
+        else
+        {
+            _floating?.Close();
+            _floating = null;
+        }
+    }
+
+    private void Shutdown()
+    {
+        _tray?.Dispose();
+        _tray = null;
+        Notifier.Unregister();
+        Microsoft.UI.Xaml.Application.Current.Exit();
     }
 
     public void ShowDashboard()

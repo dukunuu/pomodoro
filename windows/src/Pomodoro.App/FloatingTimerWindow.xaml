@@ -1,0 +1,44 @@
+<Window
+    x:Class="Pomodoro.App.FloatingTimerWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Border Background="{StaticResource SurfaceBrush}"
+            BorderBrush="{StaticResource BorderBrush2}"
+            BorderThickness="1" CornerRadius="12" Padding="14,12">
+        <StackPanel Spacing="8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Ellipse Grid.Column="0" x:Name="PhaseDot" Width="7" Height="7"
+                         Fill="{StaticResource FocusBrush}" VerticalAlignment="Center"
+                         Margin="0,0,6,0" />
+                <TextBlock Grid.Column="1" x:Name="PhaseLabel" Text="FOCUS" FontSize="10"
+                           FontWeight="SemiBold" CharacterSpacing="80"
+                           VerticalAlignment="Center"
+                           Foreground="{StaticResource TextMutedBrush}" />
+                <TextBlock Grid.Column="2" x:Name="StatusLabel" Text="Ready" FontSize="10"
+                           VerticalAlignment="Center"
+                           Foreground="{StaticResource TextMutedBrush}" />
+            </Grid>
+
+            <TextBlock x:Name="Clock" Text="25:00" FontSize="30" FontWeight="Medium"
+                       FontFamily="Cascadia Mono, Consolas, Courier New"
+                       Foreground="{StaticResource TextBrightBrush}" />
+
+            <ProgressBar x:Name="PhaseProgress" Height="3" Minimum="0" Maximum="1"
+                         Background="{StaticResource RaisedBrush}"
+                         Foreground="{StaticResource FocusBrush}" />
+
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button x:Name="ToggleButton" Content="Start" Click="OnToggle"
+                        FontSize="11" Padding="10,3" />
+                <Button Content="Skip" Click="OnSkip" FontSize="11" Padding="10,3" />
+                <Button Content="Dashboard" Click="OnOpenDashboard" FontSize="11" Padding="10,3" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>
