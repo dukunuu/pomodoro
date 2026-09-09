@@ -1,18 +1,11 @@
-# Build output
-/build/
-/cmake-build-*/
-/out/
-
-# Qt and IDE files
-.vscode/
-.idea/
-*.user
-*.user.*
+# macOS build output
+/macos/.build/
+/macos/dist/
+*.icns
 
 # Runtime data and local credentials
 *.log
 *.tmp
-/state/
 pomodoro-*.env
 pomodoro-google-token.json
 google-calendar-client.json
@@ -20,13 +13,15 @@ scripts/google-calendar-client.json
 pomodoro-integrations.json
 pomodoro-whistler-imports.json
 
-# Python artifacts (for the future importer bridge)
+# Python artifacts
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .venv/
 
-# Windows packaging output
-*.exe
-*.msix
-*.msi
+# IDE
+.vscode/
+.idea/
+*.user
+*.user.*
+.DS_Store

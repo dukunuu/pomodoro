@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: macOS build and differential test
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          swift --version
+          node --version
+          python3 --version
+
+      # The differential test executes the frozen QML service under node and
+      # the Swift port over identical fixtures, then diffs every derived
+      # figure. It is the guarantee that the history format and the numbers
+      # derived from it have not drifted.
+      - name: Differential test
+        working-directory: macos
+        run: ./test-macos.sh
+
+      # No OAuth client is injected here: CI must prove the app builds and
+      # behaves without baked credentials, which is the source-build path.
+      - name: Build app bundle
+        working-directory: macos
+        run: ./build-macos.sh
+
+      - name: Verify bundle
+        working-directory: macos
+        run: |
+          APP=dist/Pomodoro.app
+          test -x "$APP/Contents/MacOS/Pomodoro"
+          test -f "$APP/Contents/Resources/Pomodoro.icns"
+          test -f "$APP/Contents/Resources/scripts/pomodoro_whistler_import.py"
+          # A source build must not contain credentials.
+          if [ -f "$APP/Contents/Resources/scripts/google-calendar-client.json" ]; then
+            echo "unexpected OAuth client in a CI build" >&2
+            exit 1
+          fi
+          ./dist/Pomodoro.app/Contents/MacOS/Pomodoro --status
+
+      - name: Lint Python bridges
+        run: python3 -m compileall -q scripts
+
+  windows:
+    name: Windows build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The WinUI 3 app is being written; until its solution exists this job
+      # is a deliberate no-op so the pipeline is in place and green.
+      - name: Detect project
+        id: detect
+        shell: bash
+        run: |
+          if [ -f windows/Pomodoro.sln ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::windows/Pomodoro.sln not present yet; skipping"
+          fi
+
+      - uses: actions/setup-dotnet@v4
+        if: steps.detect.outputs.exists == 'true'
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore, build and test
+        if: steps.detect.outputs.exists == 'true'
+        working-directory: windows
+        run: |
+          dotnet restore
+          dotnet build --configuration Release --no-restore
+          dotnet test --configuration Release --no-build

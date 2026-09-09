@@ -1,0 +1,140 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g. 1.2.3); no release is published'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  version:
+    name: Resolve version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      publish: ${{ steps.resolve.outputs.publish }}
+    steps:
+      - id: resolve
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  macos:
+    name: macOS
+    needs: version
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Differential test
+        working-directory: macos
+        run: ./test-macos.sh
+
+      # The release carries the project's own Google Desktop OAuth client, so
+      # users only approve access instead of creating a Cloud project. See
+      # docs/releasing.md — a Desktop client's secret is not confidential and
+      # is extractable from any distributed binary; PKCE is what protects the
+      # flow, and the auth bridge already uses S256.
+      - name: Build signed bundle
+        working-directory: macos
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+          BUILD_NUMBER: ${{ github.run_number }}
+          GOOGLE_OAUTH_CLIENT_JSON: ${{ secrets.GOOGLE_OAUTH_CLIENT_JSON }}
+        run: |
+          if [ -z "${GOOGLE_OAUTH_CLIENT_JSON:-}" ]; then
+            echo "::warning::GOOGLE_OAUTH_CLIENT_JSON is not set; \
+              the release will require each user to install their own client"
+          fi
+          ./build-macos.sh
+
+      - name: Package
+        working-directory: macos
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: ./package-macos.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: |
+            macos/dist/*.zip
+            macos/dist/*.sha256
+          if-no-files-found: error
+
+  windows:
+    name: Windows
+    needs: version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect project
+        id: detect
+        shell: bash
+        run: |
+          if [ -f windows/Pomodoro.sln ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::windows/Pomodoro.sln not present yet; no Windows artifact"
+          fi
+
+      - uses: actions/setup-dotnet@v4
+        if: steps.detect.outputs.exists == 'true'
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish self-contained
+        if: steps.detect.outputs.exists == 'true'
+        working-directory: windows
+        shell: bash
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+          GOOGLE_OAUTH_CLIENT_JSON: ${{ secrets.GOOGLE_OAUTH_CLIENT_JSON }}
+        run: ./build-windows.sh
+
+      - uses: actions/upload-artifact@v4
+        if: steps.detect.outputs.exists == 'true'
+        with:
+          name: windows
+          path: |
+            windows/dist/*.zip
+            windows/dist/*.sha256
+          if-no-files-found: error
+
+  publish:
+    name: Publish release
+    needs: [version, macos, windows]
+    if: needs.version.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          ls -la artifacts
+          gh release create "v$VERSION" \
+            --title "v$VERSION" \
+            --generate-notes \
+            --notes "Builds carry the project's Google OAuth client, so setup is: authorize Google, then configure Whistler. Downloads are unsigned — macOS: right-click → Open; Windows: More info → Run anyway." \
+            artifacts/*
