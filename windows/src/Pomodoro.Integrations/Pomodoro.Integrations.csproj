@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <!-- UI-free, like Pomodoro.Core, so the importer can be exercised
+         headlessly and diffed against the Python bridge. -->
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Pomodoro.Core\Pomodoro.Core.csproj" />
+  </ItemGroup>
+</Project>

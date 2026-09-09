@@ -59,6 +59,27 @@ try {
         python (Join-Path $repo 'tools/compare-reports.py') $reference $actual
         if ($LASTEXITCODE -ne 0) { $status = 1 }
     }
+
+    # The importer's deterministic half — how much time is logged, against
+    # which project, under which consolidated task line — diffed against the
+    # Python bridge it was ported from. The network half cannot be tested
+    # without live credentials.
+    $wlFixture = Join-Path $work 'worklog-fixture.json'
+    $wlReference = Join-Path $work 'worklog-reference.json'
+    $wlActual = Join-Path $work 'worklog-windows.json'
+    $wlDump = Join-Path $root 'src/Pomodoro.WorklogDump/bin/Release/net8.0/Pomodoro.WorklogDump.dll'
+
+    python (Join-Path $repo 'tools/worklog-fixture.py') $wlFixture | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw 'worklog fixture failed' }
+    python (Join-Path $repo 'tools/worklog-reference.py') $wlFixture $wlReference | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw 'worklog reference failed' }
+    dotnet $wlDump $wlFixture $wlActual | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw 'worklog dump failed' }
+
+    Write-Host -NoNewline ("{0,-10} " -f 'worklog')
+    python (Join-Path $repo 'tools/compare-reports.py') $wlReference $wlActual
+    if ($LASTEXITCODE -ne 0) { $status = 1 }
+
     exit $status
 }
 finally {

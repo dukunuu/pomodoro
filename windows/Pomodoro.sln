@@ -6,6 +6,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Pomodoro.Core", "src\Pomodo
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Pomodoro.ReportDump", "src\Pomodoro.ReportDump\Pomodoro.ReportDump.csproj", "{0BC1172A-B5F0-4818-9AC1-4FD9C992CAD1}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Pomodoro.Integrations", "src\\Pomodoro.Integrations\\Pomodoro.Integrations.csproj", "{E030F7FA-6B90-4366-83A9-477F3E3A2CBD}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Pomodoro.WorklogDump", "src\\Pomodoro.WorklogDump\\Pomodoro.WorklogDump.csproj", "{1B365EDE-EDE7-48F4-AB73-26D7B5E04CFF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,6 +24,14 @@ Global
 		{0BC1172A-B5F0-4818-9AC1-4FD9C992CAD1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0BC1172A-B5F0-4818-9AC1-4FD9C992CAD1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0BC1172A-B5F0-4818-9AC1-4FD9C992CAD1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E030F7FA-6B90-4366-83A9-477F3E3A2CBD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E030F7FA-6B90-4366-83A9-477F3E3A2CBD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E030F7FA-6B90-4366-83A9-477F3E3A2CBD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E030F7FA-6B90-4366-83A9-477F3E3A2CBD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1B365EDE-EDE7-48F4-AB73-26D7B5E04CFF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1B365EDE-EDE7-48F4-AB73-26D7B5E04CFF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1B365EDE-EDE7-48F4-AB73-26D7B5E04CFF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1B365EDE-EDE7-48F4-AB73-26D7B5E04CFF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

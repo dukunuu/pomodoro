@@ -41,6 +41,12 @@ if differences:
     for line in differences[:40]:
         print("  " + line)
     sys.exit(1)
-print(f"identical — {swift['sessionCount']} sessions, "
-      f"{len(swift['days'])} days, {len(swift['weeks'])} weeks, "
-      f"{len(swift['months'])} months compared")
+if "sessionCount" in swift:
+    print(f"identical — {swift['sessionCount']} sessions, "
+          f"{len(swift['days'])} days, {len(swift['weeks'])} weeks, "
+          f"{len(swift['months'])} months compared")
+else:
+    fields = sum(1 for _ in json.dumps(swift))
+    print(f"identical — {len(swift)} top-level fields, "
+          f"{len(swift.get('entries', []))} entries, "
+          f"{len(swift.get('projects', []))} projects compared")
