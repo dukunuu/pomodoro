@@ -5,7 +5,7 @@ namespace Pomodoro.Integrations;
 /// <summary>Whistler's session-cookie API. Ported from the Python bridge.</summary>
 public sealed class WhistlerClient(string baseUrl, string token)
 {
-    public static string ResolveBaseUrl(IDictionary<string, string> config)
+    public static string ResolveBaseUrl(IReadOnlyDictionary<string, string> config)
     {
         var url = config.GetValueOrDefault("WHISTLER_API_URL", "https://whistler.nashatech.com")
             .TrimEnd('/');
@@ -23,7 +23,7 @@ public sealed class WhistlerClient(string baseUrl, string token)
     /// Setup stores only the token, so the password is normally absent.
     /// </summary>
     public static async Task<WhistlerClient> ConnectAsync(
-        IDictionary<string, string> config, CancellationToken cancellation = default)
+        IReadOnlyDictionary<string, string> config, CancellationToken cancellation = default)
     {
         var baseUrl = ResolveBaseUrl(config);
         var token = config.GetValueOrDefault("WHISTLER_SESSION_TOKEN", string.Empty);

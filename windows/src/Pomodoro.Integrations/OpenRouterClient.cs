@@ -32,7 +32,7 @@ public static class OpenRouterClient
         "Group related events into a few taskGroup values.";
 
     public static async Task<List<Assignment>> PlanAsync(
-        IDictionary<string, string> config,
+        IReadOnlyDictionary<string, string> config,
         int dateNumber,
         IReadOnlyList<CalendarEvent> events,
         IReadOnlyList<WhistlerProject> projects,
@@ -88,7 +88,7 @@ public static class OpenRouterClient
     }
 
     private static async Task<JsonObject?> RequestAsync(
-        string apiKey, string model, IDictionary<string, string> config,
+        string apiKey, string model, IReadOnlyDictionary<string, string> config,
         string userContent, CancellationToken cancellation)
     {
         var payload = new JsonObject

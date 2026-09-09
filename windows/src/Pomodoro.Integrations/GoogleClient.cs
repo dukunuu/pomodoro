@@ -183,7 +183,7 @@ public static class GoogleClient
     /// no usable duration for a worklog and are counted as skipped.
     /// </summary>
     public static async Task<(List<CalendarEvent> Events, int Skipped)> ReadEventsAsync(
-        IDictionary<string, string> config,
+        IReadOnlyDictionary<string, string> config,
         DateTime start,
         DateTime end,
         CancellationToken cancellation = default)
