@@ -1,4 +1,4 @@
-"""Shared per-user paths for the Windows Pomodoro integration bridges."""
+"""Shared per-user paths for the Pomodoro integration bridges."""
 
 from __future__ import annotations
 
@@ -11,15 +11,9 @@ def data_directory() -> Path:
     if override:
         return Path(override).expanduser()
 
-    if os.name == "nt":
-        local_app_data = os.environ.get("LOCALAPPDATA", "")
-        if local_app_data:
-            return Path(local_app_data) / "Dukunuu" / "Pomodoro"
-        return Path.home() / "AppData" / "Local" / "Dukunuu" / "Pomodoro"
-
-    # Preserve the Linux plugin's paths when a copied bridge is run manually.
-    state_home = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state"))
-    return state_home / "omarchy"
+    # The app always exports POMODORO_DATA_DIR. This default matches what it
+    # would export, so running a bridge by hand reads the same files.
+    return Path.home() / "Library" / "Application Support" / "Dukunuu" / "Pomodoro"
 
 
 def data_path(name: str) -> Path:
