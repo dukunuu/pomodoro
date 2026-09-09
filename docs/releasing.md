@@ -18,6 +18,11 @@ generated notes.
 | --- | --- | --- |
 | macOS | `Pomodoro-<version>-macos-universal.dmg` | Drag-to-install image with an `/Applications` symlink. Universal: arm64 + x86_64. |
 | Windows | `Pomodoro-<version>-windows-x64.exe` | Inno Setup installer around a self-contained publish. |
+| Windows | `Pomodoro-<version>-windows-arm64.exe` | Native ARM64 build, for Windows on ARM. |
+
+Windows on ARM can run the x64 build under emulation, so the x64 installer
+stays `x64compatible` and remains usable there; the ARM64 installer refuses to
+install on x64. Both architectures publish a portable zip as well.
 
 Each is accompanied by a `.sha256`. The release job refuses to publish a tag
 whose artifacts contain no DMG, so a silently failed build cannot produce an

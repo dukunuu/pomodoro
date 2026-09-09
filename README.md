@@ -112,9 +112,9 @@ Tag and push to publish:
 git tag v1.0.0 && git push origin v1.0.0
 ```
 
-Releases publish a macOS `.dmg` (universal — Apple silicon and Intel) and,
-once the WinUI app lands, a Windows `.exe` installer, both with SHA-256
-checksums.
+Releases publish a macOS `.dmg` (universal — Apple silicon and Intel) and
+Windows `.exe` installers for both x64 and ARM64, each with a SHA-256
+checksum and a portable zip alongside.
 
 Release builds carry the project's own Google OAuth client, so a user only has
 to authorize Google and configure Whistler — they do not create a Cloud
