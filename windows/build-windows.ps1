@@ -81,7 +81,11 @@ if ($iscc) {
     Write-Warning 'Inno Setup (ISCC.exe) not found; only the portable zip was produced'
 }
 
-Get-ChildItem $dist -Include '*.exe', '*.zip' -File | ForEach-Object {
+# -Include without -Recurse or a wildcard path matches nothing, which
+# silently produced no checksums at all.
+Get-ChildItem -Path $dist -File |
+    Where-Object { $_.Extension -in '.exe', '.zip' } |
+    ForEach-Object {
     $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
     "$hash  $($_.Name)" | Set-Content "$($_.FullName).sha256"
     Write-Host "    $($_.Name)  $([math]::Round($_.Length / 1MB, 1)) MB"

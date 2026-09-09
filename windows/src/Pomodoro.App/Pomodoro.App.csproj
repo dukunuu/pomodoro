@@ -14,6 +14,9 @@
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <ApplicationIcon>Assets\pomodoro.ico</ApplicationIcon>
     <AssemblyName>Pomodoro</AssemblyName>
+    <!-- WindowsAppSDK ships ~100 localized .mui sets; shipping only English
+         cuts roughly 20MB from the artifact. -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <!-- XAML generated code trips analyzers we cannot edit. -->
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <WarningsAsErrors />
