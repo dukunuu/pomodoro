@@ -7,6 +7,7 @@ struct SettingsPanel: View {
     var body: some View {
         TimerSettingsCard()
         BehaviourCard()
+        UpdatesCard()
         DataCard()
     }
 }
@@ -70,6 +71,62 @@ struct BehaviourCard: View {
                 Text("Plays alongside the Notification Center alert.")
             }
         }
+    }
+}
+
+struct UpdatesCard: View {
+    @EnvironmentObject private var updates: UpdateChecker
+    @Environment(\.openURL) private var openURL
+    @State private var enabled = true
+    @State private var checkedNow = false
+
+    var body: some View {
+        Card("Updates") {
+            HStack {
+                Text("Current version")
+                    .font(.callout)
+                    .foregroundStyle(Theme.text)
+                Spacer()
+                Text(updates.currentVersion)
+                    .font(.callout.monospaced())
+                    .foregroundStyle(Theme.textMuted)
+            }
+
+            Toggle(isOn: $enabled) {
+                Text("Check GitHub for new releases on launch")
+                Text("Once a day at most. Nothing is downloaded or installed automatically.")
+            }
+            .onChange(of: enabled) { _, value in updates.enabled = value }
+
+            HStack(spacing: 8) {
+                Button(updates.checking ? "Checking…" : "Check now") {
+                    checkedNow = false
+                    Task {
+                        await updates.check(force: true)
+                        checkedNow = true
+                    }
+                }
+                .disabled(updates.checking)
+
+                if let update = updates.available {
+                    Button("Download \(update.version)") {
+                        openURL(update.downloadURL ?? update.pageURL)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Theme.focus)
+                } else if let error = updates.lastError {
+                    Label(error, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(Theme.urgent)
+                } else if checkedNow {
+                    Label("You are on the latest release.", systemImage: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(Theme.longBreak)
+                }
+                Spacer()
+            }
+        }
+        .onAppear { enabled = updates.enabled }
     }
 }
 

@@ -15,6 +15,7 @@ struct PomodoroApp: App {
                 .environmentObject(state.service)
                 .environmentObject(state.whistler)
                 .environmentObject(state.integrations)
+                .environmentObject(state.updates)
                 .environmentObject(state.preferences)
         } label: {
             MenuBarLabel(service: state.service, preferences: state.preferences)

@@ -12,6 +12,7 @@ final class AppState: ObservableObject {
     let service = PomodoroService()
     let whistler = WhistlerService()
     let integrations = IntegrationStatus()
+    let updates = UpdateChecker()
     let preferences = Preferences.shared
 
     private var dashboardWindow: NSWindow?
@@ -77,6 +78,7 @@ final class AppState: ObservableObject {
     func start() {
         Theme.applyAppearance()
         Notifier.shared.configure()
+        updates.checkOnLaunch()
         setFloatingPanel(visible: preferences.showFloatingTimer)
         refreshChrome()
         // A menu bar app should not force a window open every launch, but it
@@ -96,6 +98,7 @@ final class AppState: ObservableObject {
                     .environmentObject(service)
                     .environmentObject(whistler)
                     .environmentObject(integrations)
+                    .environmentObject(updates)
                     .environmentObject(preferences)
             )
             let window = NSWindow(contentViewController: hosting)

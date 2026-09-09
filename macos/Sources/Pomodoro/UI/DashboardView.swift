@@ -33,6 +33,7 @@ struct DashboardView: View {
     @EnvironmentObject private var service: PomodoroService
     @EnvironmentObject private var whistler: WhistlerService
     @EnvironmentObject private var integrations: IntegrationStatus
+    @EnvironmentObject private var updates: UpdateChecker
 
     @State private var section: DashboardSection? = .today
     @State private var dayOffset = 0
@@ -62,6 +63,7 @@ struct DashboardView: View {
                 Divider()
                 ScrollView {
                     VStack(spacing: 14) {
+                        if let update = updates.available { UpdateBanner(update: update) }
                         content
                     }
                     .padding(16)
@@ -198,5 +200,43 @@ struct PeriodStepper: View {
             .buttonStyle(.bordered)
             .controlSize(.small)
         }
+    }
+}
+
+
+/// Shown once a newer release exists. Downloading stays a click: the app
+/// writes files the other front ends read, so it never swaps itself out from
+/// under a running timer.
+struct UpdateBanner: View {
+    var update: AvailableUpdate
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "arrow.down.circle.fill")
+                .foregroundStyle(Theme.focus)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Version \(update.version) is available")
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(Theme.textBright)
+                Text(update.name)
+                    .font(.caption)
+                    .foregroundStyle(Theme.textMuted)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            Button("Download") { openURL(update.downloadURL ?? update.pageURL) }
+                .buttonStyle(.borderedProminent)
+                .tint(Theme.focus)
+            Button("Release notes") { openURL(update.pageURL) }
+                .buttonStyle(.borderless)
+                .font(.caption)
+        }
+        .padding(12)
+        .background(Theme.focus.opacity(0.1), in: RoundedRectangle(cornerRadius: Theme.cardCorner))
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.cardCorner)
+                .strokeBorder(Theme.focus.opacity(0.45), lineWidth: 1)
+        )
     }
 }

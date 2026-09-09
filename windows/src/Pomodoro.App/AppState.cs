@@ -12,6 +12,7 @@ public sealed class AppState
     public Preferences Preferences { get; }
     public PomodoroService Service { get; }
     public IntegrationStatus Integrations { get; }
+    public UpdateChecker Updates { get; }
 
     private readonly DispatcherQueue _dispatcher;
     private DispatcherQueueTimer? _tick;
@@ -24,6 +25,7 @@ public sealed class AppState
         Preferences = Preferences.Load();
         Service = new PomodoroService(Preferences);
         Integrations = new IntegrationStatus();
+        Updates = new UpdateChecker();
 
         Preferences.Changed += () => Service.SettingsChanged();
         Service.PhaseRang += OnPhaseRang;
@@ -45,6 +47,9 @@ public sealed class AppState
         _minute.Start();
 
         ShowDashboard();
+
+        // Quiet, once a day: it only reports, never installs.
+        _ = Updates.CheckOnLaunchAsync();
     }
 
     public void ShowDashboard()

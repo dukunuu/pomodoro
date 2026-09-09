@@ -63,7 +63,30 @@
             </NavigationView.MenuItems>
 
             <ScrollViewer Padding="16">
-                <Grid>
+                <StackPanel Spacing="14">
+                    <Border x:Name="UpdateBanner" Visibility="Collapsed" CornerRadius="10"
+                            Padding="12" BorderThickness="1"
+                            BorderBrush="{StaticResource FocusBrush}"
+                            Background="{StaticResource RaisedBrush}">
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Spacing="1">
+                                <TextBlock x:Name="UpdateTitle" FontSize="13" FontWeight="Medium"
+                                           Foreground="{StaticResource TextBrightBrush}" />
+                                <TextBlock x:Name="UpdateSubtitle" FontSize="11"
+                                           Foreground="{StaticResource TextMutedBrush}" />
+                            </StackPanel>
+                            <Button Grid.Column="1" Content="Download" Click="OnDownloadUpdate"
+                                    Style="{StaticResource AccentButtonStyle}" />
+                            <Button Grid.Column="2" Content="Release notes" Click="OnOpenReleaseNotes" />
+                        </Grid>
+                    </Border>
+
+                    <Grid>
                     <!-- Today -->
                     <StackPanel x:Name="TodayPanel" Spacing="14">
                         <Border Style="{StaticResource CardStyle}">
@@ -251,6 +274,27 @@
                         </Border>
 
                         <Border Style="{StaticResource CardStyle}">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="UPDATES" Style="{StaticResource CardTitleStyle}" />
+                                <TextBlock x:Name="VersionText" FontSize="12"
+                                           Foreground="{StaticResource TextMutedBrush}" />
+                                <ToggleSwitch x:Name="UpdateCheckToggle"
+                                              Header="Check GitHub for new releases on launch"
+                                              Toggled="OnUpdatePreferenceToggled" />
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Button x:Name="CheckUpdatesButton" Content="Check now"
+                                            Click="OnCheckForUpdates" />
+                                    <TextBlock x:Name="UpdateStatus" FontSize="12"
+                                               VerticalAlignment="Center"
+                                               Foreground="{StaticResource TextMutedBrush}" />
+                                </StackPanel>
+                                <TextBlock FontSize="11" TextWrapping="Wrap"
+                                           Foreground="{StaticResource TextMutedBrush}"
+                                           Text="Once a day at most. Nothing is downloaded or installed automatically." />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource CardStyle}">
                             <StackPanel Spacing="8">
                                 <TextBlock Text="DATA" Style="{StaticResource CardTitleStyle}" />
                                 <TextBlock x:Name="DataPathText" FontSize="12" IsTextSelectionEnabled="True"
@@ -259,7 +303,8 @@
                             </StackPanel>
                         </Border>
                     </StackPanel>
-                </Grid>
+                    </Grid>
+                </StackPanel>
             </ScrollViewer>
         </NavigationView>
     </Grid>

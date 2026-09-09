@@ -25,6 +25,7 @@ enum Snapshot {
                     .environmentObject(state.service)
                     .environmentObject(state.whistler)
                     .environmentObject(state.integrations)
+                    .environmentObject(state.updates)
                     .environmentObject(state.preferences)
                     .frame(width: size.width, height: size.height)
                     .background(Theme.background)
