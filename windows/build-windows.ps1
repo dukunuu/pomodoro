@@ -39,6 +39,8 @@ if ($iscc) {
     $iscc = if (Test-Path $candidate) { $candidate } else { $null }
 }
 
+New-Item -ItemType Directory -Force -Path $dist | Out-Null
+
 foreach ($arch in $archs) {
     $arch = $arch.Trim()
     $platform = if ($arch -eq 'arm64') { 'ARM64' } else { 'x64' }
@@ -89,30 +91,6 @@ foreach ($arch in $archs) {
     } else {
         Write-Warning 'Inno Setup (ISCC.exe) not found; only the portable zip was produced'
     }
-}
-
-New-Item -ItemType Directory -Force -Path $dist | Out-Null
-$name = "Pomodoro-$version-windows-x64"
-
-Write-Host '==> Packaging portable zip'
-$zip = Join-Path $dist "$name.zip"
-if (Test-Path $zip) { Remove-Item $zip }
-Compress-Archive -Path (Join-Path $publish '*') -DestinationPath $zip
-
-Write-Host '==> Building installer'
-$iscc = Get-Command 'ISCC.exe' -ErrorAction SilentlyContinue
-if (-not $iscc) {
-    $candidate = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-    if (Test-Path $candidate) { $iscc = $candidate } else { $iscc = $null }
-} else {
-    $iscc = $iscc.Source
-}
-if ($iscc) {
-    & $iscc (Join-Path $root 'Pomodoro.iss') `
-        "/DAppVersion=$version" "/DSourceDir=$publish" "/Qp"
-    if ($LASTEXITCODE -ne 0) { throw 'installer build failed' }
-} else {
-    Write-Warning 'Inno Setup (ISCC.exe) not found; only the portable zip was produced'
 }
 
 # -Include without -Recurse or a wildcard path matches nothing, which
