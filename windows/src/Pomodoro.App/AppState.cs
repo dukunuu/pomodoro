@@ -55,8 +55,8 @@ public sealed class AppState
         _minute.Tick += (_, _) => Service.MinuteTick();
         _minute.Start();
 
-        CreateTray();
-        ApplyFloatingPreference();
+        CrashLog.Guard("tray", CreateTray);
+        CrashLog.Guard("floating window", ApplyFloatingPreference);
         ShowDashboard();
 
         // Quiet, once a day: it only reports, never installs.
@@ -79,9 +79,24 @@ public sealed class AppState
 
     private void OnServiceChanged()
     {
-        UpdateTray();
-        UpdateTaskbarProgress();
+        // These run on every tick; a persistent failure would otherwise fill
+        // the log four times a second.
+        try
+        {
+            UpdateTray();
+            UpdateTaskbarProgress();
+        }
+        catch (Exception error)
+        {
+            if (!_chromeFailed)
+            {
+                _chromeFailed = true;
+                CrashLog.Write("chrome update", error);
+            }
+        }
     }
+
+    private bool _chromeFailed;
 
     private void UpdateTray()
     {

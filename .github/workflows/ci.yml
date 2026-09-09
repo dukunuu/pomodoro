@@ -120,6 +120,37 @@ jobs:
         shell: pwsh
         run: ./build-windows.ps1
 
+      # An unpackaged WinUI app that is missing its runtime or resource index
+      # exits silently with no window, which is indistinguishable from "it
+      # does not launch". Assert the pieces are actually there.
+      - name: Verify the arm64 publish is complete
+        working-directory: windows
+        shell: pwsh
+        run: |
+          $publish = 'src/Pomodoro.App/bin/ARM64/Release/net8.0-windows10.0.19041.0/win-arm64/publish'
+          $required = @(
+            'Pomodoro.exe',
+            'Pomodoro.dll',
+            'resources.pri',
+            'Microsoft.WindowsAppRuntime.Bootstrap.dll',
+            'Microsoft.ui.xaml.dll',
+            'Microsoft.WindowsAppRuntime.dll',
+            'Pomodoro.Core.dll',
+            'Pomodoro.Integrations.dll'
+          )
+          $missing = @()
+          foreach ($file in $required) {
+            if (-not (Test-Path (Join-Path $publish $file))) { $missing += $file }
+          }
+          Write-Host "top-level files: $((Get-ChildItem $publish -File).Count)"
+          Get-ChildItem $publish -File |
+            Where-Object { $_.Name -like '*.exe' -or $_.Name -like 'Microsoft.Windows*' -or $_.Name -eq 'resources.pri' } |
+            ForEach-Object { Write-Host "  $($_.Name)" }
+          if ($missing.Count -gt 0) {
+            throw "missing from the arm64 publish: $($missing -join ', ')"
+          }
+          Write-Host 'arm64 publish looks complete'
+
       # One artifact per architecture rather than one bundle: downloading a
       # single installer should not mean pulling every build.
       - uses: actions/upload-artifact@v4
