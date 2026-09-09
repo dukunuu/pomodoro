@@ -120,13 +120,30 @@ jobs:
         shell: pwsh
         run: ./build-windows.ps1
 
+      # One artifact per architecture rather than one bundle: downloading a
+      # single installer should not mean pulling every build.
       - uses: actions/upload-artifact@v4
         with:
-          name: pomodoro-windows-ci
+          name: pomodoro-windows-arm64
           path: |
-            windows/dist/*.exe
+            windows/dist/*arm64.exe
+            windows/dist/*arm64.exe.sha256
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pomodoro-windows-x64
+          path: |
+            windows/dist/*x64.exe
+            windows/dist/*x64.exe.sha256
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pomodoro-windows-portable
+          path: |
             windows/dist/*.zip
-            windows/dist/*.sha256
+            windows/dist/*.zip.sha256
           if-no-files-found: error
 
       - name: Report resolved package versions
