@@ -73,6 +73,12 @@ public sealed class AppState
         _tray.ToggleRequested += () => OnUi(Service.Toggle);
         _tray.SkipRequested += () => OnUi(Service.Skip);
         _tray.ResetRequested += () => OnUi(Service.Reset);
+        _tray.FloatingVisible = () => Preferences.ShowFloatingTimer;
+        _tray.FloatingToggleRequested += () => OnUi(() =>
+        {
+            Preferences.ShowFloatingTimer = !Preferences.ShowFloatingTimer;
+            Preferences.Save();
+        });
         _tray.QuitRequested += () => OnUi(Shutdown);
         UpdateTray();
     }

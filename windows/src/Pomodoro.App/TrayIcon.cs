@@ -32,7 +32,8 @@ public sealed class TrayIcon : IDisposable
     private const int IdToggle = 2;
     private const int IdSkip = 3;
     private const int IdReset = 4;
-    private const int IdQuit = 5;
+    private const int IdFloating = 5;
+    private const int IdQuit = 6;
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     private struct NotifyIconData
@@ -138,7 +139,11 @@ public sealed class TrayIcon : IDisposable
     public event Action? ToggleRequested;
     public event Action? SkipRequested;
     public event Action? ResetRequested;
+    public event Action? FloatingToggleRequested;
     public event Action? QuitRequested;
+
+    /// <summary>Drives the menu item's wording, set by the app layer.</summary>
+    public Func<bool>? FloatingVisible { get; set; }
 
     public TrayIcon()
     {
@@ -231,6 +236,10 @@ public sealed class TrayIcon : IDisposable
             AppendMenu(menu, MfString, IdSkip, "Skip phase");
             AppendMenu(menu, MfString, IdReset, "Reset phase");
             AppendMenu(menu, MfSeparator, 0, null);
+            var showing = FloatingVisible?.Invoke() ?? false;
+            AppendMenu(menu, MfString, IdFloating,
+                showing ? "Hide floating timer" : "Show floating timer");
+            AppendMenu(menu, MfSeparator, 0, null);
             AppendMenu(menu, MfString, IdQuit, "Quit Pomodoro");
 
             GetCursorPos(out var point);
@@ -254,6 +263,7 @@ public sealed class TrayIcon : IDisposable
             case IdToggle: ToggleRequested?.Invoke(); break;
             case IdSkip: SkipRequested?.Invoke(); break;
             case IdReset: ResetRequested?.Invoke(); break;
+            case IdFloating: FloatingToggleRequested?.Invoke(); break;
             case IdQuit: QuitRequested?.Invoke(); break;
         }
     }

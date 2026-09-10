@@ -3,14 +3,18 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <Border Background="{StaticResource SurfaceBrush}"
+    <!-- The whole panel is the drag handle: a borderless window has no
+         caption to grab, so anywhere that is not a button moves it. -->
+    <Border x:Name="Root" Background="{StaticResource SurfaceBrush}"
             BorderBrush="{StaticResource BorderBrush2}"
-            BorderThickness="1" CornerRadius="12" Padding="14,12">
+            BorderThickness="1" CornerRadius="8" Padding="14,10,10,12"
+            PointerPressed="OnDragStart">
         <StackPanel Spacing="8">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <Ellipse Grid.Column="0" x:Name="PhaseDot" Width="7" Height="7"
@@ -21,8 +25,14 @@
                            VerticalAlignment="Center"
                            Foreground="{StaticResource TextMutedBrush}" />
                 <TextBlock Grid.Column="2" x:Name="StatusLabel" Text="Ready" FontSize="10"
-                           VerticalAlignment="Center"
+                           VerticalAlignment="Center" Margin="0,0,6,0"
                            Foreground="{StaticResource TextMutedBrush}" />
+                <Button Grid.Column="3" x:Name="HideButton" Click="OnHide"
+                        Padding="6,0" MinWidth="0" FontSize="12"
+                        Background="Transparent" BorderThickness="0"
+                        Foreground="{StaticResource TextMutedBrush}"
+                        Content="&#xE711;" FontFamily="Segoe MDL2 Assets"
+                        ToolTipService.ToolTip="Hide the floating timer" />
             </Grid>
 
             <TextBlock x:Name="Clock" Text="25:00" FontSize="30" FontWeight="Medium"

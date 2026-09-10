@@ -20,6 +20,10 @@ public sealed class Preferences
     public bool TrayShowsCountdown { get; set; } = true;
     public bool PlayAlarmSound { get; set; } = true;
 
+    /// <summary>Last floating-timer position; int.MinValue means unplaced.</summary>
+    public int FloatingX { get; set; } = int.MinValue;
+    public int FloatingY { get; set; } = int.MinValue;
+
     public event Action? Changed;
 
     public int Duration(Phase phase) => phase switch
@@ -57,6 +61,8 @@ public sealed class Preferences
         result.ShowFloatingTimer = obj["showFloatingTimer"]?.GetValue<bool>() ?? true;
         result.TrayShowsCountdown = obj["trayShowsCountdown"]?.GetValue<bool>() ?? true;
         result.PlayAlarmSound = obj["playAlarmSound"]?.GetValue<bool>() ?? true;
+        result.FloatingX = (int)(Persistence.Number(obj["floatingX"]) ?? int.MinValue);
+        result.FloatingY = (int)(Persistence.Number(obj["floatingY"]) ?? int.MinValue);
         return result;
     }
 
@@ -71,7 +77,9 @@ public sealed class Preferences
             ["longBreakEvery"] = LongBreakEvery,
             ["showFloatingTimer"] = ShowFloatingTimer,
             ["trayShowsCountdown"] = TrayShowsCountdown,
-            ["playAlarmSound"] = PlayAlarmSound
+            ["playAlarmSound"] = PlayAlarmSound,
+            ["floatingX"] = FloatingX,
+            ["floatingY"] = FloatingY
         };
         AtomicFile.Write(FilePath, Persistence.Json(payload));
         Changed?.Invoke();

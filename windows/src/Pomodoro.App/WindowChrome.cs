@@ -22,6 +22,28 @@ public static class WindowChrome
     private static extern int DwmSetWindowAttribute(
         IntPtr hwnd, int attribute, ref int value, int size);
 
+    private const int WmNcLButtonDown = 0x00A1;
+    private const int HtCaption = 2;
+
+    [DllImport("user32.dll")]
+    private static extern bool ReleaseCapture();
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam);
+
+    /// <summary>
+    /// Starts a native window drag from anywhere in the client area. A
+    /// borderless window has no caption to grab, so this tells Windows to
+    /// treat the press as one and run its own drag loop — which behaves far
+    /// better than moving the window from pointer events.
+    /// </summary>
+    public static void BeginDrag(IntPtr hwnd)
+    {
+        if (hwnd == IntPtr.Zero) return;
+        ReleaseCapture();
+        SendMessage(hwnd, WmNcLButtonDown, new IntPtr(HtCaption), IntPtr.Zero);
+    }
+
     /// <summary>DWM takes colours as 0x00BBGGRR, not ARGB.</summary>
     private static int ColorRef(Color color) =>
         color.R | (color.G << 8) | (color.B << 16);

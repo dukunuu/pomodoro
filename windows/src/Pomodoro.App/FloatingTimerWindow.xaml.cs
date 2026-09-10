@@ -1,5 +1,6 @@
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Pomodoro.Core;
 
@@ -28,24 +29,74 @@ public sealed partial class FloatingTimerWindow : Window
             presenter.IsMinimizable = false;
         }
         AppWindow.IsShownInSwitchers = false;
-        AppWindow.Resize(new Windows.Graphics.SizeInt32(260, 160));
-        MoveToCorner();
+        AppWindow.Resize(new Windows.Graphics.SizeInt32(268, 168));
+        RestorePosition();
         CrashLog.Guard("floating chrome", () =>
             WindowChrome.ApplyBorder(WinRT.Interop.WindowNative.GetWindowHandle(this)));
 
         Service.Changed += Refresh;
-        Closed += (_, _) => Service.Changed -= Refresh;
+        Closed += (_, _) =>
+        {
+            Service.Changed -= Refresh;
+            RememberPosition();
+        };
         Refresh();
     }
 
-    /// <summary>Top-right of the work area, clear of the taskbar.</summary>
-    private void MoveToCorner()
+    /// <summary>
+    /// Where the user last left it, or the work area's top-right corner.
+    /// A remembered position is clamped back onto a display, so a window left
+    /// on a monitor that is now gone does not open off-screen.
+    /// </summary>
+    private void RestorePosition()
     {
         var area = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary);
         if (area is null) return;
+        var work = area.WorkArea;
+
+        var preferences = App.State.Preferences;
+        if (preferences.FloatingX != int.MinValue && preferences.FloatingY != int.MinValue)
+        {
+            var x = Math.Max(work.X, Math.Min(preferences.FloatingX, work.X + work.Width - AppWindow.Size.Width));
+            var y = Math.Max(work.Y, Math.Min(preferences.FloatingY, work.Y + work.Height - AppWindow.Size.Height));
+            AppWindow.Move(new Windows.Graphics.PointInt32(x, y));
+            return;
+        }
         AppWindow.Move(new Windows.Graphics.PointInt32(
-            area.WorkArea.X + area.WorkArea.Width - AppWindow.Size.Width - 24,
-            area.WorkArea.Y + 24));
+            work.X + work.Width - AppWindow.Size.Width - 24,
+            work.Y + 24));
+    }
+
+    private void RememberPosition()
+    {
+        try
+        {
+            var preferences = App.State.Preferences;
+            preferences.FloatingX = AppWindow.Position.X;
+            preferences.FloatingY = AppWindow.Position.Y;
+            preferences.Save();
+        }
+        catch (Exception error)
+        {
+            CrashLog.Write("remember floating position", error);
+        }
+    }
+
+    /// <summary>Drag from anywhere that is not a control.</summary>
+    private void OnDragStart(object sender, PointerRoutedEventArgs e)
+    {
+        var point = e.GetCurrentPoint(Root);
+        if (!point.Properties.IsLeftButtonPressed) return;
+        WindowChrome.BeginDrag(WinRT.Interop.WindowNative.GetWindowHandle(this));
+    }
+
+    private void OnHide(object sender, RoutedEventArgs e)
+    {
+        RememberPosition();
+        // Route through the preference so the Settings toggle and the tray
+        // item agree with what the window is actually doing.
+        App.State.Preferences.ShowFloatingTimer = false;
+        App.State.Preferences.Save();
     }
 
     private void Refresh()
