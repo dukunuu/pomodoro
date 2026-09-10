@@ -48,6 +48,11 @@ public static class DataPaths
     public static string GoogleToken => Path.Combine(Directory, "pomodoro-google-token.json");
     public static string WhistlerLog => Path.Combine(Directory, "pomodoro-whistler.log");
 
+    /// <summary>Session-to-Calendar-event map, in the shape the bridges use.</summary>
+    public static string IntegrationEvents => Path.Combine(Directory, "pomodoro-integrations.json");
+
+    public static string IntegrationsLog => Path.Combine(Directory, "pomodoro-integrations.log");
+
     public const string WhistlerInstructionsTemplate =
         "# Optional instructions for project and client mapping.\n" +
         "# This text is added to the AI classification prompt.\n" +

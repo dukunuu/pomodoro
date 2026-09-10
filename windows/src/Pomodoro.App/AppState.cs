@@ -1,5 +1,6 @@
 using Microsoft.UI.Dispatching;
 using Pomodoro.Core;
+using Pomodoro.Integrations;
 using WinRT.Interop;
 
 namespace Pomodoro.App;
@@ -38,6 +39,15 @@ public sealed class AppState
         };
         Service.PhaseRang += OnPhaseRang;
         Service.Changed += OnServiceChanged;
+
+        // The service raised these from the day it was ported, but nothing was
+        // listening, so Windows recorded focus sessions and put nothing in the
+        // calendar. Fire-and-forget: CalendarSync swallows and logs its own
+        // failures, and the timer must not wait on a network call.
+        Service.FocusStarted += (session, _, endAt) =>
+            _ = CalendarSync.StartAsync(session, endAt);
+        Service.FocusEnded += (session, ended, active, status, note) =>
+            _ = CalendarSync.FinishAsync(session, session, ended, active, status.Wire(), note);
     }
 
     public void Start()
