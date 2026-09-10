@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
@@ -465,14 +466,19 @@ public sealed partial class MainWindow : Window
 
     private async void OnAuthorizeGoogle(object sender, RoutedEventArgs e)
     {
-        Report("Waiting for Google in your browser…", InfoBarSeverity.Informational);
+        Report("Waiting for Google in your browser… approve access, then return here.",
+            InfoBarSeverity.Informational);
         try
         {
-            Report(await GoogleClient.AuthorizeAsync(), InfoBarSeverity.Success);
+            var message = await GoogleClient.AuthorizeAsync();
+            Report(message, InfoBarSeverity.Success);
         }
         catch (Exception error)
         {
-            Report(error.Message, InfoBarSeverity.Error);
+            // The flow crosses a browser round trip, so point at the trail it
+            // leaves rather than only showing the last exception.
+            Report($"{error.Message}  (details in {Path.Combine(DataPaths.Directory, "pomodoro-auth.log")})",
+                InfoBarSeverity.Error);
         }
         Integrations.Refresh();
     }

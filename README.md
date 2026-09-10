@@ -120,10 +120,11 @@ no Python dependency at all.
 
 ## Theme
 
-The palette is **Low Signal**, taken from
-`~/.config/ghostty/themes/Low Signal`, so both apps sit in the same visual
-register as the terminal. Ghostty runs `window-theme = dark`, so both commit to
-dark rather than following the system.
+The macOS app resolves Ghostty's selected theme at launch, including user and
+bundled themes and explicit palette overrides. Restart Pomodoro after changing
+Ghostty's theme. Low Signal remains the fallback when colors are unavailable;
+Windows still uses the fixed Low Signal palette. Both apps commit to dark
+rather than following the system (paired Ghostty themes use the dark variant).
 
 Each app is otherwise idiomatic: macOS uses SwiftUI materials and SF Symbols;
 Windows uses Mica, an extended title bar, Fluent settings rows and Segoe Fluent

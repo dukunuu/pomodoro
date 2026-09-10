@@ -56,7 +56,21 @@ public static class GoogleClient
         var port = FreePort();
         var redirect = $"http://127.0.0.1:{port}/";
         listener.Prefixes.Add(redirect);
-        listener.Start();
+        try
+        {
+            listener.Start();
+        }
+        catch (HttpListenerException startError)
+        {
+            // Windows URL reservations can refuse an explicit loopback address
+            // while still permitting "localhost". Google accepts either for an
+            // installed app, so try the other spelling before giving up.
+            Log($"127.0.0.1 listener refused ({startError.Message}); trying localhost");
+            listener = new HttpListener();
+            redirect = $"http://localhost:{port}/";
+            listener.Prefixes.Add(redirect);
+            listener.Start();
+        }
 
         var query = HttpUtility.ParseQueryString(string.Empty);
         query["client_id"] = clientId;
@@ -79,31 +93,69 @@ public static class GoogleClient
             // The caller shows the URL if the browser cannot be launched.
         }
 
+        Log($"listening on {redirect}");
+
         string? code = null;
         string? error = null;
-        using (cancellation.Register(listener.Abort))
+        using (var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(5)))
+        using (var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellation, timeout.Token))
+        using (linked.Token.Register(listener.Abort))
         {
-            var context = await listener.GetContextAsync().ConfigureAwait(false);
-            var received = context.Request.QueryString;
-            if (received["state"] != state)
+            // Browsers ask for /favicon.ico and sometimes probe the origin, so
+            // keep reading until a request actually carries the redirect.
+            while (code is null && error is null)
             {
-                error = "Authorization state did not match; the response was ignored.";
-            }
-            else
-            {
-                code = received["code"];
-                error = received["error"];
-            }
+                HttpListenerContext context;
+                try
+                {
+                    context = await listener.GetContextAsync().ConfigureAwait(false);
+                }
+                catch (Exception listenerError) when (
+                    listenerError is HttpListenerException or ObjectDisposedException)
+                {
+                    Log($"listener ended: {listenerError.Message}");
+                    error = timeout.IsCancellationRequested
+                        ? "Timed out waiting for Google to redirect back."
+                        : "The local callback server stopped before Google redirected back.";
+                    break;
+                }
 
-            var message = code is not null
-                ? "Pomodoro is authorized. You can close this tab."
-                : $"Authorization failed: {error ?? "no code returned"}";
-            var bytes = Encoding.UTF8.GetBytes(
-                $"<html><body style=\"font-family:sans-serif\">{message}</body></html>");
-            context.Response.ContentType = "text/html; charset=utf-8";
-            context.Response.ContentLength64 = bytes.Length;
-            await context.Response.OutputStream.WriteAsync(bytes, cancellation).ConfigureAwait(false);
-            context.Response.Close();
+                var received = context.Request.QueryString;
+                var keys = string.Join(",", received.AllKeys.Where(k => k is not null));
+                Log($"request {context.Request.Url?.AbsolutePath} query=[{keys}]");
+
+                var hasResponse = received["code"] is not null || received["error"] is not null;
+                if (!hasResponse)
+                {
+                    // Not the redirect; answer briefly and keep waiting.
+                    context.Response.StatusCode = 204;
+                    context.Response.Close();
+                    continue;
+                }
+
+                if (received["state"] != state)
+                {
+                    error = "Authorization state did not match; the response was ignored.";
+                    Log("state mismatch");
+                }
+                else
+                {
+                    code = received["code"];
+                    error = received["error"];
+                    Log(code is not null ? "authorization code received" : $"google returned error: {error}");
+                }
+
+                var message = code is not null
+                    ? "Pomodoro is authorized. You can close this tab."
+                    : $"Authorization failed: {error ?? "no code returned"}";
+                var bytes = Encoding.UTF8.GetBytes(
+                    $"<html><body style=\"font-family:sans-serif\">{message}</body></html>");
+                context.Response.ContentType = "text/html; charset=utf-8";
+                context.Response.ContentLength64 = bytes.Length;
+                await context.Response.OutputStream.WriteAsync(bytes, CancellationToken.None)
+                    .ConfigureAwait(false);
+                context.Response.Close();
+            }
         }
         listener.Stop();
 
@@ -119,9 +171,20 @@ public static class GoogleClient
         };
         if (clientSecret.Length > 0) form["client_secret"] = clientSecret;
 
-        var response = await HttpJson.PostFormAsync(tokenUri, form, cancellation).ConfigureAwait(false)
-            as JsonObject ?? throw new ImportFailure("Google returned invalid token JSON.");
+        Log("exchanging the code for tokens");
+        JsonObject response;
+        try
+        {
+            response = await HttpJson.PostFormAsync(tokenUri, form, cancellation).ConfigureAwait(false)
+                as JsonObject ?? throw new ImportFailure("Google returned invalid token JSON.");
+        }
+        catch (Exception exchangeError)
+        {
+            Log($"token exchange failed: {exchangeError.Message}");
+            throw;
+        }
         var refresh = response["refresh_token"]?.GetValue<string>();
+        Log($"token response keys=[{string.Join(",", response.Select(pair => pair.Key))}]");
         if (string.IsNullOrEmpty(refresh))
         {
             throw new ImportFailure(
@@ -137,6 +200,7 @@ public static class GoogleClient
             ["scopes"] = new JsonArray { Scope }
         };
         File.WriteAllText(DataPaths.GoogleToken, Persistence.Json(token));
+        Log($"refresh token written to {DataPaths.GoogleToken}");
         return "Google Calendar authorized.";
     }
 
@@ -269,6 +333,26 @@ public static class GoogleClient
         var port = ((IPEndPoint)probe.LocalEndpoint).Port;
         probe.Stop();
         return port;
+    }
+
+    /// <summary>
+    /// Appends a step to pomodoro-auth.log. The flow crosses a browser round
+    /// trip, so without a trail a failure leaves nothing to inspect. Never
+    /// records the code, the verifier, or any token.
+    /// </summary>
+    private static void Log(string message)
+    {
+        try
+        {
+            DataPaths.EnsureDirectory();
+            File.AppendAllText(
+                Path.Combine(DataPaths.Directory, "pomodoro-auth.log"),
+                $"{DateTimeOffset.Now:o}  {message}{Environment.NewLine}");
+        }
+        catch (IOException)
+        {
+            // Diagnostics must never break the flow they are diagnosing.
+        }
     }
 
     private static string Base64Url(byte[] bytes) =>

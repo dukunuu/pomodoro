@@ -1,10 +1,8 @@
 import SwiftUI
 import AppKit
 
-/// The "Low Signal" palette from ~/.config/ghostty/themes, so the app sits in
-/// the same visual register as the terminal it was built in. Ghostty runs
-/// `window-theme = dark`, so this app commits to dark too rather than trying
-/// to be two themes at once — every surface is painted explicitly.
+/// Ghostty's selected palette, resolved at launch. Low Signal is the fallback.
+/// The app uses the dark variant of paired light/dark terminal themes.
 enum Palette {
     static func hex(_ value: UInt32) -> Color {
         Color(
@@ -16,30 +14,34 @@ enum Palette {
         )
     }
 
+    private static let values = GhosttyPalette.load()
+    private static func color(_ key: String, _ fallback: UInt32) -> Color {
+        let value = values[key]?.trimmingCharacters(in: CharacterSet(charactersIn: "#")) ?? ""
+        return hex(UInt32(value, radix: 16) ?? fallback)
+    }
+
     // Terminal roles, named as the theme file names them.
-    static let background = hex(0x171c22)
-    static let foreground = hex(0xd9d6cf)
-    static let brightForeground = hex(0xeee9df)
-    static let selection = hex(0x35464d)
+    static let background = color("background", 0x171c22)
+    static let foreground = color("foreground", 0xd9d6cf)
+    static let brightForeground = color("palette.15", 0xeee9df)
+    static let selection = color("selection-background", 0x35464d)
+    static let black = color("palette.0", 0x20262e)
+    static let red = color("palette.1", 0xc0807e)
+    static let green = color("palette.2", 0x91a58b)
+    static let yellow = color("palette.3", 0xb88f76)
+    static let blue = color("palette.4", 0x849aaf)
+    static let magenta = color("palette.5", 0xa092b4)
+    static let cyan = color("palette.6", 0x7fa6a2)
+    static let muted = color("palette.8", 0x73808c)
+    static let brightRed = color("palette.9", 0xd39893)
+    static let brightGreen = color("palette.10", 0xa5b99c)
+    static let brightYellow = color("palette.11", 0xcba68a)
+    static let brightBlue = color("palette.12", 0x9bb0c2)
 
-    static let black = hex(0x20262e)        // palette 0
-    static let red = hex(0xc0807e)          // palette 1
-    static let green = hex(0x91a58b)        // palette 2
-    static let yellow = hex(0xb88f76)       // palette 3 — also the cursor color
-    static let blue = hex(0x849aaf)         // palette 4
-    static let magenta = hex(0xa092b4)      // palette 5
-    static let cyan = hex(0x7fa6a2)         // palette 6
-    static let muted = hex(0x73808c)        // palette 8
-
-    static let brightRed = hex(0xd39893)
-    static let brightGreen = hex(0xa5b99c)
-    static let brightYellow = hex(0xcba68a)
-    static let brightBlue = hex(0x9bb0c2)
-
-    // Surfaces derived from the palette rather than from system materials.
-    static let surface = hex(0x1c222a)
-    static let raised = hex(0x20262e)
-    static let border = hex(0x2b333d)
+    // Surfaces track the selected palette, not the old hardcoded background.
+    static let surface = color("palette.0", 0x1c222a)
+    static let raised = color("palette.0", 0x20262e)
+    static let border = color("selection-background", 0x2b333d)
 }
 
 enum Theme {
