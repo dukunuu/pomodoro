@@ -3,51 +3,63 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- The whole panel is the drag handle: a borderless window has no
-         caption to grab, so anywhere that is not a button moves it. -->
-    <Border x:Name="Root" Background="{StaticResource SurfaceBrush}"
-            BorderBrush="{StaticResource BorderBrush2}"
-            BorderThickness="1" CornerRadius="8" Padding="14,10,10,12"
+    <!-- Transparent so the acrylic backdrop shows through; the hairline gives
+         the panel an edge against whatever is behind it. The whole surface is
+         the drag handle, since a borderless window has no caption to grab. -->
+    <Border x:Name="Root" Background="Transparent"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1" CornerRadius="8"
+            Padding="14,10,10,12"
             PointerPressed="OnDragStart">
-        <StackPanel Spacing="8">
+        <StackPanel Spacing="9">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <Ellipse Grid.Column="0" x:Name="PhaseDot" Width="7" Height="7"
-                         Fill="{StaticResource FocusBrush}" VerticalAlignment="Center"
-                         Margin="0,0,6,0" />
-                <TextBlock Grid.Column="1" x:Name="PhaseLabel" Text="FOCUS" FontSize="10"
-                           FontWeight="SemiBold" CharacterSpacing="80"
-                           VerticalAlignment="Center"
-                           Foreground="{StaticResource TextMutedBrush}" />
-                <TextBlock Grid.Column="2" x:Name="StatusLabel" Text="Ready" FontSize="10"
-                           VerticalAlignment="Center" Margin="0,0,6,0"
-                           Foreground="{StaticResource TextMutedBrush}" />
-                <Button Grid.Column="3" x:Name="HideButton" Click="OnHide"
-                        Padding="6,0" MinWidth="0" FontSize="12"
+
+                <Border Grid.Column="0" x:Name="PhasePill" CornerRadius="9" Padding="8,2"
+                        Background="{ThemeResource AccentFillColorDefaultBrush}">
+                    <TextBlock x:Name="PhaseLabel" Text="FOCUS" FontSize="9"
+                               FontWeight="SemiBold" CharacterSpacing="70"
+                               Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                </Border>
+
+                <TextBlock Grid.Column="1" x:Name="StatusLabel" Text="Ready" FontSize="11"
+                           VerticalAlignment="Center" Margin="8,0,0,0"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                <Button Grid.Column="2" x:Name="HideButton" Click="OnHide"
+                        Padding="6,2" MinWidth="0"
                         Background="Transparent" BorderThickness="0"
-                        Foreground="{StaticResource TextMutedBrush}"
-                        Content="&#xE711;" FontFamily="Segoe MDL2 Assets"
-                        ToolTipService.ToolTip="Hide the floating timer" />
+                        ToolTipService.ToolTip="Hide (bring it back from the tray)">
+                    <FontIcon Glyph="&#xE711;" FontSize="11"
+                              Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                </Button>
             </Grid>
 
-            <TextBlock x:Name="Clock" Text="25:00" FontSize="30" FontWeight="Medium"
-                       FontFamily="Cascadia Mono, Consolas, Courier New"
-                       Foreground="{StaticResource TextBrightBrush}" />
+            <TextBlock x:Name="Clock" Text="25:00" Style="{StaticResource ClockSmall}" />
 
-            <ProgressBar x:Name="PhaseProgress" Height="3" Minimum="0" Maximum="1"
-                         Background="{StaticResource BorderBrush2}"
-                         Foreground="{StaticResource FocusBrush}" />
+            <ProgressBar x:Name="PhaseProgress" Height="4" Minimum="0" Maximum="1"
+                         CornerRadius="2" />
 
+            <!-- Same glyphs and the same accent primary action as the app's
+                 hero card, so the two read as one product. -->
             <StackPanel Orientation="Horizontal" Spacing="6">
-                <Button x:Name="ToggleButton" Content="Start" Click="OnToggle"
-                        FontSize="11" Padding="10,3" />
-                <Button Content="Skip" Click="OnSkip" FontSize="11" Padding="10,3" />
-                <Button Content="Dashboard" Click="OnOpenDashboard" FontSize="11" Padding="10,3" />
+                <Button x:Name="ToggleButton" Click="OnToggle" MinWidth="86"
+                        Style="{ThemeResource AccentButtonStyle}">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <FontIcon x:Name="ToggleGlyph" Glyph="&#xE768;" FontSize="12" />
+                        <TextBlock x:Name="ToggleText" Text="Start" FontSize="13" />
+                    </StackPanel>
+                </Button>
+                <Button Click="OnSkip" ToolTipService.ToolTip="Skip phase" Padding="10,5">
+                    <FontIcon Glyph="&#xE893;" FontSize="12" />
+                </Button>
+                <Button Click="OnOpenDashboard" ToolTipService.ToolTip="Open dashboard" Padding="10,5">
+                    <FontIcon Glyph="&#xE7C4;" FontSize="12" />
+                </Button>
             </StackPanel>
         </StackPanel>
     </Border>

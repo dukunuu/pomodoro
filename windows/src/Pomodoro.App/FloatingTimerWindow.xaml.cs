@@ -2,6 +2,7 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media;
 using Pomodoro.Core;
 
 namespace Pomodoro.App;
@@ -29,8 +30,15 @@ public sealed partial class FloatingTimerWindow : Window
             presenter.IsMinimizable = false;
         }
         AppWindow.IsShownInSwitchers = false;
-        AppWindow.Resize(new Windows.Graphics.SizeInt32(268, 168));
+        // Sized to the content: the previous window was taller than what it
+        // held, which left dead space under the buttons.
+        AppWindow.Resize(new Windows.Graphics.SizeInt32(252, 158));
         RestorePosition();
+
+        // Acrylic is the Windows material for floating surfaces, and it also
+        // removes the pale frame a plain borderless window was showing.
+        CrashLog.Guard("floating backdrop", () =>
+            SystemBackdrop = new DesktopAcrylicBackdrop());
         CrashLog.Guard("floating chrome", () =>
             WindowChrome.ApplyBorder(WinRT.Interop.WindowNative.GetWindowHandle(this)));
 
@@ -102,7 +110,7 @@ public sealed partial class FloatingTimerWindow : Window
     private void Refresh()
     {
         var phaseBrush = PhaseBrush(Service.Phase);
-        PhaseDot.Fill = phaseBrush;
+        PhasePill.Background = phaseBrush;
         PhaseLabel.Text = Service.PhaseLabel.ToUpperInvariant();
         StatusLabel.Text = Service.StatusLabel;
         StatusLabel.Foreground = Service.IsOvertime ? Brush("UrgentBrush") : Brush("TextMutedBrush");
@@ -110,7 +118,9 @@ public sealed partial class FloatingTimerWindow : Window
         Clock.Foreground = Service.IsOvertime ? Brush("UrgentBrush") : Brush("TextBrightBrush");
         PhaseProgress.Value = Service.PhaseProgress;
         PhaseProgress.Foreground = Service.IsOvertime ? Brush("UrgentBrush") : phaseBrush;
-        ToggleButton.Content = Service.Running ? "Pause" : "Start";
+
+        ToggleText.Text = Service.Running ? "Pause" : "Start";
+        ToggleGlyph.Glyph = Service.Running ? "\uE769" : "\uE768";
     }
 
     private void OnToggle(object sender, RoutedEventArgs e) => Service.Toggle();
