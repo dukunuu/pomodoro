@@ -51,6 +51,26 @@ public static class WindowChrome
     private static Color Resource(string key) =>
         (Color)Application.Current.Resources[key];
 
+    /// <summary>
+    /// With content extended into the title bar the app paints the strip
+    /// itself, so the caption buttons must sit on a transparent background or
+    /// they appear as a differently-coloured block in the corner.
+    /// </summary>
+    public static void ApplyCaptionButtons(Window window)
+    {
+        if (!AppWindowTitleBar.IsCustomizationSupported()) return;
+
+        var bar = window.AppWindow.TitleBar;
+        bar.ButtonBackgroundColor = Colors.Transparent;
+        bar.ButtonInactiveBackgroundColor = Colors.Transparent;
+        bar.ButtonForegroundColor = Resource("LsForeground");
+        bar.ButtonInactiveForegroundColor = Resource("LsMuted");
+        bar.ButtonHoverBackgroundColor = Resource("LsRaised");
+        bar.ButtonHoverForegroundColor = Resource("LsBrightForeground");
+        bar.ButtonPressedBackgroundColor = Resource("LsSelection");
+        bar.ButtonPressedForegroundColor = Resource("LsBrightForeground");
+    }
+
     /// <summary>Colours the system title bar and its caption buttons.</summary>
     public static void ApplyTitleBar(Window window)
     {

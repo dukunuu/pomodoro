@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml.Shapes;
 using Pomodoro.Core;
 using Pomodoro.Integrations;
@@ -25,10 +26,16 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
         Title = "Pomodoro";
-        AppWindow.Resize(new Windows.Graphics.SizeInt32(980, 760));
+        AppWindow.Resize(new Windows.Graphics.SizeInt32(1020, 780));
+
+        // Mica is the Windows 11 window material; without it the app reads as
+        // a flat rectangle rather than part of the desktop.
+        CrashLog.Guard("backdrop", () => SystemBackdrop = new MicaBackdrop());
         CrashLog.Guard("title bar", () =>
         {
-            WindowChrome.ApplyTitleBar(this);
+            ExtendsContentIntoTitleBar = true;
+            SetTitleBar(AppTitleBar);
+            WindowChrome.ApplyCaptionButtons(this);
             WindowChrome.ApplyBorder(WinRT.Interop.WindowNative.GetWindowHandle(this));
         });
 
@@ -60,15 +67,23 @@ public sealed partial class MainWindow : Window
     private void Refresh()
     {
         var phaseBrush = PhaseBrush(Service.Phase);
-        PhaseDot.Fill = phaseBrush;
-        PhaseLabel.Text = Service.PhaseLabel;
+        PhasePill.Background = phaseBrush;
+        PhaseLabel.Text = Service.PhaseLabel.ToUpperInvariant();
         StatusLabel.Text = Service.StatusLabel;
         StatusLabel.Foreground = Service.IsOvertime ? Brush("UrgentBrush") : Brush("TextMutedBrush");
         Clock.Text = Service.RemainingText;
         Clock.Foreground = Service.IsOvertime ? Brush("UrgentBrush") : Brush("TextBrightBrush");
         PhaseProgress.Value = Service.PhaseProgress;
         PhaseProgress.Foreground = Service.IsOvertime ? Brush("UrgentBrush") : phaseBrush;
-        ToggleButton.Content = Service.Running ? "Pause" : "Start";
+
+        ToggleText.Text = Service.Running ? "Pause" : "Start";
+        ToggleGlyph.Glyph = Service.Running ? "\uE769" : "\uE768";
+
+        var planned = Service.Duration(Service.Phase);
+        PhaseCaption.Text = Service.PhaseStartedAt > 0
+            ? $"{Fmt.ReportDuration(Service.PhaseElapsed(Fmt.NowMillis()))} of "
+              + $"{Fmt.ReportDuration(planned)} · {Service.CompletedFocus} focus done today"
+            : $"{Fmt.ReportDuration(planned)} {Service.PhaseLabel.ToLowerInvariant()} ready to start";
 
         RefreshCycleDots();
         if (_section == "today") RefreshToday();
@@ -376,7 +391,8 @@ public sealed partial class MainWindow : Window
     private void RefreshWhistler()
     {
         SetupRows.Children.Clear();
-        SetupCard.Visibility = Integrations.WhistlerReady ? Visibility.Collapsed : Visibility.Visible;
+        SetupBar.IsOpen = !Integrations.WhistlerReady;
+        SetupRows.Visibility = Integrations.WhistlerReady ? Visibility.Collapsed : Visibility.Visible;
 
         SetupRows.Children.Add(SetupRow(1, "Google OAuth client", Integrations.GoogleClient,
             Integrations.GoogleClient.IsReady ? "Replace…" : "Install…", true, OnInstallClient));
@@ -390,10 +406,6 @@ public sealed partial class MainWindow : Window
         var isToday = Fmt.DateKey(date) == Service.TodayKey;
         SendButton.Content = _sending ? "Sending…" : (isToday ? "Send today" : $"Send {Fmt.DateKey(date)}");
         SendButton.IsEnabled = Integrations.WhistlerReady && !_sending;
-        if (!Integrations.WhistlerReady && !_sending)
-        {
-            SendStatus.Text = "Finish the setup above before sending.";
-        }
     }
 
     private Grid SetupRow(int number, string title, SetupState state,
@@ -442,25 +454,21 @@ public sealed partial class MainWindow : Window
         if (file is null) return;
 
         var error = Integrations.InstallGoogleClient(file.Path);
-        SendStatus.Text = error ?? "OAuth client installed.";
-        SendStatus.Foreground = error is null ? Brush("LongBreakBrush") : Brush("UrgentBrush");
+        Report(error ?? "OAuth client installed.",
+            error is null ? InfoBarSeverity.Success : InfoBarSeverity.Error);
         Integrations.Refresh();
     }
 
     private async void OnAuthorizeGoogle(object sender, RoutedEventArgs e)
     {
-        SendStatus.Text = "Waiting for Google in your browser…";
-        SendStatus.Foreground = Brush("TextMutedBrush");
+        Report("Waiting for Google in your browser…", InfoBarSeverity.Informational);
         try
         {
-            var message = await GoogleClient.AuthorizeAsync();
-            SendStatus.Text = message;
-            SendStatus.Foreground = Brush("LongBreakBrush");
+            Report(await GoogleClient.AuthorizeAsync(), InfoBarSeverity.Success);
         }
         catch (Exception error)
         {
-            SendStatus.Text = error.Message;
-            SendStatus.Foreground = Brush("UrgentBrush");
+            Report(error.Message, InfoBarSeverity.Error);
         }
         Integrations.Refresh();
     }
@@ -483,8 +491,8 @@ public sealed partial class MainWindow : Window
             ]));
         }
         Process.Start(new ProcessStartInfo(DataPaths.WhistlerConfig) { UseShellExecute = true });
-        SendStatus.Text = "Fill in the file that just opened, then reopen this page.";
-        SendStatus.Foreground = Brush("TextMutedBrush");
+        Report("Fill in the file that just opened, then return to this page.",
+            InfoBarSeverity.Informational);
     }
 
     private async void OnSend(object sender, RoutedEventArgs e)
@@ -493,7 +501,6 @@ public sealed partial class MainWindow : Window
         _sending = true;
         SendProgress.Visibility = Visibility.Visible;
         SendProgress.Value = 0;
-        SendStatus.Foreground = Brush("TextMutedBrush");
         RefreshWhistler();
 
         var key = Fmt.DateKey(SendDate.Date?.DateTime ?? DateTime.Now);
@@ -502,19 +509,17 @@ public sealed partial class MainWindow : Window
         importer.Progress += (percent, message) => queue.TryEnqueue(() =>
         {
             SendProgress.Value = percent;
-            SendStatus.Text = message;
+            Report(message, InfoBarSeverity.Informational);
         });
 
         try
         {
             var worklog = await Task.Run(() => importer.ImportDayAsync(key));
-            SendStatus.Text = WhistlerImporter.Summarize(worklog);
-            SendStatus.Foreground = Brush("LongBreakBrush");
+            Report(WhistlerImporter.Summarize(worklog), InfoBarSeverity.Success);
         }
         catch (Exception error)
         {
-            SendStatus.Text = error.Message;
-            SendStatus.Foreground = Brush("UrgentBrush");
+            Report(error.Message, InfoBarSeverity.Error);
         }
         finally
         {
@@ -558,6 +563,7 @@ public sealed partial class MainWindow : Window
             MonthSummary.Visibility = Visibility.Collapsed;
             MonthStatusText.Text = error.Message;
             MonthStatusText.Foreground = Brush("UrgentBrush");
+            Report(error.Message, InfoBarSeverity.Error);
         }
         finally
         {
@@ -686,25 +692,20 @@ public sealed partial class MainWindow : Window
     private void RefreshUpdateBanner()
     {
         var update = Updates.Available;
-        UpdateBanner.Visibility = update is null ? Visibility.Collapsed : Visibility.Visible;
+        UpdateBar.IsOpen = update is not null;
         if (update is not null)
         {
-            UpdateTitle.Text = $"Version {update.Version} is available";
-            UpdateSubtitle.Text = update.Name;
+            UpdateBar.Title = $"Version {update.Version} is available";
+            UpdateBar.Message = update.Name;
         }
 
         CheckUpdatesButton.IsEnabled = !Updates.Checking;
         CheckUpdatesButton.Content = Updates.Checking ? "Checking…" : "Check now";
-        if (Updates.LastError is { Length: > 0 } error)
-        {
-            UpdateStatus.Text = error;
-            UpdateStatus.Foreground = Brush("UrgentBrush");
-        }
-        else if (update is not null)
-        {
-            UpdateStatus.Text = $"{update.Version} available";
-            UpdateStatus.Foreground = Brush("FocusBrush");
-        }
+        UpdateStatus.Text = Updates.LastError is { Length: > 0 } error
+            ? error
+            : update is not null
+                ? $"{update.Version} is available to download."
+                : "Checked at most once a day. Nothing installs automatically.";
     }
 
     private async void OnCheckForUpdates(object sender, RoutedEventArgs e)
@@ -715,7 +716,6 @@ public sealed partial class MainWindow : Window
         if (update is null && Updates.LastError is null)
         {
             UpdateStatus.Text = "You are on the latest release.";
-            UpdateStatus.Foreground = Brush("LongBreakBrush");
         }
     }
 
@@ -727,11 +727,6 @@ public sealed partial class MainWindow : Window
         var update = Updates.Available;
         if (update is null) return;
         Open(update.DownloadUrl ?? update.PageUrl);
-    }
-
-    private void OnOpenReleaseNotes(object sender, RoutedEventArgs e)
-    {
-        if (Updates.Available is { } update) Open(update.PageUrl);
     }
 
     private static void Open(string target) =>
@@ -826,6 +821,14 @@ public sealed partial class MainWindow : Window
     private void OnSaveNote(object sender, RoutedEventArgs e) => Service.SaveActiveNote(NoteBox.Text);
 
     // ---- Helpers ----------------------------------------------------------
+
+    /// <summary>One place for Whistler status, so it reads as one voice.</summary>
+    private void Report(string message, InfoBarSeverity severity)
+    {
+        SendBar.Severity = severity;
+        SendBar.Message = message;
+        SendBar.IsOpen = message.Length > 0;
+    }
 
     private TextBlock Muted(string text) => new()
     {
