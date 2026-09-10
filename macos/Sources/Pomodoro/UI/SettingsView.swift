@@ -5,18 +5,10 @@ import AppKit
 /// Whistler section, next to the button that depends on it.
 struct SettingsPanel: View {
     var body: some View {
-        // Settings is label-and-control text, not a chart: stretched across a
-        // wide window it becomes a narrow column of content with a field of
-        // empty card beside it. Capped and centred, the way macOS caps its
-        // own settings pane, the space reads as margin instead.
-        VStack(spacing: 14) {
-            TimerSettingsCard()
-            BehaviourCard()
-            UpdatesCard()
-            DataCard()
-        }
-        .frame(maxWidth: 680)
-        .frame(maxWidth: .infinity, alignment: .center)
+        TimerSettingsCard()
+        BehaviourCard()
+        UpdatesCard()
+        DataCard()
     }
 }
 

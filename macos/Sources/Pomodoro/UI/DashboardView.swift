@@ -62,11 +62,16 @@ struct DashboardView: View {
                 TimerHeader()
                 Divider()
                 ScrollView {
+                    // One column width for every page. Reports used to run to
+                    // the window edge while settings sat in a narrow column,
+                    // so the two halves of the app never lined up.
                     VStack(spacing: 14) {
                         if let update = updates.available { UpdateBanner(update: update) }
                         content
                     }
                     .padding(16)
+                    .frame(maxWidth: 880)
+                    .frame(maxWidth: .infinity, alignment: .center)
                 }
                 .background(Theme.background)
             }
@@ -156,7 +161,7 @@ struct QuickStatsRow: View {
 
     var body: some View {
         let stats = service.statsForDay(service.todayKey)
-        Card {
+        Card("Today") {
             HStack(spacing: 0) {
                 StatTile(label: "FOCUS", value: stats.focusText, detail: "active time", accented: true)
                 Divider().frame(height: 34)
@@ -174,6 +179,24 @@ struct QuickStatsRow: View {
 }
 
 /// Shared previous / label / next header used by the day, week and month tabs.
+/// The heading a page leads with. Sits above the cards rather than inside the
+/// first one, so every card on every page carries the same small uppercase
+/// label and nothing competes with it.
+struct PageHeading: View {
+    var title: String
+    var subtitle: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(title).font(.headline).foregroundStyle(Theme.textBright)
+            Text(subtitle).font(.caption).foregroundStyle(Theme.textMuted)
+        }
+        // Cards fill the column, so a heading that only hugs its text would
+        // sit centred between them.
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
 struct PeriodStepper: View {
     var title: String
     var subtitle: String
@@ -184,10 +207,7 @@ struct PeriodStepper: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title).font(.headline).foregroundStyle(Theme.textBright)
-                Text(subtitle).font(.caption).foregroundStyle(Theme.textMuted)
-            }
+            PageHeading(title: title, subtitle: subtitle)
             Spacer()
             Button("Today", action: onToday)
                 .buttonStyle(.borderless)

@@ -13,16 +13,16 @@ struct WeekReportView: View {
     var body: some View {
         let report = service.weeklyStats(anchor: anchor)
 
-        Card {
-            PeriodStepper(
-                title: "\(report.startLabel) – \(report.endLabel)",
-                subtitle: "\(report.focusText) focus · \(report.sessions) sessions · \(report.averageDayText)/day average",
-                canGoForward: offset < 0,
-                onBack: { offset -= 1 },
-                onForward: { offset += 1 },
-                onToday: { offset = 0 }
-            )
+        PeriodStepper(
+            title: "\(report.startLabel) – \(report.endLabel)",
+            subtitle: "\(report.focusText) focus · \(report.sessions) sessions · \(report.averageDayText)/day average",
+            canGoForward: offset < 0,
+            onBack: { offset -= 1 },
+            onForward: { offset += 1 },
+            onToday: { offset = 0 }
+        )
 
+        Card("Focus per day") {
             Chart {
                 ForEach(report.days) { day in
                     BarMark(

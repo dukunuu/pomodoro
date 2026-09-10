@@ -9,7 +9,11 @@ struct AllTimeReportView: View {
     var body: some View {
         let report = service.allTimeStats()
 
-        Card("All time") {
+        PageHeading(
+            title: "All time",
+            subtitle: "\(report.focusText) focus · \(report.sessions) sessions · \(report.activeDays) active days")
+
+        Card("Totals") {
             LazyVGrid(columns: columns, spacing: 14) {
                 StatTile(label: "COMPLETED FOCUS", value: String(report.sessions), detail: "sessions", accented: true)
                 StatTile(label: "FOCUS TIME", value: report.focusText, detail: "active")

@@ -14,16 +14,16 @@ struct DayReportView: View {
         let stats = service.statsForDay(key)
         let entries = service.entriesForDay(key)
 
-        Card {
-            PeriodStepper(
-                title: Fmt.dayLabel(date),
-                subtitle: "\(stats.focusText) focus · \(stats.breakText) break · \(stats.phases) phases",
-                canGoForward: offset < 0,
-                onBack: { offset -= 1 },
-                onForward: { offset += 1 },
-                onToday: { offset = 0 }
-            )
+        PeriodStepper(
+            title: Fmt.dayLabel(date),
+            subtitle: "\(stats.focusText) focus · \(stats.breakText) break · \(stats.phases) phases",
+            canGoForward: offset < 0,
+            onBack: { offset -= 1 },
+            onForward: { offset += 1 },
+            onToday: { offset = 0 }
+        )
 
+        Card("Timeline") {
             DayTimeline(entries: entries, key: key, service: service)
                 .frame(height: 62)
                 .padding(.top, 2)

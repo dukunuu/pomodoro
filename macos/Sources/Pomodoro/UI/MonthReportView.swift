@@ -15,16 +15,16 @@ struct MonthReportView: View {
     var body: some View {
         let report = service.monthlyStats(year: month.year, month: month.month)
 
-        Card {
-            PeriodStepper(
-                title: report.label,
-                subtitle: "\(report.focusText) focus · \(report.sessions) sessions · \(report.activeDays) active days",
-                canGoForward: offset < 0,
-                onBack: { offset -= 1 },
-                onForward: { offset += 1 },
-                onToday: { offset = 0 }
-            )
+        PeriodStepper(
+            title: report.label,
+            subtitle: "\(report.focusText) focus · \(report.sessions) sessions · \(report.activeDays) active days",
+            canGoForward: offset < 0,
+            onBack: { offset -= 1 },
+            onForward: { offset += 1 },
+            onToday: { offset = 0 }
+        )
 
+        Card("Calendar") {
             LazyVGrid(columns: columns, spacing: 6) {
                 ForEach(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], id: \.self) { name in
                     Text(name)
