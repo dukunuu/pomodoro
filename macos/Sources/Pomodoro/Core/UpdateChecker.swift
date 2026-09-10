@@ -8,6 +8,8 @@ struct AvailableUpdate: Equatable {
     var pageURL: URL
     /// The platform's own asset, when the release carries one.
     var downloadURL: URL?
+    /// The published checksum, so a download can be verified before it runs.
+    var checksumURL: URL?
     var publishedAt: Date?
 }
 
@@ -99,13 +101,16 @@ final class UpdateChecker: ObservableObject {
                 return nil
             }
 
-            // Prefer the macOS asset so the button lands on the download.
+            // The disk image and its checksum: an update that installs itself
+            // must verify what it downloaded.
             var asset: URL?
+            var checksum: URL?
             for item in (json["assets"] as? [[String: Any]]) ?? [] {
                 guard let name = item["name"] as? String,
                       let urlString = item["browser_download_url"] as? String,
                       let url = URL(string: urlString) else { continue }
-                if name.hasSuffix(".dmg") { asset = url; break }
+                if name.hasSuffix(".dmg") { asset = url }
+                if name.hasSuffix(".dmg.sha256") { checksum = url }
             }
 
             let update = AvailableUpdate(
@@ -113,6 +118,7 @@ final class UpdateChecker: ObservableObject {
                 name: (json["name"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? tag,
                 pageURL: page,
                 downloadURL: asset,
+                checksumURL: checksum,
                 publishedAt: (json["published_at"] as? String).flatMap {
                     ISO8601DateFormatter().date(from: $0)
                 }

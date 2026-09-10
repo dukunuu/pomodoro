@@ -62,3 +62,6 @@ Name: "{userstartup}\Pomodoro"; Filename: "{app}\Pomodoro.exe"; Tasks: startup
 
 [Run]
 Filename: "{app}\Pomodoro.exe"; Description: "Launch Pomodoro"; Flags: nowait postinstall skipifsilent
+; An in-app update installs silently, which skips the entry above, so the app
+; would never come back. Relaunch it explicitly in that case.
+Filename: "{app}\Pomodoro.exe"; Flags: nowait; Check: WizardSilent

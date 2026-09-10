@@ -534,7 +534,7 @@
                  Severity="Success" VerticalAlignment="Bottom"
                  Margin="24,0,24,16" Title="Update available">
             <InfoBar.ActionButton>
-                <Button Content="Download" Click="OnDownloadUpdate" />
+                <Button Content="Update and restart" Click="OnDownloadUpdate" />
             </InfoBar.ActionButton>
         </InfoBar>
     </Grid>

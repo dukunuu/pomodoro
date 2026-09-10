@@ -731,11 +731,52 @@ public sealed partial class MainWindow : Window
     private void OnUpdatePreferenceToggled(object sender, RoutedEventArgs e) =>
         Updates.Enabled = UpdateCheckToggle.IsOn;
 
-    private void OnDownloadUpdate(object sender, RoutedEventArgs e)
+    private bool _updating;
+
+    /// <summary>
+    /// Downloads the installer, verifies it against the published checksum,
+    /// then hands over to it and exits so it can replace files this process is
+    /// holding open. The installer brings the app back.
+    /// </summary>
+    private async void OnDownloadUpdate(object sender, RoutedEventArgs e)
     {
         var update = Updates.Available;
-        if (update is null) return;
-        Open(update.DownloadUrl ?? update.PageUrl);
+        if (update is null || _updating) return;
+
+        if (string.IsNullOrEmpty(update.DownloadUrl))
+        {
+            // Nothing to install for this architecture; fall back to the page.
+            Open(update.PageUrl);
+            return;
+        }
+
+        _updating = true;
+        UpdateBar.Title = $"Downloading {update.Version}…";
+        UpdateBar.Message = string.Empty;
+        UpdateBar.IsClosable = false;
+        var progressBar = new ProgressBar { Minimum = 0, Maximum = 1, Height = 4 };
+        UpdateBar.Content = progressBar;
+
+        var queue = DispatcherQueue;
+        var progress = new Progress<double>(value => queue.TryEnqueue(() =>
+            progressBar.Value = value));
+
+        try
+        {
+            var installer = await UpdateChecker.DownloadAsync(update, progress);
+            UpdateBar.Title = $"Installing {update.Version}…";
+            UpdateBar.Content = null;
+            UpdateInstaller.RunAndExit(installer, () => App.State.PrepareForUpdate());
+        }
+        catch (Exception error)
+        {
+            _updating = false;
+            UpdateBar.Content = null;
+            UpdateBar.IsClosable = true;
+            UpdateBar.Severity = InfoBarSeverity.Error;
+            UpdateBar.Title = "Update failed";
+            UpdateBar.Message = error.Message;
+        }
     }
 
     private static void Open(string target) =>

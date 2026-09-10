@@ -13,6 +13,7 @@ final class AppState: ObservableObject {
     let whistler = WhistlerService()
     let integrations = IntegrationStatus()
     let updates = UpdateChecker()
+    let updateInstaller = UpdateInstaller()
     let preferences = Preferences.shared
 
     private var dashboardWindow: NSWindow?
@@ -99,6 +100,7 @@ final class AppState: ObservableObject {
                     .environmentObject(whistler)
                     .environmentObject(integrations)
                     .environmentObject(updates)
+                    .environmentObject(updateInstaller)
                     .environmentObject(preferences)
             )
             let window = NSWindow(contentViewController: hosting)

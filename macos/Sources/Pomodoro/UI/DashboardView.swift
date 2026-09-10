@@ -209,28 +209,38 @@ struct PeriodStepper: View {
 /// under a running timer.
 struct UpdateBanner: View {
     var update: AvailableUpdate
+    @EnvironmentObject private var installer: UpdateInstaller
     @Environment(\.openURL) private var openURL
 
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "arrow.down.circle.fill")
                 .foregroundStyle(Theme.focus)
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Version \(update.version) is available")
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
                     .font(.callout.weight(.medium))
                     .foregroundStyle(Theme.textBright)
-                Text(update.name)
-                    .font(.caption)
-                    .foregroundStyle(Theme.textMuted)
-                    .lineLimit(1)
+                if case .downloading(let fraction) = installer.stage {
+                    ProgressBar(value: fraction, color: Theme.focus, height: 3)
+                        .frame(maxWidth: 220)
+                } else {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(subtitleColor)
+                        .lineLimit(2)
+                }
             }
             Spacer(minLength: 8)
-            Button("Download") { openURL(update.downloadURL ?? update.pageURL) }
+            if !installer.stage.isBusy {
+                Button("Update and restart") {
+                    Task { await installer.install(update) }
+                }
                 .buttonStyle(.borderedProminent)
                 .tint(Theme.focus)
-            Button("Release notes") { openURL(update.pageURL) }
-                .buttonStyle(.borderless)
-                .font(.caption)
+                Button("Release notes") { openURL(update.pageURL) }
+                    .buttonStyle(.borderless)
+                    .font(.caption)
+            }
         }
         .padding(12)
         .background(Theme.focus.opacity(0.1), in: RoundedRectangle(cornerRadius: Theme.cardCorner))
@@ -238,5 +248,25 @@ struct UpdateBanner: View {
             RoundedRectangle(cornerRadius: Theme.cardCorner)
                 .strokeBorder(Theme.focus.opacity(0.45), lineWidth: 1)
         )
+    }
+
+    private var title: String {
+        switch installer.stage {
+        case .downloading: return "Downloading \(update.version)…"
+        case .verifying: return "Verifying \(update.version)…"
+        case .installing: return "Installing \(update.version)…"
+        case .failed: return "Update failed"
+        case .idle: return "Version \(update.version) is available"
+        }
+    }
+
+    private var subtitle: String {
+        if case .failed(let message) = installer.stage { return message }
+        return update.name
+    }
+
+    private var subtitleColor: Color {
+        if case .failed = installer.stage { return Theme.urgent }
+        return Theme.textMuted
     }
 }

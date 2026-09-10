@@ -26,6 +26,7 @@ enum Snapshot {
                     .environmentObject(state.whistler)
                     .environmentObject(state.integrations)
                     .environmentObject(state.updates)
+                    .environmentObject(state.updateInstaller)
                     .environmentObject(state.preferences)
                     .frame(width: size.width, height: size.height)
                     .background(Theme.background)

@@ -146,6 +146,21 @@ public sealed class AppState
 
     private bool _quitting;
 
+    /// <summary>
+    /// Releases what an installer cannot replace while it is held: the tray
+    /// icon's window and the floating timer. The dashboard closes with the
+    /// process.
+    /// </summary>
+    public void PrepareForUpdate()
+    {
+        _quitting = true;
+        _tray?.Dispose();
+        _tray = null;
+        _floating?.Close();
+        _floating = null;
+        Notifier.Unregister();
+    }
+
     private void Shutdown()
     {
         _quitting = true;

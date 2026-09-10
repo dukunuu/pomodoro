@@ -76,6 +76,7 @@ struct BehaviourCard: View {
 
 struct UpdatesCard: View {
     @EnvironmentObject private var updates: UpdateChecker
+    @EnvironmentObject private var installer: UpdateInstaller
     @Environment(\.openURL) private var openURL
     @State private var enabled = true
     @State private var checkedNow = false
@@ -94,7 +95,7 @@ struct UpdatesCard: View {
 
             Toggle(isOn: $enabled) {
                 Text("Check GitHub for new releases on launch")
-                Text("Once a day at most. Nothing is downloaded or installed automatically.")
+                Text("Once a day at most. Updates install only when you choose to.")
             }
             .onChange(of: enabled) { _, value in updates.enabled = value }
 
@@ -109,11 +110,12 @@ struct UpdatesCard: View {
                 .disabled(updates.checking)
 
                 if let update = updates.available {
-                    Button("Download \(update.version)") {
-                        openURL(update.downloadURL ?? update.pageURL)
+                    Button(installer.stage.isBusy ? "Updating…" : "Update to \(update.version)") {
+                        Task { await installer.install(update) }
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(Theme.focus)
+                    .disabled(installer.stage.isBusy)
                 } else if let error = updates.lastError {
                     Label(error, systemImage: "exclamationmark.triangle.fill")
                         .font(.caption)
