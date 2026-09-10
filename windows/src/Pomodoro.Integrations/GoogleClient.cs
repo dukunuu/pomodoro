@@ -37,6 +37,24 @@ public static class GoogleClient
     /// </summary>
     public static async Task<string> AuthorizeAsync(CancellationToken cancellation = default)
     {
+        // Logged before anything that can throw: an empty log used to be the
+        // only symptom of a failure in the very first step, which reads as the
+        // button doing nothing at all.
+        Log($"authorization started; data directory {DataPaths.Directory}");
+        try
+        {
+            return await RunAuthorizationAsync(cancellation).ConfigureAwait(false);
+        }
+        catch (Exception error)
+        {
+            Log($"authorization failed: {error.GetType().Name}: {error.Message}");
+            throw;
+        }
+    }
+
+    private static async Task<string> RunAuthorizationAsync(CancellationToken cancellation)
+    {
+        Log($"oauth client file: {DataPaths.ExistingGoogleClient() ?? "(none found)"}");
         var client = ReadClient();
         var clientId = client["client_id"]?.GetValue<string>()
             ?? throw new ImportFailure("Google OAuth client has no client_id.");
@@ -50,27 +68,16 @@ public static class GoogleClient
         var challenge = Base64Url(SHA256.HashData(Encoding.UTF8.GetBytes(verifier)));
         var state = Base64Url(RandomNumberGenerator.GetBytes(24));
 
-        // Port 0 lets the OS pick; the loopback redirect is registered as
-        // http://localhost for a Desktop client, which permits any port.
-        var listener = new HttpListener();
+        // Port 0 lets the OS pick; a Desktop client's registered
+        // http://localhost redirect permits any port.
+        //
+        // "localhost" is tried first on purpose. http.sys resolves an explicit
+        // 127.0.0.1 prefix through the URL reservation table, which a
+        // non-elevated process does not have, so HttpListener.Start refuses it
+        // with "Access is denied" — while the "localhost" spelling is granted
+        // to every user. Google accepts either for an installed app.
         var port = FreePort();
-        var redirect = $"http://127.0.0.1:{port}/";
-        listener.Prefixes.Add(redirect);
-        try
-        {
-            listener.Start();
-        }
-        catch (HttpListenerException startError)
-        {
-            // Windows URL reservations can refuse an explicit loopback address
-            // while still permitting "localhost". Google accepts either for an
-            // installed app, so try the other spelling before giving up.
-            Log($"127.0.0.1 listener refused ({startError.Message}); trying localhost");
-            listener = new HttpListener();
-            redirect = $"http://localhost:{port}/";
-            listener.Prefixes.Add(redirect);
-            listener.Start();
-        }
+        var (listener, redirect) = StartLoopbackListener(port);
 
         var query = HttpUtility.ParseQueryString(string.Empty);
         query["client_id"] = clientId;
@@ -84,16 +91,20 @@ public static class GoogleClient
         query["code_challenge_method"] = "S256";
         var url = $"{authUri}?{query}";
 
+        // The URL carries no secret — the client id is public and the
+        // challenge is single-use — and having it in the trail is what makes a
+        // browser that never comes back diagnosable.
+        Log($"listening on {redirect}");
+        Log($"authorization url: {url}");
         try
         {
             Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
         }
-        catch (Exception)
+        catch (Exception browserError)
         {
-            // The caller shows the URL if the browser cannot be launched.
+            Log($"could not open a browser: {browserError.Message}; " +
+                "open the authorization url above by hand");
         }
-
-        Log($"listening on {redirect}");
 
         string? code = null;
         string? error = null;
@@ -157,7 +168,11 @@ public static class GoogleClient
                 context.Response.Close();
             }
         }
-        listener.Stop();
+        // Abort() (registered on the cancellation token above) already
+        // disposes the listener, so an unguarded Stop() replaced the real
+        // timeout message with "Cannot access a disposed object".
+        try { listener.Close(); }
+        catch (ObjectDisposedException) { }
 
         if (code is null) throw new ImportFailure(error ?? "Google returned no authorization code.");
 
@@ -191,7 +206,12 @@ public static class GoogleClient
                 "Google did not return a refresh token. Revoke the app's access and try again.");
         }
 
+        // The trail ended here once: the exchange succeeded and returned a
+        // refresh token, yet nothing recorded whether it reached disk. Each
+        // step is logged, and the file is confirmed rather than assumed.
+        Log($"writing the refresh token to {DataPaths.GoogleToken}");
         DataPaths.EnsureDirectory();
+
         var token = new JsonObject
         {
             ["refresh_token"] = refresh,
@@ -199,8 +219,18 @@ public static class GoogleClient
             ["token_uri"] = tokenUri,
             ["scopes"] = new JsonArray { Scope }
         };
-        File.WriteAllText(DataPaths.GoogleToken, Persistence.Json(token));
-        Log($"refresh token written to {DataPaths.GoogleToken}");
+        var serialized = Persistence.Json(token);
+        Log($"serialized {serialized.Length} bytes");
+
+        File.WriteAllText(DataPaths.GoogleToken, serialized);
+
+        var exists = File.Exists(DataPaths.GoogleToken);
+        Log($"refresh token written, exists={exists}");
+        if (!exists)
+        {
+            throw new ImportFailure(
+                $"The refresh token could not be saved to {DataPaths.GoogleToken}.");
+        }
         return "Google Calendar authorized.";
     }
 
@@ -326,6 +356,36 @@ public static class GoogleClient
         new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Local))
             .ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ");
 
+    /// <summary>
+    /// Binds the callback server, preferring the spelling http.sys grants to
+    /// unelevated processes. Both are reported so a refusal names itself.
+    /// </summary>
+    private static (HttpListener Listener, string Redirect) StartLoopbackListener(int port)
+    {
+        var failures = new List<string>();
+        foreach (var host in new[] { "localhost", "127.0.0.1" })
+        {
+            var redirect = $"http://{host}:{port}/";
+            var listener = new HttpListener();
+            listener.Prefixes.Add(redirect);
+            try
+            {
+                listener.Start();
+                return (listener, redirect);
+            }
+            catch (HttpListenerException startError)
+            {
+                Log($"{host} listener refused: {startError.Message} " +
+                    $"(code {startError.ErrorCode})");
+                failures.Add($"{host}: {startError.Message}");
+                listener.Close();
+            }
+        }
+        throw new ImportFailure(
+            "Could not open the local callback server that Google redirects to. "
+            + string.Join("; ", failures));
+    }
+
     private static int FreePort()
     {
         var probe = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
@@ -349,9 +409,12 @@ public static class GoogleClient
                 Path.Combine(DataPaths.Directory, "pomodoro-auth.log"),
                 $"{DateTimeOffset.Now:o}  {message}{Environment.NewLine}");
         }
-        catch (IOException)
+        catch (Exception)
         {
-            // Diagnostics must never break the flow they are diagnosing.
+            // Diagnostics must never break the flow they are diagnosing, and
+            // the data directory can refuse a write with UnauthorizedAccess
+            // rather than IOException — which used to throw straight out of
+            // the first log line and leave no trail at all.
         }
     }
 

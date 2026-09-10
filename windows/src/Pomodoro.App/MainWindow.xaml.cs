@@ -458,25 +458,25 @@ public sealed partial class MainWindow : Window
         if (file is null) return;
 
         var error = Integrations.InstallGoogleClient(file.Path);
-        Report(error ?? "OAuth client installed.",
+        ReportSetup(error ?? "OAuth client installed.",
             error is null ? InfoBarSeverity.Success : InfoBarSeverity.Error);
         Integrations.Refresh();
     }
 
     private async void OnAuthorizeGoogle(object sender, RoutedEventArgs e)
     {
-        Report("Waiting for Google in your browser… approve access, then return here.",
-            InfoBarSeverity.Informational);
+        ReportSetup("Waiting for Google in your browser… approve access, then return here. "
+            + "This gives up after five minutes.", InfoBarSeverity.Informational);
         try
         {
             var message = await GoogleClient.AuthorizeAsync();
-            Report(message, InfoBarSeverity.Success);
+            ReportSetup(message, InfoBarSeverity.Success);
         }
         catch (Exception error)
         {
             // The flow crosses a browser round trip, so point at the trail it
             // leaves rather than only showing the last exception.
-            Report($"{error.Message}  (details in {System.IO.Path.Combine(DataPaths.Directory, "pomodoro-auth.log")})",
+            ReportSetup($"{error.Message}  (details in {System.IO.Path.Combine(DataPaths.Directory, "pomodoro-auth.log")})",
                 InfoBarSeverity.Error);
         }
         Integrations.Refresh();
@@ -878,6 +878,18 @@ public sealed partial class MainWindow : Window
         SendBar.Severity = severity;
         SendBar.Message = message;
         SendBar.IsOpen = message.Length > 0;
+    }
+
+    /// <summary>
+    /// The same, for the setup steps. Separate from Report so an authorization
+    /// result appears next to the button that started it rather than in the
+    /// send card below.
+    /// </summary>
+    private void ReportSetup(string message, InfoBarSeverity severity)
+    {
+        SetupResultBar.Severity = severity;
+        SetupResultBar.Message = message;
+        SetupResultBar.IsOpen = message.Length > 0;
     }
 
     private TextBlock Muted(string text) => new()

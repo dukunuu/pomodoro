@@ -236,6 +236,13 @@
 
                             <StackPanel x:Name="SetupRows" Spacing="6" />
 
+                            <!-- Setup results belong beside the setup buttons.
+                                 Reporting them in SendBar, three cards further
+                                 down, made a failed authorization look like a
+                                 button that did nothing. -->
+                            <InfoBar x:Name="SetupResultBar" IsOpen="False" IsClosable="True"
+                                     Severity="Informational" />
+
                             <TextBlock Text="Send" Style="{StaticResource SectionHeader}" Margin="2,10,0,0" />
                             <Border Style="{StaticResource SettingsRow}">
                                 <StackPanel Spacing="12">
