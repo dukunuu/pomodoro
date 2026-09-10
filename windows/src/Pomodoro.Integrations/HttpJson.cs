@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Pomodoro.Core;
 
 namespace Pomodoro.Integrations;
 
@@ -37,7 +38,7 @@ public static class HttpJson
             if (payload is not null)
             {
                 request.Content = new StringContent(
-                    payload.ToJsonString(), Encoding.UTF8, "application/json");
+                    Persistence.Compact(payload), Encoding.UTF8, "application/json");
             }
 
             try

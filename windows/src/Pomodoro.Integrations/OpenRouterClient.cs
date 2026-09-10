@@ -214,7 +214,7 @@ Create a Whistler daily worklog allocation from these timed Google Calendar even
 Date: {{dateNumber}}
 
 Available Whistler projects. Use only the exact IDs listed here:
-{{projectJson.ToJsonString()}}
+{{Persistence.Compact(projectJson)}}
 
 Your job is ONLY to classify events to projects. Do not calculate, estimate, round, split, or return any time values.
 The importing program will calculate the exact wall-clock duration from each Calendar event's start and end. Calendar descriptions are intentionally ignored. durationMinutes is supplied only as a reference and must never be returned, changed, or calculated by you.
@@ -229,7 +229,7 @@ Return exactly one JSON object in this shape, with no prose before or after it:
 The eventId and projectId must be copied exactly from the supplied lists. taskGroup must be a short phrase without numbering, project names, durations, or clock times. Do not return minutes, hours, start times, end times, totals, summaries, logs, or task text; the program creates those deterministically from Calendar.
 
 Events:
-{{eventJson.ToJsonString()}}
+{{Persistence.Compact(eventJson)}}
 """;
     }
 }

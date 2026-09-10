@@ -207,8 +207,8 @@ public static class GoogleClient
         }
 
         // The trail ended here once: the exchange succeeded and returned a
-        // refresh token, yet nothing recorded whether it reached disk. Each
-        // step is logged, and the file is confirmed rather than assumed.
+        // refresh token, yet nothing recorded whether it reached disk. The
+        // file is confirmed rather than assumed.
         Log($"writing the refresh token to {DataPaths.GoogleToken}");
         DataPaths.EnsureDirectory();
 
@@ -219,10 +219,7 @@ public static class GoogleClient
             ["token_uri"] = tokenUri,
             ["scopes"] = new JsonArray { Scope }
         };
-        var serialized = Persistence.Json(token);
-        Log($"serialized {serialized.Length} bytes");
-
-        File.WriteAllText(DataPaths.GoogleToken, serialized);
+        File.WriteAllText(DataPaths.GoogleToken, Persistence.Json(token));
 
         var exists = File.Exists(DataPaths.GoogleToken);
         Log($"refresh token written, exists={exists}");

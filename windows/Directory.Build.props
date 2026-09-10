@@ -5,6 +5,13 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <InvariantGlobalization>false</InvariantGlobalization>
+    <!-- Something in the WinUI publish chain switches the reflection-based
+         JSON serializer off. That made JsonSerializerOptions.Default throw
+         ("must specify a TypeInfoResolver") and every JSON write in the
+         shipped app fail at runtime, Google authorization included. Nothing
+         here is trimmed or AOT-compiled, so turn it back on — Persistence
+         no longer depends on it, but a stray call site would still.  -->
+    <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
     <Version Condition="'$(VERSION)' != ''">$(VERSION)</Version>
     <Company>dukunuu</Company>
     <Product>Pomodoro</Product>

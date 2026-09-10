@@ -1,4 +1,6 @@
+using System.Buffers;
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -204,8 +206,73 @@ public static class Persistence
     public static long Millis(double value) =>
         double.IsFinite(value) ? (long)Math.Round(value, MidpointRounding.AwayFromZero) : 0L;
 
-    private static readonly JsonSerializerOptions Indented = new() { WriteIndented = true };
-
     /// <summary>JSON.stringify(value, null, 2) + "\n"</summary>
-    public static string Json(JsonNode node) => node.ToJsonString(Indented) + "\n";
+    public static string Json(JsonNode node) => Serialize(node, indented: true) + "\n";
+
+    /// <summary>JSON.stringify(value), for request bodies.</summary>
+    public static string Compact(JsonNode node) => Serialize(node, indented: false);
+
+    /// <summary>
+    /// Writes a node straight through a <see cref="Utf8JsonWriter"/>.
+    ///
+    /// <c>JsonNode.ToJsonString</c> reaches for <c>JsonSerializerOptions.Default</c>,
+    /// which throws outright wherever the reflection-based serializer is switched
+    /// off — as it is in the WinUI publish, where every write in the app failed
+    /// with "JsonSerializerOptions instance must specify a TypeInfoResolver".
+    /// None of the values below need a converter, so none of them need a resolver.
+    /// </summary>
+    private static string Serialize(JsonNode node, bool indented)
+    {
+        var buffer = new ArrayBufferWriter<byte>();
+        using (var writer = new Utf8JsonWriter(buffer, new JsonWriterOptions { Indented = indented }))
+        {
+            WriteNode(node, writer);
+        }
+        return Encoding.UTF8.GetString(buffer.WrittenSpan);
+    }
+
+    private static void WriteNode(JsonNode? node, Utf8JsonWriter writer)
+    {
+        switch (node)
+        {
+            case null:
+                writer.WriteNullValue();
+                break;
+            case JsonObject entry:
+                writer.WriteStartObject();
+                foreach (var pair in entry)
+                {
+                    writer.WritePropertyName(pair.Key);
+                    WriteNode(pair.Value, writer);
+                }
+                writer.WriteEndObject();
+                break;
+            case JsonArray array:
+                writer.WriteStartArray();
+                foreach (var item in array) WriteNode(item, writer);
+                writer.WriteEndArray();
+                break;
+            case JsonValue value:
+                WriteValue(value, writer);
+                break;
+        }
+    }
+
+    private static void WriteValue(JsonValue value, Utf8JsonWriter writer)
+    {
+        // A parsed node carries its own JsonElement, which writes verbatim and
+        // so preserves whatever a file already held.
+        if (value.TryGetValue<JsonElement>(out var element)) { element.WriteTo(writer); return; }
+
+        // Order matters: bool before the numbers, so it is not written as one.
+        if (value.TryGetValue<bool>(out var flag)) { writer.WriteBooleanValue(flag); return; }
+        if (value.TryGetValue<string>(out var text)) { writer.WriteStringValue(text); return; }
+        if (value.TryGetValue<int>(out var integer)) { writer.WriteNumberValue(integer); return; }
+        if (value.TryGetValue<long>(out var wide)) { writer.WriteNumberValue(wide); return; }
+        if (value.TryGetValue<double>(out var number)) { writer.WriteNumberValue(number); return; }
+        if (value.TryGetValue<decimal>(out var exact)) { writer.WriteNumberValue(exact); return; }
+
+        // Anything else is rare enough to hand back to the framework.
+        value.WriteTo(writer);
+    }
 }
