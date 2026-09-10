@@ -3,74 +3,81 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- At rest this is just the countdown. The controls are an overlay that
-         appears on hover, so the widget stays quiet until you reach for it. -->
-    <Border x:Name="Root" Background="Transparent"
-            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-            BorderThickness="1" CornerRadius="8"
+    <Window.Resources>
+        <!-- One shape for every control in the overlay: a round, unfilled
+             target that only shows a fill under the pointer. Nothing labelled,
+             nothing framed. -->
+        <Style x:Key="OverlayButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="Width" Value="30" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="CornerRadius" Value="15" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+    </Window.Resources>
+
+    <!-- At rest this is the countdown and nothing else. The controls are an
+         overlay that appears on hover, so the widget stays quiet until you
+         reach for it. -->
+    <Border x:Name="Root"
+            Background="#8C141A21"
+            BorderBrush="#26FFFFFF"
+            BorderThickness="1" CornerRadius="10"
             PointerPressed="OnDragStart"
             PointerEntered="OnPointerEntered"
             PointerExited="OnPointerExited">
         <Grid>
+            <!-- The window is dragged through WM_NCLBUTTONDOWN from anywhere,
+                 so the extended title bar is given a zero-sized drag region
+                 rather than WinUI's default one, which would otherwise sit
+                 over the top of the hover controls and swallow their clicks. -->
+            <Border x:Name="DragRegion" Width="0" Height="0"
+                    HorizontalAlignment="Left" VerticalAlignment="Top" />
+
             <!-- Viewbox: the clock scales with the window, so resizing the
                  widget resizes the only thing it normally shows. -->
-            <Viewbox Margin="16,12" Stretch="Uniform" StretchDirection="Both">
+            <Viewbox Margin="18,14,18,16" Stretch="Uniform" StretchDirection="Both">
                 <TextBlock x:Name="Clock" Text="25:00"
                            FontFamily="Segoe UI Variable Display, Segoe UI"
-                           FontWeight="SemiBold"
-                           Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                           FontWeight="SemiBold" />
             </Viewbox>
 
-            <ProgressBar x:Name="PhaseProgress" Height="3" Minimum="0" Maximum="1"
-                         VerticalAlignment="Bottom" Margin="1,0,1,1"
-                         CornerRadius="0,0,7,7" />
+            <!-- Phase progress as a hairline inset from the edges, rather than
+                 a chrome bar welded to the bottom. -->
+            <Grid Height="2" VerticalAlignment="Bottom" Margin="14,0,14,9">
+                <Rectangle Fill="#1FFFFFFF" RadiusX="1" RadiusY="1" />
+                <ProgressBar x:Name="PhaseProgress" Minimum="0" Maximum="1"
+                             Height="2" Padding="0" CornerRadius="1"
+                             Background="Transparent" BorderThickness="0" />
+            </Grid>
 
-            <!-- Hover overlay -->
-            <Grid x:Name="Controls" Visibility="Collapsed" Background="#E6161B21"
-                  CornerRadius="7">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-
-                <Grid Grid.Row="0" Padding="10,8,6,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <Border Grid.Column="0" x:Name="PhasePill" CornerRadius="9" Padding="8,2"
-                            Background="{ThemeResource AccentFillColorDefaultBrush}">
-                        <TextBlock x:Name="PhaseLabel" Text="FOCUS" FontSize="9"
-                                   FontWeight="SemiBold" CharacterSpacing="70"
-                                   Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
-                    </Border>
-                    <TextBlock Grid.Column="1" x:Name="StatusLabel" Text="Ready" FontSize="11"
-                               VerticalAlignment="Center" Margin="8,0,0,0"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <Button Grid.Column="2" Click="OnHide" Padding="6,2" MinWidth="0"
-                            Background="Transparent" BorderThickness="0"
+            <Grid x:Name="Controls" Visibility="Collapsed"
+                  Background="#E60F141A" CornerRadius="9">
+                <StackPanel Orientation="Horizontal" Spacing="2"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Button x:Name="ToggleButton" Click="OnToggle"
+                            Style="{StaticResource OverlayButton}"
+                            ToolTipService.ToolTip="Start or pause">
+                        <FontIcon x:Name="ToggleGlyph" Glyph="&#xE768;" FontSize="15" />
+                    </Button>
+                    <Button Click="OnSkip" Style="{StaticResource OverlayButton}"
+                            ToolTipService.ToolTip="Skip phase">
+                        <FontIcon Glyph="&#xE893;" FontSize="13"
+                                  Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </Button>
+                    <Button Click="OnOpenDashboard" Style="{StaticResource OverlayButton}"
+                            ToolTipService.ToolTip="Open dashboard">
+                        <FontIcon Glyph="&#xE7C4;" FontSize="13"
+                                  Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </Button>
+                    <Button Click="OnHide" Style="{StaticResource OverlayButton}"
                             ToolTipService.ToolTip="Hide — bring it back from the tray">
-                        <FontIcon Glyph="&#xE711;" FontSize="11"
-                                  Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
-                    </Button>
-                </Grid>
-
-                <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6"
-                            HorizontalAlignment="Center" Margin="0,0,0,12">
-                    <Button x:Name="ToggleButton" Click="OnToggle" MinWidth="82"
-                            Style="{ThemeResource AccentButtonStyle}">
-                        <StackPanel Orientation="Horizontal" Spacing="7">
-                            <FontIcon x:Name="ToggleGlyph" Glyph="&#xE768;" FontSize="12" />
-                            <TextBlock x:Name="ToggleText" Text="Start" FontSize="13" />
-                        </StackPanel>
-                    </Button>
-                    <Button Click="OnSkip" ToolTipService.ToolTip="Skip phase" Padding="10,5">
-                        <FontIcon Glyph="&#xE893;" FontSize="12" />
-                    </Button>
-                    <Button Click="OnOpenDashboard" ToolTipService.ToolTip="Open dashboard" Padding="10,5">
-                        <FontIcon Glyph="&#xE7C4;" FontSize="12" />
+                        <FontIcon Glyph="&#xE711;" FontSize="13"
+                                  Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     </Button>
                 </StackPanel>
             </Grid>

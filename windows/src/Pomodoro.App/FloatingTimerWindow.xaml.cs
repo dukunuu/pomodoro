@@ -2,7 +2,6 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Media;
 using Pomodoro.Core;
 
 namespace Pomodoro.App;
@@ -45,6 +44,13 @@ public sealed partial class FloatingTimerWindow : Window
             SystemBackdrop = new DesktopAcrylicBackdrop());
         CrashLog.Guard("floating chrome", () =>
             WindowChrome.ApplyBorder(WinRT.Interop.WindowNative.GetWindowHandle(this)));
+        // Without this a strip of reserved caption area is painted along the
+        // top of the widget, above the content, even with the title bar off.
+        CrashLog.Guard("floating title bar", () =>
+        {
+            ExtendsContentIntoTitleBar = true;
+            SetTitleBar(DragRegion);
+        });
 
         Service.Changed += Refresh;
         Closed += (_, _) =>
@@ -137,18 +143,22 @@ public sealed partial class FloatingTimerWindow : Window
 
     private void Refresh()
     {
-        var phaseBrush = PhaseBrush(Service.Phase);
-        PhasePill.Background = phaseBrush;
-        PhaseLabel.Text = Service.PhaseLabel.ToUpperInvariant();
-        StatusLabel.Text = Service.StatusLabel;
-        StatusLabel.Foreground = Service.IsOvertime ? Brush("UrgentBrush") : Brush("TextMutedBrush");
-        Clock.Text = Service.RemainingText;
-        Clock.Foreground = Service.IsOvertime ? Brush("UrgentBrush") : Brush("TextBrightBrush");
-        PhaseProgress.Value = Service.PhaseProgress;
-        PhaseProgress.Foreground = Service.IsOvertime ? Brush("UrgentBrush") : phaseBrush;
+        var phaseBrush = Service.IsOvertime ? Brush("UrgentBrush") : PhaseBrush(Service.Phase);
 
-        ToggleText.Text = Service.Running ? "Pause" : "Start";
+        // Which phase is running is told by the colour of the numerals, and a
+        // clock that is not running is dimmed rather than captioned. The
+        // widget has room for one thing, and that thing is the time.
+        Clock.Text = Service.RemainingText;
+        Clock.Foreground = phaseBrush;
+        Clock.Opacity = Service.Running ? 1.0 : 0.5;
+
+        PhaseProgress.Value = Service.PhaseProgress;
+        PhaseProgress.Foreground = phaseBrush;
+
         ToggleGlyph.Glyph = Service.Running ? "\uE769" : "\uE768";
+        ToggleGlyph.Foreground = phaseBrush;
+        Microsoft.UI.Xaml.Controls.ToolTipService.SetToolTip(
+            ToggleButton, Service.Running ? "Pause" : "Start");
     }
 
     private void OnToggle(object sender, RoutedEventArgs e) => Service.Toggle();

@@ -32,6 +32,17 @@
         <Setter Property="HorizontalAlignment" Value="Stretch" />
     </Style>
 
+    <!-- The stock ToggleSwitch reserves 154px so an On/Off label can sit beside
+         the track. With no label that dead space is still reserved, and it
+         pushes every switch well clear of the row's trailing edge. Trimmed
+         back to the track so the controls line up with each other and with
+         the buttons in the rows that have them. -->
+    <Style x:Key="RowToggle" TargetType="ToggleSwitch">
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="HorizontalAlignment" Value="Right" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
     <Style x:Key="SectionHeader" TargetType="TextBlock">
         <Setter Property="FontSize" Value="14" />
         <Setter Property="FontWeight" Value="SemiBold" />

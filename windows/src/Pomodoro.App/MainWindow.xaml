@@ -444,7 +444,8 @@
                                                    Style="{StaticResource RowDescription}" />
                                     </StackPanel>
                                     <ToggleSwitch Grid.Column="2" x:Name="FloatingToggle" OnContent="" OffContent=""
-                                                  VerticalAlignment="Center" Toggled="OnPreferenceToggled" />
+                                                  Style="{StaticResource RowToggle}"
+                                                  Toggled="OnPreferenceToggled" />
                                 </Grid>
                             </Border>
 
@@ -462,7 +463,8 @@
                                                    Style="{StaticResource RowDescription}" />
                                     </StackPanel>
                                     <ToggleSwitch Grid.Column="2" x:Name="TrayCountdownToggle" OnContent="" OffContent=""
-                                                  VerticalAlignment="Center" Toggled="OnPreferenceToggled" />
+                                                  Style="{StaticResource RowToggle}"
+                                                  Toggled="OnPreferenceToggled" />
                                 </Grid>
                             </Border>
 
@@ -480,7 +482,8 @@
                                                    Style="{StaticResource RowDescription}" />
                                     </StackPanel>
                                     <ToggleSwitch Grid.Column="2" x:Name="AlarmToggle" OnContent="" OffContent=""
-                                                  VerticalAlignment="Center" Toggled="OnPreferenceToggled" />
+                                                  Style="{StaticResource RowToggle}"
+                                                  Toggled="OnPreferenceToggled" />
                                 </Grid>
                             </Border>
 
@@ -505,6 +508,7 @@
                                         <Button x:Name="CheckUpdatesButton" Content="Check now"
                                                 Click="OnCheckForUpdates" />
                                         <ToggleSwitch x:Name="UpdateCheckToggle" OnContent="" OffContent=""
+                                                      Style="{StaticResource RowToggle}"
                                                       Toggled="OnUpdatePreferenceToggled" />
                                     </StackPanel>
                                 </Grid>
