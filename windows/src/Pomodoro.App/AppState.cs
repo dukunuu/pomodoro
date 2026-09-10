@@ -144,8 +144,11 @@ public sealed class AppState
         }
     }
 
+    private bool _quitting;
+
     private void Shutdown()
     {
+        _quitting = true;
         _tray?.Dispose();
         _tray = null;
         Notifier.Unregister();
@@ -157,8 +160,21 @@ public sealed class AppState
         if (_dashboard is null)
         {
             _dashboard = new MainWindow();
+
+            // Closing the window hides it rather than ending the app: the
+            // timer keeps running and the tray icon stays put. Quitting is
+            // deliberate, from the tray menu.
+            _dashboard.AppWindow.Closing += (sender, args) =>
+            {
+                // Without a tray icon there would be no way back to a hidden
+                // window, so in that case closing really does mean quit.
+                if (_quitting || _tray is null) return;
+                args.Cancel = true;
+                sender.Hide();
+            };
             _dashboard.Closed += (_, _) => _dashboard = null;
         }
+        _dashboard.AppWindow.Show();
         _dashboard.Activate();
     }
 
