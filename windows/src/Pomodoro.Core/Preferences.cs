@@ -24,6 +24,10 @@ public sealed class Preferences
     public int FloatingX { get; set; } = int.MinValue;
     public int FloatingY { get; set; } = int.MinValue;
 
+    /// <summary>Last floating-timer size; the clock scales to fill it.</summary>
+    public int FloatingWidth { get; set; } = 252;
+    public int FloatingHeight { get; set; } = 132;
+
     public event Action? Changed;
 
     public int Duration(Phase phase) => phase switch
@@ -63,6 +67,8 @@ public sealed class Preferences
         result.PlayAlarmSound = obj["playAlarmSound"]?.GetValue<bool>() ?? true;
         result.FloatingX = (int)(Persistence.Number(obj["floatingX"]) ?? int.MinValue);
         result.FloatingY = (int)(Persistence.Number(obj["floatingY"]) ?? int.MinValue);
+        result.FloatingWidth = (int)(Persistence.Number(obj["floatingWidth"]) ?? 252);
+        result.FloatingHeight = (int)(Persistence.Number(obj["floatingHeight"]) ?? 132);
         return result;
     }
 
@@ -79,7 +85,9 @@ public sealed class Preferences
             ["trayShowsCountdown"] = TrayShowsCountdown,
             ["playAlarmSound"] = PlayAlarmSound,
             ["floatingX"] = FloatingX,
-            ["floatingY"] = FloatingY
+            ["floatingY"] = FloatingY,
+            ["floatingWidth"] = FloatingWidth,
+            ["floatingHeight"] = FloatingHeight
         };
         AtomicFile.Write(FilePath, Persistence.Json(payload));
         Changed?.Invoke();

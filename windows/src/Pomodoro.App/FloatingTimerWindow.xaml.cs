@@ -25,15 +25,19 @@ public sealed partial class FloatingTimerWindow : Window
         {
             presenter.SetBorderAndTitleBar(false, false);
             presenter.IsAlwaysOnTop = true;
-            presenter.IsResizable = false;
+            // Resizable so the clock can be scaled to taste; the Viewbox
+            // grows the numerals to fill whatever size is chosen.
+            presenter.IsResizable = true;
             presenter.IsMaximizable = false;
             presenter.IsMinimizable = false;
         }
         AppWindow.IsShownInSwitchers = false;
-        // Sized to the content: the previous window was taller than what it
-        // held, which left dead space under the buttons.
-        AppWindow.Resize(new Windows.Graphics.SizeInt32(252, 158));
+        var preferences = App.State.Preferences;
+        AppWindow.Resize(new Windows.Graphics.SizeInt32(
+            Math.Max(MinimumWidth, preferences.FloatingWidth),
+            Math.Max(MinimumHeight, preferences.FloatingHeight)));
         RestorePosition();
+        AppWindow.Changed += OnAppWindowChanged;
 
         // Acrylic is the Windows material for floating surfaces, and it also
         // removes the pale frame a plain borderless window was showing.
@@ -46,7 +50,8 @@ public sealed partial class FloatingTimerWindow : Window
         Closed += (_, _) =>
         {
             Service.Changed -= Refresh;
-            RememberPosition();
+            AppWindow.Changed -= OnAppWindowChanged;
+            RememberPlacement();
         };
         Refresh();
     }
@@ -75,20 +80,43 @@ public sealed partial class FloatingTimerWindow : Window
             work.Y + 24));
     }
 
-    private void RememberPosition()
+    private const int MinimumWidth = 132;
+    private const int MinimumHeight = 76;
+
+    /// <summary>Keeps the widget usable when dragged very small.</summary>
+    private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
+    {
+        if (!args.DidSizeChange) return;
+        var width = Math.Max(MinimumWidth, sender.Size.Width);
+        var height = Math.Max(MinimumHeight, sender.Size.Height);
+        if (width != sender.Size.Width || height != sender.Size.Height)
+        {
+            sender.Resize(new Windows.Graphics.SizeInt32(width, height));
+        }
+    }
+
+    private void RememberPlacement()
     {
         try
         {
             var preferences = App.State.Preferences;
             preferences.FloatingX = AppWindow.Position.X;
             preferences.FloatingY = AppWindow.Position.Y;
+            preferences.FloatingWidth = AppWindow.Size.Width;
+            preferences.FloatingHeight = AppWindow.Size.Height;
             preferences.Save();
         }
         catch (Exception error)
         {
-            CrashLog.Write("remember floating position", error);
+            CrashLog.Write("remember floating placement", error);
         }
     }
+
+    private void OnPointerEntered(object sender, PointerRoutedEventArgs e) =>
+        Controls.Visibility = Visibility.Visible;
+
+    private void OnPointerExited(object sender, PointerRoutedEventArgs e) =>
+        Controls.Visibility = Visibility.Collapsed;
 
     /// <summary>Drag from anywhere that is not a control.</summary>
     private void OnDragStart(object sender, PointerRoutedEventArgs e)
@@ -100,7 +128,7 @@ public sealed partial class FloatingTimerWindow : Window
 
     private void OnHide(object sender, RoutedEventArgs e)
     {
-        RememberPosition();
+        RememberPlacement();
         // Route through the preference so the Settings toggle and the tray
         // item agree with what the window is actually doing.
         App.State.Preferences.ShowFloatingTimer = false;
