@@ -50,11 +50,7 @@ final class AppState: ObservableObject {
     // MARK: - Phase ring
 
     private func announce(finished: Phase, upcoming: Phase) {
-        if preferences.playAlarmSound {
-            (NSSound(named: "Glass") ?? NSSound(named: "Ping"))?.play()
-        } else {
-            NSSound.beep()
-        }
+        if preferences.playAlarmSound { Chime.play(finished: finished) }
         let title = finished == .focus ? "Focus time reached" : "Break complete"
         let body: String
         if finished == .focus {

@@ -202,6 +202,6 @@ public sealed class AppState
                 : "Continue working or skip when ready for a short break.")
             : "Ready for another focus session.";
         Notifier.Post(title, body);
-        if (Preferences.PlayAlarmSound) Notifier.PlayAlarm();
+        if (Preferences.PlayAlarmSound) Chime.Play(finished);
     }
 }
