@@ -89,6 +89,13 @@
             <SolidColorBrush x:Key="ProgressBarTrackFill" Color="#FF2B333D" />
             <SolidColorBrush x:Key="ProgressBarBackground" Color="#FF2B333D" />
             <SolidColorBrush x:Key="ProgressBarBorderBrush" Color="Transparent" />
+
+            <!-- ToggleSwitch reserves 154px so an On/Off label can sit beside
+                 the track, and the reserve lives in the control's own default
+                 style, where a per-instance MinWidth does not reach it. Every
+                 switch in this app is label-less, so the reserve is cut to the
+                 track and the switches sit at the trailing edge of their row. -->
+            <x:Double x:Key="ToggleSwitchThemeMinWidth">40</x:Double>
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 
