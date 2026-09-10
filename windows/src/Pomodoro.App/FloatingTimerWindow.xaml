@@ -3,23 +3,6 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <Window.Resources>
-        <!-- One shape for every control in the overlay: a round, unfilled
-             target that only shows a fill under the pointer. Nothing labelled,
-             nothing framed. -->
-        <Style x:Key="OverlayButton" TargetType="Button">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="MinWidth" Value="0" />
-            <Setter Property="Width" Value="30" />
-            <Setter Property="Height" Value="30" />
-            <Setter Property="CornerRadius" Value="15" />
-            <Setter Property="HorizontalContentAlignment" Value="Center" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-        </Style>
-    </Window.Resources>
-
     <!-- At rest this is the countdown and nothing else. The controls are an
          overlay that appears on hover, so the widget stays quiet until you
          reach for it. -->
@@ -30,6 +13,24 @@
             PointerPressed="OnDragStart"
             PointerEntered="OnPointerEntered"
             PointerExited="OnPointerExited">
+        <!-- Window is not a FrameworkElement in WinUI, so it carries no
+             resource dictionary; the overlay's one style lives here. It gives
+             every control in the overlay the same shape: a round, unfilled
+             target that only shows a fill under the pointer. -->
+        <Border.Resources>
+            <Style x:Key="OverlayButton" TargetType="Button">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="MinWidth" Value="0" />
+                <Setter Property="Width" Value="30" />
+                <Setter Property="Height" Value="30" />
+                <Setter Property="CornerRadius" Value="15" />
+                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+            </Style>
+        </Border.Resources>
+
         <Grid>
             <!-- The window is dragged through WM_NCLBUTTONDOWN from anywhere,
                  so the extended title bar is given a zero-sized drag region
