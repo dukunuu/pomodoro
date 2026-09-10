@@ -30,6 +30,8 @@ public sealed partial class FloatingTimerWindow : Window
         AppWindow.IsShownInSwitchers = false;
         AppWindow.Resize(new Windows.Graphics.SizeInt32(260, 160));
         MoveToCorner();
+        CrashLog.Guard("floating chrome", () =>
+            WindowChrome.ApplyBorder(WinRT.Interop.WindowNative.GetWindowHandle(this)));
 
         Service.Changed += Refresh;
         Closed += (_, _) => Service.Changed -= Refresh;

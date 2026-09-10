@@ -26,6 +26,11 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
         Title = "Pomodoro";
         AppWindow.Resize(new Windows.Graphics.SizeInt32(980, 760));
+        CrashLog.Guard("title bar", () =>
+        {
+            WindowChrome.ApplyTitleBar(this);
+            WindowChrome.ApplyBorder(WinRT.Interop.WindowNative.GetWindowHandle(this));
+        });
 
         SendDate.Date = DateTimeOffset.Now;
         LoadPreferences();
@@ -363,9 +368,13 @@ public sealed partial class MainWindow : Window
 
     // ---- Whistler ---------------------------------------------------------
 
+    /// <summary>
+    /// Render only. This is the Changed handler, so re-reading state here
+    /// would raise Changed again and recurse until the stack overflows.
+    /// Call Integrations.Refresh() to re-read; the event brings us back.
+    /// </summary>
     private void RefreshWhistler()
     {
-        Integrations.Refresh();
         SetupRows.Children.Clear();
         SetupCard.Visibility = Integrations.WhistlerReady ? Visibility.Collapsed : Visibility.Visible;
 
@@ -435,7 +444,7 @@ public sealed partial class MainWindow : Window
         var error = Integrations.InstallGoogleClient(file.Path);
         SendStatus.Text = error ?? "OAuth client installed.";
         SendStatus.Foreground = error is null ? Brush("LongBreakBrush") : Brush("UrgentBrush");
-        RefreshWhistler();
+        Integrations.Refresh();
     }
 
     private async void OnAuthorizeGoogle(object sender, RoutedEventArgs e)
@@ -453,7 +462,7 @@ public sealed partial class MainWindow : Window
             SendStatus.Text = error.Message;
             SendStatus.Foreground = Brush("UrgentBrush");
         }
-        RefreshWhistler();
+        Integrations.Refresh();
     }
 
     private void OnConfigureWhistler(object sender, RoutedEventArgs e)
@@ -783,7 +792,8 @@ public sealed partial class MainWindow : Window
         WhistlerPanel.Visibility = _section == "whistler" ? Visibility.Visible : Visibility.Collapsed;
         SettingsPanel.Visibility = _section == "settings" ? Visibility.Visible : Visibility.Collapsed;
 
-        if (_section == "whistler") RefreshWhistler();
+        // Re-read the credential files on arrival; Changed re-renders.
+        if (_section == "whistler") Integrations.Refresh();
         Refresh();
     }
 

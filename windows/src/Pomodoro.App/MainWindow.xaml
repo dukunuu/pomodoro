@@ -37,7 +37,7 @@
 
                 <ProgressBar Grid.Column="1" x:Name="PhaseProgress" VerticalAlignment="Center"
                              Height="4" Minimum="0" Maximum="1"
-                             Background="{StaticResource RaisedBrush}"
+                             Background="{StaticResource BorderBrush2}"
                              Foreground="{StaticResource FocusBrush}" />
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">

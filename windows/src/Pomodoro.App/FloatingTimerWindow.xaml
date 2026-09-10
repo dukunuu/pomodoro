@@ -30,7 +30,7 @@
                        Foreground="{StaticResource TextBrightBrush}" />
 
             <ProgressBar x:Name="PhaseProgress" Height="3" Minimum="0" Maximum="1"
-                         Background="{StaticResource RaisedBrush}"
+                         Background="{StaticResource BorderBrush2}"
                          Foreground="{StaticResource FocusBrush}" />
 
             <StackPanel Orientation="Horizontal" Spacing="6">
