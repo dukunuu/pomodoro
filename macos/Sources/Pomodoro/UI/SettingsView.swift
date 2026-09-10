@@ -5,10 +5,18 @@ import AppKit
 /// Whistler section, next to the button that depends on it.
 struct SettingsPanel: View {
     var body: some View {
-        TimerSettingsCard()
-        BehaviourCard()
-        UpdatesCard()
-        DataCard()
+        // Settings is label-and-control text, not a chart: stretched across a
+        // wide window it becomes a narrow column of content with a field of
+        // empty card beside it. Capped and centred, the way macOS caps its
+        // own settings pane, the space reads as margin instead.
+        VStack(spacing: 14) {
+            TimerSettingsCard()
+            BehaviourCard()
+            UpdatesCard()
+            DataCard()
+        }
+        .frame(maxWidth: 680)
+        .frame(maxWidth: .infinity, alignment: .center)
     }
 }
 
@@ -18,17 +26,19 @@ struct TimerSettingsCard: View {
 
     var body: some View {
         Card("Timer") {
-            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 9) {
+            VStack(spacing: 9) {
                 durationRow("Focus", value: $preferences.focusMinutes, phase: .focus)
                 durationRow("Short break", value: $preferences.shortBreakMinutes, phase: .short)
                 durationRow("Long break", value: $preferences.longBreakMinutes, phase: .long)
-                GridRow {
+                HStack(spacing: 10) {
+                    Circle().fill(Color.clear).frame(width: 7, height: 7)
                     Text("Long break every")
+                    Spacer(minLength: 16)
                     Stepper(value: $preferences.longBreakEvery, in: 1...12) {
                         Text("\(preferences.longBreakEvery) focus sessions")
                             .monospacedDigit()
                     }
-                    Color.clear.frame(height: 1)
+                    .fixedSize()
                 }
             }
             .font(.callout)
@@ -40,15 +50,20 @@ struct TimerSettingsCard: View {
         }
     }
 
+    /// Label at the leading edge, control at the trailing one — the shape
+    /// every other settings row in the app already has. The phase colour
+    /// leads the row rather than trailing it as a loose dot.
     private func durationRow(_ label: String, value: Binding<Int>, phase: Phase) -> some View {
-        GridRow {
-            Text(label)
-            Stepper(value: value, in: 1...240) {
-                Text("\(value.wrappedValue) min").monospacedDigit()
-            }
+        HStack(spacing: 10) {
             Circle()
                 .fill(Theme.color(for: phase))
                 .frame(width: 7, height: 7)
+            Text(label)
+            Spacer(minLength: 16)
+            Stepper(value: value, in: 1...240) {
+                Text("\(value.wrappedValue) min").monospacedDigit()
+            }
+            .fixedSize()
         }
     }
 }

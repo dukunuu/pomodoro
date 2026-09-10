@@ -22,13 +22,16 @@ public sealed partial class FloatingTimerWindow : Window
 
         if (AppWindow.Presenter is OverlappedPresenter presenter)
         {
-            presenter.SetBorderAndTitleBar(false, false);
             presenter.IsAlwaysOnTop = true;
-            // Resizable so the clock can be scaled to taste; the Viewbox
-            // grows the numerals to fill whatever size is chosen.
-            presenter.IsResizable = true;
             presenter.IsMaximizable = false;
             presenter.IsMinimizable = false;
+            // Order matters, and so does the value. A resizable window keeps
+            // its sizing frame, and the frame brings back the caption strip
+            // that was being painted as a black bar above the widget, along
+            // with the heavy shadow a framed window casts. The widget is
+            // resized from its own grip instead, so it needs neither.
+            presenter.IsResizable = false;
+            presenter.SetBorderAndTitleBar(false, false);
         }
         AppWindow.IsShownInSwitchers = false;
         var preferences = App.State.Preferences;
@@ -121,8 +124,50 @@ public sealed partial class FloatingTimerWindow : Window
     private void OnPointerEntered(object sender, PointerRoutedEventArgs e) =>
         Controls.Visibility = Visibility.Visible;
 
-    private void OnPointerExited(object sender, PointerRoutedEventArgs e) =>
+    private void OnPointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        // A resize drag routinely leaves the window; hiding the grip
+        // mid-drag would drop it.
+        if (_resizing) return;
         Controls.Visibility = Visibility.Collapsed;
+    }
+
+    private bool _resizing;
+    private Windows.Foundation.Point _resizeOrigin;
+    private Windows.Graphics.SizeInt32 _resizeStart;
+
+    /// <summary>
+    /// Resizes from the grip rather than from a sizing frame. Positions are
+    /// read relative to the window, whose origin does not move while it is
+    /// being resized, so the total delta stays correct across moves.
+    /// </summary>
+    private void OnResizeStart(object sender, PointerRoutedEventArgs e)
+    {
+        e.Handled = true;
+        _resizing = true;
+        _resizeStart = AppWindow.Size;
+        _resizeOrigin = e.GetCurrentPoint(null).Position;
+        ResizeGrip.CapturePointer(e.Pointer);
+    }
+
+    private void OnResizeMove(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_resizing) return;
+        e.Handled = true;
+        var point = e.GetCurrentPoint(null).Position;
+        var scale = Root.XamlRoot?.RasterizationScale ?? 1.0;
+        AppWindow.Resize(new Windows.Graphics.SizeInt32(
+            Math.Max(MinimumWidth, (int)Math.Round(_resizeStart.Width + (point.X - _resizeOrigin.X) * scale)),
+            Math.Max(MinimumHeight, (int)Math.Round(_resizeStart.Height + (point.Y - _resizeOrigin.Y) * scale))));
+    }
+
+    private void OnResizeEnd(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_resizing) return;
+        _resizing = false;
+        ResizeGrip.ReleasePointerCaptures();
+        RememberPlacement();
+    }
 
     /// <summary>Drag from anywhere that is not a control.</summary>
     private void OnDragStart(object sender, PointerRoutedEventArgs e)
@@ -150,7 +195,7 @@ public sealed partial class FloatingTimerWindow : Window
         // widget has room for one thing, and that thing is the time.
         Clock.Text = Service.RemainingText;
         Clock.Foreground = phaseBrush;
-        Clock.Opacity = Service.Running ? 1.0 : 0.5;
+        Clock.Opacity = Service.Running ? 1.0 : 0.72;
 
         PhaseProgress.Value = Service.PhaseProgress;
         PhaseProgress.Foreground = phaseBrush;
