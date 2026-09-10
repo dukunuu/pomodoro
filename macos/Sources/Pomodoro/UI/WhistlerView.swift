@@ -119,9 +119,16 @@ struct SetupChecklistCard: View {
     @EnvironmentObject private var whistler: WhistlerService
     @EnvironmentObject private var integrations: IntegrationStatus
     @State private var showingGoogleHelp = false
+    @State private var showingCredentials = false
     @State private var installError: String?
 
     var body: some View {
+        card.sheet(isPresented: $showingCredentials) {
+            WhistlerCredentialsSheet { integrations.refresh() }
+        }
+    }
+
+    private var card: some View {
         Card("Setup") {
             Text("Whistler needs a Google Calendar client, an authorized Google account, and your Whistler credentials.")
                 .font(.caption)
@@ -149,7 +156,7 @@ struct SetupChecklistCard: View {
                 state: integrations.whistler,
                 actionTitle: integrations.whistler.isReady ? "Reconfigure" : "Configure",
                 enabled: integrations.googleToken.isReady
-            ) { whistler.configureWhistler() }
+            ) { showingCredentials = true }
 
             if !integrations.python.isReady {
                 Label(integrations.python.detail, systemImage: "exclamationmark.triangle.fill")

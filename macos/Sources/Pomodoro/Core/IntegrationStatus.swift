@@ -37,14 +37,14 @@ final class IntegrationStatus: ObservableObject {
     @Published private(set) var googleClient: SetupState = .ready
     @Published private(set) var googleToken: SetupState = .ready
     @Published private(set) var whistler: SetupState = .ready
-    /// Non-secret summary of pomodoro-whistler.env, for display only.
+    /// Non-secret summary of the Whistler settings, for display only.
     @Published private(set) var whistlerSummary: [(String, String)] = []
 
     private var watchers: [FileWatcher] = []
 
     init() {
         refresh()
-        watchers = [DataPaths.googleClient, DataPaths.googleToken, DataPaths.whistlerConfig].map { url in
+        watchers = [DataPaths.googleClient, DataPaths.googleToken, DataPaths.whistlerAccount].map { url in
             FileWatcher(url: url) { [weak self] in self?.refresh() }
         }
     }
@@ -69,29 +69,30 @@ final class IntegrationStatus: ObservableObject {
             ? .ready
             : .missing("Not authorized yet")
 
-        let env = Self.readEnv(DataPaths.whistlerConfig)
-        if env.isEmpty {
-            whistler = .missing("Not configured")
-            whistlerSummary = []
-        } else {
-            var summary: [(String, String)] = []
-            if let url = env["WHISTLER_API_URL"] { summary.append(("Server", url)) }
-            if let calendar = env["CALENDAR_ID"] { summary.append(("Calendar", calendar)) }
-            if let model = env["OPENROUTER_MODEL"] { summary.append(("Model", model)) }
-            if let email = env["WHISTLER_EMAIL"] { summary.append(("Account", email)) }
-            whistlerSummary = summary
+        // Settings are shown; secrets are only ever reported present or
+        // absent, and are never read into the UI at all.
+        let settings = WhistlerConfig.readSettings()
+        var summary: [(String, String)] = [
+            ("Server", settings.apiUrl),
+            ("Calendar", settings.calendarId),
+            ("Model", settings.model)
+        ]
+        if !settings.email.isEmpty { summary.append(("Account", settings.email)) }
+        whistlerSummary = summary
 
-            // Secrets are only ever reported as present or absent.
-            var missing: [String] = []
-            if (env["OPENROUTER_API_KEY"] ?? "").isEmpty
-                && (ProcessInfo.processInfo.environment["OPENROUTER_API_KEY"] ?? "").isEmpty {
-                missing.append("OpenRouter API key")
-            }
-            if (env["WHISTLER_SESSION_TOKEN"] ?? "").isEmpty
-                && ((env["WHISTLER_EMAIL"] ?? "").isEmpty || (env["WHISTLER_PASSWORD"] ?? "").isEmpty) {
-                missing.append("Whistler sign-in")
-            }
-            whistler = missing.isEmpty ? .ready : .blocked("Missing \(missing.joined(separator: " and "))")
+        var missing: [String] = []
+        if !SecretStore.has(SecretStore.openRouterKey)
+            && (ProcessInfo.processInfo.environment["OPENROUTER_API_KEY"] ?? "").isEmpty {
+            missing.append("OpenRouter API key")
+        }
+        if !SecretStore.has(SecretStore.whistlerSession)
+            && !SecretStore.has(WhistlerConfig.legacyPassword) {
+            missing.append("Whistler sign-in")
+        }
+        switch missing.count {
+        case 0: whistler = .ready
+        case 2: whistler = .missing("Not configured")
+        default: whistler = .blocked("Missing \(missing.joined(separator: " and "))")
         }
     }
 

@@ -26,6 +26,12 @@ public static class DataPaths
     public static string WhistlerInstructions => Path.Combine(Directory, "pomodoro-whistler-instructions.txt");
     public static string WhistlerImportState => Path.Combine(Directory, "pomodoro-whistler-imports.json");
     public static string WhistlerConfig => Path.Combine(Directory, "pomodoro-whistler.env");
+
+    /// <summary>
+    /// Server, account and model. The secrets that went with them in the
+    /// legacy .env now live in Credential Manager.
+    /// </summary>
+    public static string WhistlerAccount => Path.Combine(Directory, "pomodoro-whistler-account.json");
     public static string GoogleClient => Path.Combine(Directory, "google-calendar-client.json");
 
     /// <summary>

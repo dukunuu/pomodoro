@@ -22,6 +22,9 @@ enum DataPaths {
     static var whistlerInstructions: URL { directory.appendingPathComponent("pomodoro-whistler-instructions.txt") }
     static var whistlerImportState: URL { directory.appendingPathComponent("pomodoro-whistler-imports.json") }
     static var whistlerConfig: URL { directory.appendingPathComponent("pomodoro-whistler.env") }
+    /// Server, account and model. The secrets that went with them in the
+    /// legacy .env now live in the Keychain.
+    static var whistlerAccount: URL { directory.appendingPathComponent("pomodoro-whistler-account.json") }
     static var integrationsConfig: URL { directory.appendingPathComponent("pomodoro-integrations.env") }
     static var googleClient: URL { directory.appendingPathComponent("google-calendar-client.json") }
     static var googleToken: URL { directory.appendingPathComponent("pomodoro-google-token.json") }
@@ -70,6 +73,5 @@ enum DataPaths {
 
     static var integrationsScript: URL { script("pomodoro_integrations.py") }
     static var googleAuthScript: URL { script("pomodoro_google_auth.py") }
-    static var whistlerSetupScript: URL { script("pomodoro_whistler_setup.py") }
     static var whistlerImportScript: URL { script("pomodoro_whistler_import.py") }
 }

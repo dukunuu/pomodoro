@@ -21,7 +21,7 @@ public sealed class WhistlerImporter
         string dayKey, bool dryRun = false, CancellationToken cancellation = default)
     {
         var (dateNumber, start, end) = ParseDay(dayKey);
-        var config = IntegrationStatus.ReadEnv(DataPaths.WhistlerConfig);
+        var config = WhistlerConfig.Resolve();
 
         Report(5, "Authenticating with Whistler");
         var whistler = await WhistlerClient.ConnectAsync(config, cancellation).ConfigureAwait(false);

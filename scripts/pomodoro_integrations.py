@@ -422,6 +422,11 @@ def main(argv: list[str]) -> int:
     # retain the separate integrations file as an optional Linux-compatible
     # override.
     whistler_config = load_env(WHISTLER_CONFIG_FILE)
+    # The app passes the Calendar settings through the environment now.
+    for key in ("GOOGLE_CALENDAR_ID", "CALENDAR_ID"):
+        value = os.environ.get(key, "").strip()
+        if value:
+            whistler_config[key] = value
     for key in ("GOOGLE_CALENDAR_ID", "GOOGLE_CLIENT_FILE", "GOOGLE_TOKEN_FILE"):
         if not config.get(key) and whistler_config.get(key):
             config[key] = whistler_config[key]

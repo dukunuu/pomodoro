@@ -30,7 +30,7 @@ public sealed class IntegrationStatus
     public SetupState GoogleToken { get; private set; } = SetupState.Ready();
     public SetupState Whistler { get; private set; } = SetupState.Ready();
 
-    /// <summary>Non-secret summary of pomodoro-whistler.env, for display only.</summary>
+    /// <summary>Non-secret summary of the Whistler settings, for display only.</summary>
     public IReadOnlyList<(string Label, string Value)> WhistlerSummary { get; private set; } = [];
 
     public bool GoogleReady => GoogleClient.IsReady && GoogleToken.IsReady;
@@ -54,40 +54,36 @@ public sealed class IntegrationStatus
             ? SetupState.Ready()
             : SetupState.Missing("Not authorized yet");
 
-        var env = ReadEnv(DataPaths.WhistlerConfig);
-        if (env.Count == 0)
+        // Settings are shown; secrets are only ever reported present or absent,
+        // and are never read into the UI at all.
+        var settings = WhistlerConfig.ReadSettings();
+        var summary = new List<(string, string)>
         {
-            Whistler = SetupState.Missing("Not configured");
-            WhistlerSummary = [];
-        }
-        else
-        {
-            var summary = new List<(string, string)>();
-            if (env.TryGetValue("WHISTLER_API_URL", out var url)) summary.Add(("Server", url));
-            if (env.TryGetValue("GOOGLE_CALENDAR_ID", out var cal)) summary.Add(("Calendar", cal));
-            if (env.TryGetValue("OPENROUTER_MODEL", out var model)) summary.Add(("Model", model));
-            if (env.TryGetValue("WHISTLER_EMAIL", out var email)) summary.Add(("Account", email));
-            WhistlerSummary = summary;
+            ("Server", settings.ApiUrl),
+            ("Calendar", settings.CalendarId),
+            ("Model", settings.Model)
+        };
+        if (settings.Email.Length > 0) summary.Add(("Account", settings.Email));
+        WhistlerSummary = summary;
 
-            // Secrets are only ever reported as present or absent.
-            var missing = new List<string>();
-            var openRouter = env.GetValueOrDefault("OPENROUTER_API_KEY", string.Empty);
-            if (openRouter.Length == 0 &&
-                string.IsNullOrEmpty(Environment.GetEnvironmentVariable("OPENROUTER_API_KEY")))
-            {
-                missing.Add("OpenRouter API key");
-            }
-            var session = env.GetValueOrDefault("WHISTLER_SESSION_TOKEN", string.Empty);
-            var user = env.GetValueOrDefault("WHISTLER_EMAIL", string.Empty);
-            var password = env.GetValueOrDefault("WHISTLER_PASSWORD", string.Empty);
-            if (session.Length == 0 && (user.Length == 0 || password.Length == 0))
-            {
-                missing.Add("Whistler sign-in");
-            }
-            Whistler = missing.Count == 0
-                ? SetupState.Ready()
-                : SetupState.Blocked("Missing " + string.Join(" and ", missing));
+        var missing = new List<string>();
+        if (!SecretStore.Has(SecretStore.OpenRouterKey) &&
+            string.IsNullOrEmpty(Environment.GetEnvironmentVariable("OPENROUTER_API_KEY")))
+        {
+            missing.Add("OpenRouter API key");
         }
+        if (!SecretStore.Has(SecretStore.WhistlerSession) &&
+            !SecretStore.Has(WhistlerConfig.LegacyPassword))
+        {
+            missing.Add("Whistler sign-in");
+        }
+        Whistler = missing.Count switch
+        {
+            0 => SetupState.Ready(),
+            2 => SetupState.Missing("Not configured"),
+            _ => SetupState.Blocked("Missing " + string.Join(" and ", missing))
+        };
+
         Changed?.Invoke();
     }
 

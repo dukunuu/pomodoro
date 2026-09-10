@@ -35,6 +35,10 @@ enum Bridge {
         // Keep the bridges on exactly the directory the app reads and writes.
         env["POMODORO_DATA_DIR"] = DataPaths.directory.path
         env["PYTHONUNBUFFERED"] = "1"
+        // Whistler's secrets reach the bridges here rather than through a
+        // file. They live in the Keychain, and a child process environment is
+        // the one place they can be handed over without touching the disk.
+        for (key, value) in WhistlerConfig.resolve() { env[key] = value }
         return env
     }
 

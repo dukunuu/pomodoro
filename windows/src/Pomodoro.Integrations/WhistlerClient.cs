@@ -37,16 +37,27 @@ public sealed class WhistlerClient(string baseUrl, string token)
                 "Whistler authentication is not configured. Configure it in Settings.");
         }
 
+        return new WhistlerClient(
+            baseUrl, await SignInAsync(baseUrl, email, password, cancellation).ConfigureAwait(false));
+    }
+
+    /// <summary>
+    /// Exchanges an email and password for a session token. Setup calls this
+    /// so it can store the token and forget the password.
+    /// </summary>
+    public static async Task<string> SignInAsync(
+        string baseUrl, string email, string password, CancellationToken cancellation = default)
+    {
         var response = await HttpJson.SendAsync(
             $"{baseUrl}/api/auth/signin",
             HttpMethod.Post,
             new JsonObject { ["email"] = email, ["password"] = password },
             cancellation: cancellation).ConfigureAwait(false);
 
-        var signed = (response as JsonObject)?["token"]?.GetValue<string>();
-        return string.IsNullOrEmpty(signed)
+        var token = (response as JsonObject)?["token"]?.GetValue<string>();
+        return string.IsNullOrEmpty(token)
             ? throw new ImportFailure("Whistler login did not return a session token.")
-            : new WhistlerClient(baseUrl, signed);
+            : token;
     }
 
     /// <summary>A plain GET, for callers that read their own shapes.</summary>

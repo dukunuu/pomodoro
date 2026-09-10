@@ -469,7 +469,4 @@ final class WhistlerService: ObservableObject {
         Bridge.runInTerminal(DataPaths.googleAuthScript, [], title: "Authorize Google Calendar")
     }
 
-    func configureWhistler() {
-        Bridge.runInTerminal(DataPaths.whistlerSetupScript, [], title: "Configure Whistler")
-    }
 }

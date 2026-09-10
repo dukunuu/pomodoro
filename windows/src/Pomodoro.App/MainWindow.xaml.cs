@@ -482,26 +482,14 @@ public sealed partial class MainWindow : Window
         Integrations.Refresh();
     }
 
-    private void OnConfigureWhistler(object sender, RoutedEventArgs e)
+    private async void OnConfigureWhistler(object sender, RoutedEventArgs e)
     {
-        // Credentials are entered in the env file until a native form exists;
-        // opening it is honest about where they live.
-        if (!File.Exists(DataPaths.WhistlerConfig))
+        if (await WhistlerSignIn.ShowAsync(Content.XamlRoot))
         {
-            File.WriteAllText(DataPaths.WhistlerConfig, string.Join(Environment.NewLine,
-            [
-                "WHISTLER_API_URL=https://whistler.nashatech.com",
-                "GOOGLE_CALENDAR_ID=primary",
-                "OPENROUTER_MODEL=openai/gpt-4o-mini",
-                "OPENROUTER_API_KEY=",
-                "WHISTLER_EMAIL=",
-                "WHISTLER_PASSWORD=",
-                string.Empty
-            ]));
+            Report("Whistler credentials saved.", InfoBarSeverity.Success);
         }
-        Process.Start(new ProcessStartInfo(DataPaths.WhistlerConfig) { UseShellExecute = true });
-        Report("Fill in the file that just opened, then return to this page.",
-            InfoBarSeverity.Informational);
+        Integrations.Refresh();
+        RefreshWhistler();
     }
 
     private async void OnSend(object sender, RoutedEventArgs e)
@@ -563,7 +551,7 @@ public sealed partial class MainWindow : Window
         try
         {
             var month = Service.TodayKey[..7];
-            var config = IntegrationStatus.ReadEnv(DataPaths.WhistlerConfig);
+            var config = WhistlerConfig.Resolve();
             var status = await Task.Run(() => MonthStatus.FetchAsync(config, month));
             RenderMonth(status);
         }

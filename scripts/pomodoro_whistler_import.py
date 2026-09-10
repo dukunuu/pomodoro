@@ -80,6 +80,30 @@ def load_env(path: Path) -> dict[str, str]:
     return values
 
 
+CONFIG_KEYS = (
+    "WHISTLER_API_URL",
+    "WHISTLER_EMAIL",
+    "WHISTLER_PASSWORD",
+    "WHISTLER_SESSION_TOKEN",
+    "OPENROUTER_API_KEY",
+    "OPENROUTER_MODEL",
+    "GOOGLE_CALENDAR_ID",
+    "CALENDAR_ID",
+)
+
+
+def config_from_environment() -> dict[str, str]:
+    """Secrets the app holds in the OS keystore reach this process through its
+    environment rather than through a file, so they never touch the disk.
+    Anything supplied that way wins over the legacy config file."""
+    values: dict[str, str] = {}
+    for key in CONFIG_KEYS:
+        value = os.environ.get(key, "").strip()
+        if value:
+            values[key] = value
+    return values
+
+
 def imported_day_keys(path: Path = DEFAULT_IMPORT_STATE) -> set[str]:
     if not path.is_file():
         return set()
@@ -1044,6 +1068,7 @@ def main() -> int:
     if args.month_status and (args.date or args.dry_run):
         parser.error("--month-status cannot be combined with a date or --dry-run")
     config = load_env(args.config.expanduser())
+    config.update(config_from_environment())
     try:
         if args.month_status:
             print(json.dumps(month_status(config, args.month_status), ensure_ascii=False))

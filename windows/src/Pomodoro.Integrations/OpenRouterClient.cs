@@ -31,6 +31,19 @@ public static class OpenRouterClient
         "valid JSON object only. Never include prose, markdown, minutes, or logs. " +
         "Group related events into a few taskGroup values.";
 
+    /// <summary>
+    /// Confirms a key before it is stored, so a typo is caught at setup
+    /// rather than halfway through the first import.
+    /// </summary>
+    public static async Task ValidateKeyAsync(string key, CancellationToken cancellation = default)
+    {
+        await HttpJson.SendAsync(
+            "https://openrouter.ai/api/v1/key",
+            HttpMethod.Get,
+            headers: new Dictionary<string, string> { ["Authorization"] = "Bearer " + key },
+            cancellation: cancellation).ConfigureAwait(false);
+    }
+
     public static async Task<List<Assignment>> PlanAsync(
         IReadOnlyDictionary<string, string> config,
         int dateNumber,

@@ -78,8 +78,13 @@ a step before its prerequisite is met:
    Google Calendar API enabled, and install the downloaded JSON.
 2. **Authorize Google account.** Opens the browser consent flow over a loopback
    redirect with PKCE. Writes `pomodoro-google-token.json`.
-3. **Whistler credentials.** Validates OpenRouter, signs in to Whistler, and
-   stores a session token — not your password — in `pomodoro-whistler.env`.
+3. **Whistler credentials.** A form in the app: server, account, password,
+   OpenRouter key and model. It validates the OpenRouter key and signs in to
+   Whistler while you wait, then stores the **session token and the API key in
+   the OS keystore** — the login Keychain on macOS, Credential Manager on
+   Windows. Your password is used once, in memory, and never written to disk.
+   An existing `pomodoro-whistler.env` is migrated into the keystore on first
+   launch and then scrubbed and deleted.
 
 **Send to Whistler** stays disabled until every step is ready and says which
 one is outstanding. Only *timed* Calendar events are counted; all-day events
@@ -100,7 +105,7 @@ builder enforces.
 | --- | --- |
 | `pomodoro.json` | Timer state, version 4 |
 | `pomodoro-history.json` | Session history, version 1 |
-| `pomodoro-whistler.env` | Whistler and OpenRouter credentials |
+| `pomodoro-whistler-account.json` | Whistler server, account and model — no secrets |
 | `google-calendar-client.json` | Google OAuth client |
 | `pomodoro-google-token.json` | Google refresh token |
 | `pomodoro-whistler-instructions.txt` | AI mapping instructions |
@@ -109,6 +114,12 @@ builder enforces.
 | `pomodoro-crash.log` | Written only if the Windows app fails to start |
 
 `POMODORO_DATA_DIR` overrides the location on both platforms.
+
+Secrets are not in this directory. The Whistler session token and the
+OpenRouter key are held in the login Keychain on macOS and in Credential
+Manager on Windows, where they can be inspected and revoked outside the app.
+macOS hands them to the Python bridges through the child process environment,
+so they are never written to disk.
 
 The two apps reach the same services by different routes. macOS runs
 `scripts/*.py` — standard-library-only Python holding the Google and Whistler
