@@ -26,8 +26,12 @@ PrivilegesRequired=lowest
 OutputDir=dist
 OutputBaseFilename=Pomodoro-{#AppVersion}-windows-{#Arch}
 SetupIconFile=src\Pomodoro.App\Assets\pomodoro.ico
-Compression=lzma2/max
-SolidCompression=yes
+; Deliberately not lzma2/max with solid compression: that needs a large
+; dictionary to decompress, and when the allocation fails on a memory-limited
+; machine Inno reports it as "the setup files are corrupted". A slightly
+; larger installer is worth an install that works everywhere.
+Compression=lzma2/normal
+SolidCompression=no
 WizardStyle=modern
 ; An ARM64 build must refuse to install on x64; an x64 build is allowed on
 ; ARM64, where Windows runs it under emulation.

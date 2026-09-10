@@ -86,7 +86,7 @@ foreach ($arch in $archs) {
     if ($iscc) {
         Write-Host "==> Building installer ($arch)"
         & $iscc (Join-Path $root 'Pomodoro.iss') `
-            "/DAppVersion=$version" "/DSourceDir=$publish" "/DArch=$arch" "/Qp"
+            "/DAppVersion=$version" "/DSourceDir=$publish" "/DArch=$arch"
         if ($LASTEXITCODE -ne 0) { throw "installer build failed for $arch" }
     } else {
         Write-Warning 'Inno Setup (ISCC.exe) not found; only the portable zip was produced'
