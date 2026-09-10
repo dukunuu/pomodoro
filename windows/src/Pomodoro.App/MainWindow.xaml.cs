@@ -408,14 +408,12 @@ public sealed partial class MainWindow : Window
         SendButton.IsEnabled = Integrations.WhistlerReady && !_sending;
     }
 
-    private Grid SetupRow(int number, string title, SetupState state,
-                          string action, bool enabled, RoutedEventHandler handler)
+    private Border SetupRow(int number, string title, SetupState state,
+                            string action, bool enabled, RoutedEventHandler handler)
     {
-        var row = new Grid { ColumnSpacing = 10 };
+        var row = new Grid { ColumnSpacing = 14 };
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        row.Opacity = enabled ? 1 : 0.55;
-
         var text = new StackPanel { Spacing = 1 };
         text.Children.Add(new TextBlock
         {
@@ -441,7 +439,13 @@ public sealed partial class MainWindow : Window
         button.Click += handler;
         Grid.SetColumn(button, 1);
         row.Children.Add(button);
-        return row;
+
+        return new Border
+        {
+            Style = (Style)Application.Current.Resources["SettingsRow"],
+            Child = row,
+            Opacity = enabled ? 1 : 0.6
+        };
     }
 
     private async void OnInstallClient(object sender, RoutedEventArgs e)

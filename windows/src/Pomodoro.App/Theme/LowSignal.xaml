@@ -57,6 +57,38 @@
 
             <!-- Selection -->
             <Color x:Key="SystemColorHighlightColor">#FF35464D</Color>
+
+            <!-- The system accent, which controls read before any of the
+                 palette colours above. Without these an accent button stays
+                 Windows blue no matter what AccentFillColor* say. -->
+            <Color x:Key="SystemAccentColor">#FFB88F76</Color>
+            <Color x:Key="SystemAccentColorLight1">#FFC49A82</Color>
+            <Color x:Key="SystemAccentColorLight2">#FFCBA68A</Color>
+            <Color x:Key="SystemAccentColorLight3">#FFD6B79E</Color>
+            <Color x:Key="SystemAccentColorDark1">#FFA8836C</Color>
+            <Color x:Key="SystemAccentColorDark2">#FF97775F</Color>
+            <Color x:Key="SystemAccentColorDark3">#FF866A54</Color>
+
+            <!-- Brushes as well as colours: WinUI's accent brushes are bound
+                 to the system accent directly, so overriding only the colour
+                 keys leaves them untouched. -->
+            <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#FFB88F76" />
+            <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#FFA8836C" />
+            <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="#FF97775F" />
+            <SolidColorBrush x:Key="AccentFillColorDisabledBrush" Color="#FF3A3733" />
+            <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush" Color="#FFCBA68A" />
+            <SolidColorBrush x:Key="AccentTextFillColorSecondaryBrush" Color="#FFCBA68A" />
+            <SolidColorBrush x:Key="AccentTextFillColorTertiaryBrush" Color="#FFB88F76" />
+            <SolidColorBrush x:Key="TextOnAccentFillColorPrimaryBrush" Color="#FF171C22" />
+            <SolidColorBrush x:Key="TextOnAccentFillColorSecondaryBrush" Color="#FF20262E" />
+            <SolidColorBrush x:Key="TextOnAccentFillColorDisabledBrush" Color="#FF73808C" />
+            <SolidColorBrush x:Key="AccentControlElevationBorderBrush" Color="#FF97775F" />
+
+            <!-- The progress track was reading as a bright line across the
+                 card; it should sit just above the surface it lies on. -->
+            <SolidColorBrush x:Key="ProgressBarTrackFill" Color="#FF2B333D" />
+            <SolidColorBrush x:Key="ProgressBarBackground" Color="#FF2B333D" />
+            <SolidColorBrush x:Key="ProgressBarBorderBrush" Color="Transparent" />
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 
