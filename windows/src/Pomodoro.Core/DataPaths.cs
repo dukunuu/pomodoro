@@ -27,6 +27,18 @@ public static class DataPaths
     public static string WhistlerImportState => Path.Combine(Directory, "pomodoro-whistler-imports.json");
     public static string WhistlerConfig => Path.Combine(Directory, "pomodoro-whistler.env");
     public static string GoogleClient => Path.Combine(Directory, "google-calendar-client.json");
+
+    /// <summary>
+    /// A release bundles the project's OAuth client beside the executable so
+    /// users only approve access. A per-user copy in the data directory takes
+    /// precedence, so anyone can still supply their own.
+    /// </summary>
+    public static string? ExistingGoogleClient()
+    {
+        if (File.Exists(GoogleClient)) return GoogleClient;
+        var bundled = Path.Combine(AppContext.BaseDirectory, "google-calendar-client.json");
+        return File.Exists(bundled) ? bundled : null;
+    }
     public static string GoogleToken => Path.Combine(Directory, "pomodoro-google-token.json");
     public static string WhistlerLog => Path.Combine(Directory, "pomodoro-whistler.log");
 

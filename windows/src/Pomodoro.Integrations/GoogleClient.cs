@@ -19,10 +19,8 @@ public static class GoogleClient
 
     private static JsonObject ReadClient()
     {
-        var path = File.Exists(DataPaths.GoogleClient)
-            ? DataPaths.GoogleClient
-            : Path.Combine(AppContext.BaseDirectory, "google-calendar-client.json");
-        if (!File.Exists(path))
+        var path = DataPaths.ExistingGoogleClient();
+        if (path is null)
         {
             throw new ImportFailure(
                 "Google OAuth client file is unavailable. Install one in Settings.");

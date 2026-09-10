@@ -42,9 +42,13 @@ public sealed class IntegrationStatus
 
     public void Refresh()
     {
-        GoogleClient = File.Exists(DataPaths.GoogleClient)
-            ? ValidateClient(DataPaths.GoogleClient)
-            : SetupState.Missing("No OAuth client installed");
+        // Checks the bundled copy as well as the per-user one: a release ships
+        // a client beside the executable, and only looking in the data
+        // directory made the app report it missing.
+        var client = DataPaths.ExistingGoogleClient();
+        GoogleClient = client is null
+            ? SetupState.Missing("No OAuth client installed")
+            : ValidateClient(client);
 
         GoogleToken = File.Exists(DataPaths.GoogleToken)
             ? SetupState.Ready()
