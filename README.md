@@ -22,9 +22,18 @@ Download from [Releases](https://github.com/dukunuu/pomodoro/releases):
 | macOS 14+ | `Pomodoro-<version>-macos-universal.dmg` — Apple silicon and Intel |
 | Windows 11 | `Pomodoro-<version>-windows-x64.exe` or `-arm64.exe` |
 
-Both are unsigned. On macOS, right-click the app and choose Open the first
-time; on Windows, More info → Run anyway. The Windows installer is per-user and
-needs no elevation. Checksums are attached to every release.
+Both are unsigned, so both operating systems will warn on first launch. On
+macOS, right-click the app and choose Open; on Windows, SmartScreen shows
+"Windows protected your PC" — More info → Run anyway. Checksums are attached
+to every release, and the Windows installer is per-user and needs no
+elevation.
+
+Only an Authenticode signature clears the SmartScreen prompt; nothing about
+the packaging can. When a certificate is available, set `POMODORO_SIGN_SCRIPT`
+to a script invoked as `script <file>` and `build-windows.ps1` will sign the
+executable before it is packed and the installer after it is built, with the
+checksums written last over what is actually published. See
+[docs/releasing.md](docs/releasing.md) for what the options cost.
 
 Release builds carry the project's Google OAuth client, so setup is just
 authorizing Google and configuring Whistler.

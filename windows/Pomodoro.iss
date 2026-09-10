@@ -16,6 +16,19 @@ AppId={{7C3F2A64-9E1B-4D5A-9C77-2F1B6E4A8D31}
 AppName=Pomodoro
 AppVersion={#AppVersion}
 AppPublisher=dukunuu
+AppPublisherURL=https://github.com/dukunuu/pomodoro
+AppSupportURL=https://github.com/dukunuu/pomodoro/issues
+AppUpdatesURL=https://github.com/dukunuu/pomodoro/releases
+; Version metadata on the installer itself. It does not stop SmartScreen —
+; only a signature does that — but it puts a real product name and publisher
+; in the "unknown publisher" dialog and in Explorer's Details tab, instead of
+; leaving them blank the way a thrown-together binary does.
+VersionInfoVersion={#AppVersion}
+VersionInfoCompany=dukunuu
+VersionInfoProductName=Pomodoro
+VersionInfoProductVersion={#AppVersion}
+VersionInfoDescription=Pomodoro timer installer
+VersionInfoCopyright=Copyright (c) dukunuu. MIT licensed.
 DefaultDirName={autopf}\Pomodoro
 DefaultGroupName=Pomodoro
 DisableProgramGroupPage=yes

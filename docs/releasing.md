@@ -91,7 +91,8 @@ personal or small-team release that is usually fine; for a public one, submit
 for verification before advertising the download.
 
 Whistler and OpenRouter credentials are **never** baked in — those stay
-per-user in `pomodoro-whistler.env`.
+per-user in the OS keystore — Credential Manager on Windows, the login
+Keychain on macOS.
 
 ## Code signing
 
@@ -102,7 +103,31 @@ Neither platform's artifact is signed for distribution yet, so:
   and import the certificate in the workflow; `build-macos.sh` already uses it
   with a hardened runtime and a timestamp when present. Notarization is a
   further step (`xcrun notarytool submit` on the zip, then staple).
-- **Windows** — SmartScreen warns until the exe is signed and has reputation;
-  More info → Run anyway. Signing needs an EV or OV code-signing certificate.
+- **Windows** — SmartScreen shows "Windows protected your PC — unknown
+  publisher" until the executable is signed. This is not something metadata,
+  packaging or a cleaner installer can improve: SmartScreen's reputation is
+  keyed on the signing certificate, and an unsigned binary earns reputation
+  per file hash, which every release resets. The prompt therefore never goes
+  away on its own.
 
-The release notes say this, so users are not surprised.
+Set `POMODORO_SIGN_SCRIPT` to a script invoked as `script <file>` and
+`build-windows.ps1` signs the executable before packing and the installer
+after building, writing checksums last. Any provider fits that shape.
+
+Choosing one, cheapest first:
+
+| Option | Cost | Clears the prompt |
+| --- | --- | --- |
+| **Azure Trusted Signing** | ~$10/month | Immediately, and it is Microsoft's own service. Individuals qualify with three years of verifiable identity history; organizations need a registered entity. Certificates are short-lived and signing happens in Azure, so there is no token to hold. |
+| **OV certificate** | ~$200–400/year | Not at first. Reputation accrues over downloads, so early users still see the prompt. Since June 2023 the key must live on a hardware token or cloud HSM. |
+| **EV certificate** | ~$400–700/year | Immediately. Requires a registered legal entity and a hardware token. |
+
+Azure Trusted Signing is the recommendation: it is the only one that is both
+cheap and immediate.
+
+Separately, if Defender flags a build as malware rather than merely warning
+about the publisher, that is a false positive and worth submitting at
+https://www.microsoft.com/wdsi/filesubmission — unsigned self-contained .NET
+binaries that make network calls are a common heuristic trigger.
+
+The release notes say the artifacts are unsigned, so users are not surprised.

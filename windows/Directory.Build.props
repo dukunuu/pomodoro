@@ -15,5 +15,10 @@
     <Version Condition="'$(VERSION)' != ''">$(VERSION)</Version>
     <Company>dukunuu</Company>
     <Product>Pomodoro</Product>
+    <!-- Shown in Explorer's Details tab and in SmartScreen's dialog. Blank
+         fields are one of the things that make an unsigned binary look like
+         it was thrown together. -->
+    <Description>Pomodoro timer with Google Calendar and Whistler worklog integration</Description>
+    <Copyright>Copyright (c) dukunuu. MIT licensed.</Copyright>
   </PropertyGroup>
 </Project>

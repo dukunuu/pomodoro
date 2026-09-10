@@ -39,6 +39,25 @@ if ($iscc) {
     $iscc = if (Test-Path $candidate) { $candidate } else { $null }
 }
 
+# Authenticode signing, when a certificate is available.
+#
+# SmartScreen's "Windows protected your PC — unknown publisher" prompt is not
+# something metadata or packaging can talk it out of: only a signature clears
+# it. POMODORO_SIGN_SCRIPT names a script invoked as `script <file>`, which
+# keeps this agnostic about the provider — Azure Trusted Signing, an EV token
+# on a self-hosted runner, or a cloud signing CLI all fit the same shape.
+#
+# Ordering matters and is why this lives here rather than in the workflow: the
+# executable is signed before it is packed, the installer after it is built,
+# and the checksums are written last, over what is actually published.
+function Invoke-Sign {
+    param([Parameter(Mandatory)] [string] $Path)
+    if (-not $env:POMODORO_SIGN_SCRIPT) { return }
+    Write-Host "    signing $(Split-Path $Path -Leaf)"
+    & $env:POMODORO_SIGN_SCRIPT $Path
+    if ($LASTEXITCODE -ne 0) { throw "signing failed for $Path" }
+}
+
 New-Item -ItemType Directory -Force -Path $dist | Out-Null
 
 foreach ($arch in $archs) {
@@ -76,6 +95,8 @@ foreach ($arch in $archs) {
         Write-Host '    no OAuth client supplied; users install their own in Settings'
     }
 
+    Invoke-Sign (Join-Path $publish 'Pomodoro.exe')
+
     $name = "Pomodoro-$version-windows-$arch"
 
     Write-Host "==> Packaging portable zip ($arch)"
@@ -88,6 +109,7 @@ foreach ($arch in $archs) {
         & $iscc (Join-Path $root 'Pomodoro.iss') `
             "/DAppVersion=$version" "/DSourceDir=$publish" "/DArch=$arch"
         if ($LASTEXITCODE -ne 0) { throw "installer build failed for $arch" }
+        Invoke-Sign (Join-Path $dist "$name.exe")
     } else {
         Write-Warning 'Inno Setup (ISCC.exe) not found; only the portable zip was produced'
     }
