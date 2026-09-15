@@ -20,6 +20,10 @@ $ErrorActionPreference = 'Stop'
 
 $root = $PSScriptRoot
 $version = if ($env:VERSION) { $env:VERSION } else { '0.0.0-dev' }
+# Windows version resources take dotted numbers only; "0.0.0-dev" or
+# "1.2.3+build" keep their text in AppVersion and drop the suffix here.
+$fileVersion = ($version -split '[-+]')[0]
+if ($fileVersion -notmatch '^\d+(\.\d+){0,3}$') { $fileVersion = '0.0.0' }
 $archs = if ($env:ARCHS) { $env:ARCHS -split ',' } else { @('x64', 'arm64') }
 $project = Join-Path $root 'src/Pomodoro.App/Pomodoro.App.csproj'
 $dist = Join-Path $root 'dist'
@@ -107,7 +111,7 @@ foreach ($arch in $archs) {
     if ($iscc) {
         Write-Host "==> Building installer ($arch)"
         & $iscc (Join-Path $root 'Pomodoro.iss') `
-            "/DAppVersion=$version" "/DSourceDir=$publish" "/DArch=$arch"
+            "/DAppVersion=$version" "/DFileVersion=$fileVersion" "/DSourceDir=$publish" "/DArch=$arch"
         if ($LASTEXITCODE -ne 0) { throw "installer build failed for $arch" }
         Invoke-Sign (Join-Path $dist "$name.exe")
     } else {

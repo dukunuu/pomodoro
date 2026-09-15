@@ -10,6 +10,11 @@
 #ifndef Arch
   #define Arch "x64"
 #endif
+; The version resource only takes dotted numbers, so a CI build's
+; "0.0.0-dev" is rejected there. build-windows.ps1 passes the numeric part.
+#ifndef FileVersion
+  #define FileVersion AppVersion
+#endif
 
 [Setup]
 AppId={{7C3F2A64-9E1B-4D5A-9C77-2F1B6E4A8D31}
@@ -23,10 +28,11 @@ AppUpdatesURL=https://github.com/dukunuu/pomodoro/releases
 ; only a signature does that — but it puts a real product name and publisher
 ; in the "unknown publisher" dialog and in Explorer's Details tab, instead of
 ; leaving them blank the way a thrown-together binary does.
-VersionInfoVersion={#AppVersion}
+VersionInfoVersion={#FileVersion}
 VersionInfoCompany=dukunuu
 VersionInfoProductName=Pomodoro
-VersionInfoProductVersion={#AppVersion}
+VersionInfoProductVersion={#FileVersion}
+VersionInfoProductTextVersion={#AppVersion}
 VersionInfoDescription=Pomodoro timer installer
 VersionInfoCopyright=Copyright (c) dukunuu. MIT licensed.
 DefaultDirName={autopf}\Pomodoro
