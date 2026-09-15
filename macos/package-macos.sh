@@ -9,7 +9,18 @@
 set -eu
 
 ROOT=$(cd "$(dirname "$0")" && pwd)
-VERSION=${VERSION:-0.0.0-dev}
+# Same default as build-macos.sh: the latest tag, suffixed when ahead of it.
+if [ -z "${VERSION:-}" ]; then
+    TAG=$(git -C "$(dirname "$0")" describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)
+    if [ -n "$TAG" ]; then
+        AHEAD=$(git -C "$(dirname "$0")" rev-list --count "$TAG..HEAD")
+        VERSION=${TAG#v}
+        [ "$AHEAD" -gt 0 ] && VERSION="$VERSION-dev.$AHEAD"
+    else
+        VERSION=0.0.0-dev
+    fi
+fi
+export VERSION
 APP="$ROOT/dist/Pomodoro.app"
 
 [ -d "$APP" ] || { echo "no build at $APP; run build-macos.sh first" >&2; exit 1; }

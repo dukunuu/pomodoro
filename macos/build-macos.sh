@@ -18,7 +18,21 @@ set -eu
 ROOT=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$ROOT/.." && pwd)
 CONFIG=${CONFIG:-release}
-VERSION=${VERSION:-0.0.0-dev}
+# Default to the latest release tag, with a dev suffix for commits past it.
+# A flat 0.0.0-dev compared older than every release, so the in-app updater
+# offered to "update" a source build — and replaced newer code with the last
+# release. The update check ignores the suffix, so 0.2.5-dev.4 counts as
+# 0.2.5 and only a genuinely newer release is offered.
+if [ -z "${VERSION:-}" ]; then
+    TAG=$(git -C "$REPO" describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)
+    if [ -n "$TAG" ]; then
+        AHEAD=$(git -C "$REPO" rev-list --count "$TAG..HEAD")
+        VERSION=${TAG#v}
+        [ "$AHEAD" -gt 0 ] && VERSION="$VERSION-dev.$AHEAD"
+    else
+        VERSION=0.0.0-dev
+    fi
+fi
 APP="$ROOT/dist/Pomodoro.app"
 
 if [ -n "${BUILD_NUMBER:-}" ]; then

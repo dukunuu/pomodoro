@@ -19,7 +19,20 @@ everywhere but runs slowly on ARM devices. Both are published.
 $ErrorActionPreference = 'Stop'
 
 $root = $PSScriptRoot
-$version = if ($env:VERSION) { $env:VERSION } else { '0.0.0-dev' }
+# Default to the latest release tag, with a dev suffix for commits past it.
+# A flat 0.0.0-dev compared older than every release, so the in-app updater
+# offered to replace a source build with the last release. The update check
+# ignores the suffix, so 0.2.5-dev.4 counts as 0.2.5.
+$version = $env:VERSION
+if (-not $version) {
+    $tag = git -C $PSScriptRoot describe --tags --abbrev=0 --match 'v[0-9]*' 2>$null
+    if ($LASTEXITCODE -eq 0 -and $tag) {
+        $ahead = [int](git -C $PSScriptRoot rev-list --count "$tag..HEAD")
+        $version = $tag.TrimStart('v') + $(if ($ahead -gt 0) { "-dev.$ahead" } else { '' })
+    } else {
+        $version = '0.0.0-dev'
+    }
+}
 # Windows version resources take dotted numbers only; "0.0.0-dev" or
 # "1.2.3+build" keep their text in AppVersion and drop the suffix here.
 $fileVersion = ($version -split '[-+]')[0]
