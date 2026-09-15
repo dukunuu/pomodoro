@@ -87,13 +87,30 @@ a step before its prerequisite is met:
    Google Calendar API enabled, and install the downloaded JSON.
 2. **Authorize Google account.** Opens the browser consent flow over a loopback
    redirect with PKCE. Writes `pomodoro-google-token.json`.
-3. **Whistler credentials.** A form in the app: server, account, password,
-   OpenRouter key and model. It validates the OpenRouter key and signs in to
-   Whistler while you wait, then stores the **session token and the API key in
-   the OS keystore** — the login Keychain on macOS, Credential Manager on
+3. **Whistler sign-in.** A form in the app: server, email and password, plus
+   the OpenRouter key if none is stored yet. It validates the key and signs in
+   to Whistler while you wait, then stores the **session token and the API key
+   in the OS keystore** — the login Keychain on macOS, Credential Manager on
    Windows. Your password is used once, in memory, and never written to disk.
    An existing `pomodoro-whistler.env` is migrated into the keystore on first
    launch and then scrubbed and deleted.
+
+After setup, each piece changes on its own in **Settings**, on both platforms:
+
+- **Whistler account** — *Switch account…* signs in as someone else;
+  *Sign out…* removes only the session token. The API key, model, calendar and
+  mapping instructions are kept. Switching to a different account also clears
+  the sent-day markers, which belonged to the previous account.
+- **Google calendar** — `primary`, or any calendar ID.
+- **AI model** — *Change…* opens OpenRouter's catalogue with prices, searchable,
+  with a few models suited to this job listed first. Any model ID can be typed.
+- **OpenRouter API key** — replaced after validation; a failed check leaves the
+  old key intact.
+
+The mapping instructions can exclude events as well as map them — "ignore gym
+sessions", "don't log 1:1s". The model returns those as skipped, with the rule
+it applied, and the send summary lists them. An event the model leaves out
+without an instruction behind it is still an error, after one retry.
 
 **Send to Whistler** stays disabled until every step is ready and says which
 one is outstanding. Only *timed* Calendar events are counted; all-day events
@@ -143,16 +160,25 @@ no Python dependency at all.
 The macOS app resolves Ghostty's selected theme at launch, including user and
 bundled themes and explicit palette overrides. Restart Pomodoro after changing
 Ghostty's theme. Low Signal remains the fallback when colors are unavailable;
-Windows still uses the fixed Low Signal palette. Both apps commit to dark
-rather than following the system (paired Ghostty themes use the dark variant).
+Windows still uses the fixed Low Signal palette.
 
-Each app is otherwise idiomatic: macOS uses SwiftUI materials and SF Symbols;
-Windows uses Mica, an extended title bar, Fluent settings rows and Segoe Fluent
-icons, with WinUI's own theme colours repointed at the palette so stock
-controls match rather than merely being some other dark.
+The two apps read the palette differently. Windows commits to dark and paints
+its surfaces from the palette. macOS takes only the accents — the focus,
+short-break and long-break hues, and the categorical range for project charts
+— and leaves every surface, label and control to AppKit's semantic colors, so
+it follows System Settings › Appearance in both directions. A terminal palette
+is tuned for a dark background, so each accent is paired with a deeper, more
+saturated version of itself for light mode (`Palette.adaptive`).
 
-To retheme, change `Palette` in `macos/Sources/Pomodoro/UI/Theme.swift` and the
-colours in `windows/src/Pomodoro.App/Theme/LowSignal.xaml`.
+Each app is otherwise idiomatic: macOS uses AppKit materials, a vibrant
+sidebar, a grouped Form for settings, SF Rounded for the countdown and SF
+Symbols throughout; Windows uses Mica, an extended title bar, Fluent settings
+rows and Segoe Fluent icons, with WinUI's own theme colours repointed at the
+palette so stock controls match rather than merely being some other dark.
+
+To retheme, change the accents in `Theme` in
+`macos/Sources/Pomodoro/UI/Theme.swift` and the colours in
+`windows/src/Pomodoro.App/Theme/LowSignal.xaml`.
 
 ## Tests
 

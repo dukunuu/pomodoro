@@ -27,6 +27,7 @@ payload = {
     "projectCount": result["projectCount"],
     "entries": body["entries"],
     "projects": result["projects"],
+    "skippedEvents": result["skippedEvents"],
 }
 with open(sys.argv[2], "w") as handle:
     json.dump(payload, handle, indent=2, ensure_ascii=False)

@@ -1,70 +1,69 @@
 import SwiftUI
 import AppKit
 
-/// App settings only. Everything Whistler- and Google-related lives in the
-/// Whistler section, next to the button that depends on it.
+/// App settings as one grouped Form — the shape System Settings uses, so the
+/// rows, insets and control alignment are AppKit's rather than hand-drawn.
+/// Google setup and sending live on the Whistler page; the account, model and
+/// key are settings, so they can be changed without revisiting setup.
 struct SettingsPanel: View {
     var body: some View {
-        TimerSettingsCard()
-        BehaviourCard()
-        UpdatesCard()
-        DataCard()
+        Form {
+            TimerSettingsSection()
+            BehaviourSection()
+            WhistlerAccountSection()
+            AISection()
+            UpdatesSection()
+            DataSection()
+        }
+        .formStyle(.grouped)
     }
 }
 
-struct TimerSettingsCard: View {
+struct TimerSettingsSection: View {
     @EnvironmentObject private var preferences: Preferences
-    @EnvironmentObject private var service: PomodoroService
 
     var body: some View {
-        Card("Timer") {
-            VStack(spacing: 9) {
-                durationRow("Focus", value: $preferences.focusMinutes, phase: .focus)
-                durationRow("Short break", value: $preferences.shortBreakMinutes, phase: .short)
-                durationRow("Long break", value: $preferences.longBreakMinutes, phase: .long)
-                HStack(spacing: 10) {
-                    Circle().fill(Color.clear).frame(width: 7, height: 7)
-                    Text("Long break every")
-                    Spacer(minLength: 16)
-                    Stepper(value: $preferences.longBreakEvery, in: 1...12) {
-                        Text("\(preferences.longBreakEvery) focus sessions")
-                            .monospacedDigit()
-                    }
-                    .fixedSize()
+        Section {
+            durationRow("Focus", value: $preferences.focusMinutes, phase: .focus)
+            durationRow("Short break", value: $preferences.shortBreakMinutes, phase: .short)
+            durationRow("Long break", value: $preferences.longBreakMinutes, phase: .long)
+            LabeledContent("Long break every") {
+                Stepper(value: $preferences.longBreakEvery, in: 1...12) {
+                    Text("\(preferences.longBreakEvery) focus sessions")
+                        .monospacedDigit()
                 }
             }
-            .font(.callout)
-
+        } header: {
+            Text("Timer")
+        } footer: {
             Text("Changing a duration applies to the next phase; a phase already running keeps its deadline.")
-                .font(.caption)
-                .foregroundStyle(Theme.textMuted.opacity(0.7))
-                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
-    /// Label at the leading edge, control at the trailing one — the shape
-    /// every other settings row in the app already has. The phase colour
-    /// leads the row rather than trailing it as a loose dot.
+    /// Label at the leading edge, stepper at the trailing one — the row shape
+    /// a grouped Form lays out for itself. The phase colour leads the row.
     private func durationRow(_ label: String, value: Binding<Int>, phase: Phase) -> some View {
-        HStack(spacing: 10) {
-            Circle()
-                .fill(Theme.color(for: phase))
-                .frame(width: 7, height: 7)
-            Text(label)
-            Spacer(minLength: 16)
+        LabeledContent {
             Stepper(value: value, in: 1...240) {
                 Text("\(value.wrappedValue) min").monospacedDigit()
             }
-            .fixedSize()
+        } label: {
+            Label {
+                Text(label)
+            } icon: {
+                Circle()
+                    .fill(Theme.color(for: phase))
+                    .frame(width: 9, height: 9)
+            }
         }
     }
 }
 
-struct BehaviourCard: View {
+struct BehaviourSection: View {
     @EnvironmentObject private var preferences: Preferences
 
     var body: some View {
-        Card("Behavior") {
+        Section("Behavior") {
             Toggle(isOn: $preferences.showFloatingTimer) {
                 Text("Floating timer window")
                 Text("Stays above other windows without taking focus.")
@@ -81,23 +80,16 @@ struct BehaviourCard: View {
     }
 }
 
-struct UpdatesCard: View {
+struct UpdatesSection: View {
     @EnvironmentObject private var updates: UpdateChecker
     @EnvironmentObject private var installer: UpdateInstaller
-    @Environment(\.openURL) private var openURL
     @State private var enabled = true
     @State private var checkedNow = false
 
     var body: some View {
-        Card("Updates") {
-            HStack {
-                Text("Current version")
-                    .font(.callout)
-                    .foregroundStyle(Theme.text)
-                Spacer()
-                Text(updates.currentVersion)
-                    .font(.callout.monospaced())
-                    .foregroundStyle(Theme.textMuted)
+        Section("Updates") {
+            LabeledContent("Current version") {
+                Text(updates.currentVersion).monospacedDigit()
             }
 
             Toggle(isOn: $enabled) {
@@ -106,78 +98,70 @@ struct UpdatesCard: View {
             }
             .onChange(of: enabled) { _, value in updates.enabled = value }
 
-            HStack(spacing: 8) {
-                Button(updates.checking ? "Checking…" : "Check now") {
-                    checkedNow = false
-                    Task {
-                        await updates.check(force: true)
-                        checkedNow = true
+            LabeledContent {
+                HStack(spacing: 8) {
+                    if let update = updates.available {
+                        Button(installer.stage.isBusy ? "Updating…" : "Update to \(update.version)") {
+                            Task { await installer.install(update) }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(installer.stage.isBusy)
                     }
+                    Button(updates.checking ? "Checking…" : "Check Now") {
+                        checkedNow = false
+                        Task {
+                            await updates.check(force: true)
+                            checkedNow = true
+                        }
+                    }
+                    .disabled(updates.checking)
                 }
-                .disabled(updates.checking)
-
-                if let update = updates.available {
-                    Button(installer.stage.isBusy ? "Updating…" : "Update to \(update.version)") {
-                        Task { await installer.install(update) }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Theme.focus)
-                    .disabled(installer.stage.isBusy)
-                } else if let error = updates.lastError {
+            } label: {
+                if let error = updates.lastError {
                     Label(error, systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption)
                         .foregroundStyle(Theme.urgent)
-                } else if checkedNow {
+                } else if checkedNow && updates.available == nil {
                     Label("You are on the latest release.", systemImage: "checkmark.circle.fill")
-                        .font(.caption)
                         .foregroundStyle(Theme.longBreak)
                 }
-                Spacer()
             }
         }
-        .onAppear { enabled = updates.enabled }
     }
 }
 
-struct DataCard: View {
+struct DataSection: View {
     @EnvironmentObject private var state: AppState
     @EnvironmentObject private var integrations: IntegrationStatus
 
     var body: some View {
-        Card("Data") {
+        Section {
             pathRow("History and state", DataPaths.directory.path)
             pathRow("Integration bridges", DataPaths.scriptsDirectory.path)
             pathRow("Python", Bridge.pythonPath)
 
             if !integrations.python.isReady {
                 Label(integrations.python.detail, systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
                     .foregroundStyle(Theme.urgent)
             }
 
-            Text("The Python bridges read and write these same files.")
-                .font(.caption)
-                .foregroundStyle(Theme.textMuted.opacity(0.7))
-
-            HStack(spacing: 8) {
-                Button("Open data folder") { state.openDataDirectory() }
-                Spacer()
+            LabeledContent("Data folder") {
+                Button("Show in Finder") { state.openDataDirectory() }
             }
+        } header: {
+            Text("Data")
+        } footer: {
+            Text("The Python bridges read and write these same files.")
         }
     }
 
     private func pathRow(_ label: String, _ value: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(Theme.textMuted)
-                .frame(width: 130, alignment: .leading)
+        LabeledContent(label) {
             Text(value)
                 .font(.caption.monospaced())
                 .textSelection(.enabled)
                 .lineLimit(1)
                 .truncationMode(.middle)
-            Spacer(minLength: 0)
+                .help(value)
         }
     }
 }

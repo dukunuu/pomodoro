@@ -41,6 +41,7 @@ public sealed partial class MainWindow : Window
 
         SendDate.Date = DateTimeOffset.Now;
         LoadPreferences();
+        RefreshAccount();
         InstructionsBox.Text = OpenRouterClient.ReadInstructions();
         DataPathText.Text = DataPaths.Directory;
 
@@ -406,6 +407,8 @@ public sealed partial class MainWindow : Window
         var isToday = Fmt.DateKey(date) == Service.TodayKey;
         SendButton.Content = _sending ? "Sending…" : (isToday ? "Send today" : $"Send {Fmt.DateKey(date)}");
         SendButton.IsEnabled = Integrations.WhistlerReady && !_sending;
+
+        RefreshAccount();
     }
 
     private Border SetupRow(int number, string title, SetupState state,
@@ -539,6 +542,119 @@ public sealed partial class MainWindow : Window
     {
         InstructionsBox.Text = OpenRouterClient.ReadInstructions();
         InstructionsSaved.Text = string.Empty;
+    }
+
+    // ---- Whistler account & AI (Settings) ---------------------------------
+
+    /// <summary>Render only, like RefreshWhistler, which calls it.</summary>
+    private void RefreshAccount()
+    {
+        var settings = WhistlerConfig.ReadSettings();
+        var signedIn = WhistlerConfig.IsSignedIn;
+
+        AccountTitle.Text = signedIn
+            ? (settings.Email.Length > 0 ? settings.Email : "Signed in")
+            : "Not signed in";
+        AccountDetail.Text = signedIn
+            ? (Uri.TryCreate(settings.ApiUrl, UriKind.Absolute, out var server) ? server.Host : settings.ApiUrl)
+            : "Sign in to send worklogs to Whistler.";
+        SwitchAccountButton.Content = signedIn ? "Switch account…" : "Sign in…";
+        SignOutButton.Visibility = signedIn ? Visibility.Visible : Visibility.Collapsed;
+
+        ModelText.Text = settings.Model;
+
+        var hasKey = SecretStore.Has(SecretStore.OpenRouterKey);
+        KeyStatusText.Text = hasKey
+            ? "Stored in Windows Credential Manager"
+            : "Not set — sending is unavailable";
+        KeyButton.Content = hasKey ? "Replace key…" : "Add key…";
+
+        // Leave a half-typed calendar ID alone.
+        if (CalendarBox.FocusState == FocusState.Unfocused) CalendarBox.Text = settings.CalendarId;
+    }
+
+    private async void OnSwitchAccount(object sender, RoutedEventArgs e)
+    {
+        var switching = WhistlerConfig.IsSignedIn;
+        if (await WhistlerSignIn.ShowAsync(Content.XamlRoot, switching))
+        {
+            ResetMonthStatus();
+            ReportAccount(switching ? "Signed in to the new Whistler account." : "Signed in to Whistler.",
+                InfoBarSeverity.Success);
+        }
+        Integrations.Refresh();
+    }
+
+    private async void OnSignOut(object sender, RoutedEventArgs e)
+    {
+        var confirm = new ContentDialog
+        {
+            XamlRoot = Content.XamlRoot,
+            Title = "Sign out of Whistler?",
+            Content = "Sending stops until you sign in again. Your API key, model and mapping "
+                    + "instructions are kept, and nothing already in Whistler is changed.",
+            PrimaryButtonText = "Sign out",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close
+        };
+        if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
+
+        WhistlerConfig.SignOut();
+        ResetMonthStatus();
+        ReportAccount("Signed out of Whistler.", InfoBarSeverity.Informational);
+        Integrations.Refresh();
+    }
+
+    private async void OnChangeModel(object sender, RoutedEventArgs e)
+    {
+        var current = WhistlerConfig.ReadSettings().Model;
+        var chosen = await WhistlerSettingsDialogs.PickModelAsync(Content.XamlRoot, current);
+        if (chosen is null || chosen == current) return;
+
+        WhistlerConfig.Update(settings => settings with { Model = chosen });
+        ReportAccount($"AI model set to {chosen}. It applies to the next send.", InfoBarSeverity.Success);
+        Integrations.Refresh();
+    }
+
+    private async void OnReplaceKey(object sender, RoutedEventArgs e)
+    {
+        var replacing = SecretStore.Has(SecretStore.OpenRouterKey);
+        if (!await WhistlerSettingsDialogs.ReplaceKeyAsync(Content.XamlRoot, replacing)) return;
+
+        ReportAccount(replacing ? "API key replaced." : "API key saved.", InfoBarSeverity.Success);
+        Integrations.Refresh();
+    }
+
+    private void OnSaveCalendar(object sender, RoutedEventArgs e) => SaveCalendar();
+
+    private void OnCalendarLostFocus(object sender, RoutedEventArgs e) => SaveCalendar();
+
+    private void SaveCalendar()
+    {
+        var value = CalendarBox.Text.Trim();
+        if (value.Length == 0) value = WhistlerConfig.DefaultCalendar;
+        CalendarBox.Text = value;
+        if (value == WhistlerConfig.ReadSettings().CalendarId) return;
+
+        WhistlerConfig.Update(settings => settings with { CalendarId = value });
+        ResetMonthStatus();
+        ReportAccount($"Google calendar set to {value}.", InfoBarSeverity.Success);
+        Integrations.Refresh();
+    }
+
+    /// <summary>Month coverage described the previous account or calendar.</summary>
+    private void ResetMonthStatus()
+    {
+        MonthSummary.Visibility = Visibility.Collapsed;
+        MonthStatusText.Text = "Refresh to compare Google Calendar against Whistler for this month.";
+        MonthStatusText.Foreground = Brush("TextMutedBrush");
+    }
+
+    private void ReportAccount(string message, InfoBarSeverity severity)
+    {
+        AccountResultBar.Message = message;
+        AccountResultBar.Severity = severity;
+        AccountResultBar.IsOpen = true;
     }
 
     // ---- Month coverage ---------------------------------------------------

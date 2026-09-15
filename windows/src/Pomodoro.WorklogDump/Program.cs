@@ -44,7 +44,8 @@ var events = ((JsonArray)fixture["events"]!).Select(node =>
     };
 }).ToList();
 
-var assignments = ((JsonArray)((JsonObject)fixture["plan"]!)["assignments"]!).Select(node =>
+var plan = (JsonObject)fixture["plan"]!;
+var assignments = ((JsonArray)plan["assignments"]!).Select(node =>
 {
     var item = (JsonObject)node!;
     return new Assignment
@@ -55,7 +56,18 @@ var assignments = ((JsonArray)((JsonObject)fixture["plan"]!)["assignments"]!).Se
     };
 }).ToList();
 
-var worklog = WorklogBuilder.Build(assignments, events, projects, dateNumber);
+var skipped = ((plan["skipped"] as JsonArray) ?? []).Select(node =>
+{
+    var item = (JsonObject)node!;
+    return new SkippedEvent
+    {
+        EventId = item["eventId"]!.GetValue<string>(),
+        Reason = item["reason"]?.GetValue<string>() ?? string.Empty
+    };
+}).ToList();
+
+var worklog = WorklogBuilder.Build(
+    new WorklogPlan { Assignments = assignments, Skipped = skipped }, events, projects, dateNumber);
 
 var entries = new JsonArray();
 foreach (var entry in worklog.Entries)
@@ -92,7 +104,13 @@ var payload = new JsonObject
     ["unassignedEventCount"] = worklog.UnassignedEventCount,
     ["projectCount"] = worklog.ProjectCount,
     ["entries"] = entries,
-    ["projects"] = details
+    ["projects"] = details,
+    ["skippedEvents"] = new JsonArray(worklog.SkippedEvents.Select(item => (JsonNode)new JsonObject
+    {
+        ["eventId"] = item.EventId,
+        ["title"] = item.Title,
+        ["reason"] = item.Reason
+    }).ToArray())
 };
 
 File.WriteAllText(args[1], Persistence.Json(payload));

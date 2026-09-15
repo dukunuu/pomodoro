@@ -97,15 +97,37 @@ public static class WhistlerConfig
         return SecretStore.Has(SecretStore.WhistlerSession) || SecretStore.Has(LegacyPassword);
     }
 
-    /// <summary>Stores what the sign-in produced. The password is never written.</summary>
-    public static void Save(Settings settings, string sessionToken, string openRouterKey)
+    /// <summary>
+    /// Stores what the sign-in produced. The password is never written. A null
+    /// key leaves the stored one alone, so switching accounts does not mean
+    /// re-entering it.
+    /// </summary>
+    public static void Save(Settings settings, string sessionToken, string? openRouterKey)
     {
         WriteSettings(settings);
         SecretStore.Write(SecretStore.WhistlerSession, sessionToken);
-        SecretStore.Write(SecretStore.OpenRouterKey, openRouterKey);
+        if (!string.IsNullOrEmpty(openRouterKey))
+        {
+            SecretStore.Write(SecretStore.OpenRouterKey, openRouterKey);
+        }
         // A fresh token makes any migrated password redundant.
         SecretStore.Delete(LegacyPassword);
     }
+
+    public static bool IsSignedIn =>
+        SecretStore.Has(SecretStore.WhistlerSession) || SecretStore.Has(LegacyPassword);
+
+    /// <summary>
+    /// Forgets the Whistler session and nothing else: the API key, model,
+    /// calendar and instructions all survive, ready for the next account.
+    /// </summary>
+    public static void SignOut()
+    {
+        SecretStore.Delete(SecretStore.WhistlerSession);
+        SecretStore.Delete(LegacyPassword);
+    }
+
+    public static void Update(Func<Settings, Settings> change) => WriteSettings(change(ReadSettings()));
 
     public static void Clear()
     {

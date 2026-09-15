@@ -86,11 +86,12 @@ public static class WorklogBuilder
     }
 
     public static Worklog Build(
-        IReadOnlyList<Assignment> assignments,
+        WorklogPlan plan,
         IReadOnlyList<CalendarEvent> events,
         IReadOnlyList<WhistlerProject> projects,
         int dateNumber)
     {
+        var assignments = plan.Assignments;
         var projectById = projects.ToDictionary(project => project.Id, StringComparer.Ordinal);
         var eventById = events.ToDictionary(item => item.Id, StringComparer.Ordinal);
         var assignedIds = new HashSet<string>(StringComparer.Ordinal);
@@ -157,15 +158,51 @@ public static class WorklogBuilder
             merged[raw.ProjectId] = (item.Minutes + minutes, item.Tasks);
         }
 
-        var missing = events.Where(item => !assignedIds.Contains(item.Id))
-            .Select(item => item.Id).ToList();
+        // The user's instructions can exclude events; those arrive in the
+        // skipped list. Only an event in neither list is the model's mistake.
+        var skipReasons = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var skip in plan.Skipped)
+        {
+            if (!eventById.TryGetValue(skip.EventId, out var skippedEvent))
+            {
+                throw new ImportFailure("OpenRouter skipped an unknown calendar event.");
+            }
+            if (assignedIds.Contains(skip.EventId))
+            {
+                throw new ImportFailure(
+                    "OpenRouter both assigned and skipped the same Calendar event: "
+                    + NormalizedTaskText(skippedEvent.Title) + ".");
+            }
+            var reason = NormalizedTaskText(skip.Reason);
+            skipReasons.TryAdd(skip.EventId, reason.Length <= 300 ? reason : reason[..300]);
+        }
+
+        var missing = events
+            .Where(item => !assignedIds.Contains(item.Id) && !skipReasons.ContainsKey(item.Id))
+            .Select(item => NormalizedTaskText(item.Title)).ToList();
         if (missing.Count > 0)
         {
-            var preview = string.Join(", ", missing.Take(10));
-            var suffix = missing.Count > 10 ? "…" : string.Empty;
+            var preview = string.Join("; ", missing.Take(5));
+            var suffix = missing.Count > 5 ? $" and {missing.Count - 5} more" : string.Empty;
             throw new ImportFailure(
-                "OpenRouter did not assign every counted Calendar event: " + preview + suffix);
+                $"OpenRouter neither assigned nor skipped every Calendar event ({preview}{suffix}). "
+                + "If your instructions exclude these, say so explicitly, or try a different model in Settings.");
         }
+        if (assignedIds.Count == 0)
+        {
+            throw new ImportFailure(
+                "Your instructions excluded every Calendar event for that day, so there is nothing to log.");
+        }
+
+        var skippedEvents = events
+            .Where(item => skipReasons.ContainsKey(item.Id))
+            .Select(item => new SkippedEvent
+            {
+                EventId = item.Id,
+                Title = NormalizedTaskText(item.Title),
+                Reason = skipReasons[item.Id]
+            })
+            .ToList();
 
         var totalMinutes = merged.Values.Sum(value => value.Minutes);
         if (totalMinutes <= 0)
@@ -237,7 +274,8 @@ public static class WorklogBuilder
             AssignedEventCount = assignedIds.Count,
             UnassignedEventCount = Math.Max(0, events.Count - assignedIds.Count),
             Entries = entries,
-            Projects = details
+            Projects = details,
+            SkippedEvents = skippedEvents
         };
     }
 }

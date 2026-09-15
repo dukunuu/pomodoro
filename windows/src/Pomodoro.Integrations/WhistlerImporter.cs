@@ -43,11 +43,11 @@ public sealed class WhistlerImporter
         }
 
         Report(50, "Asking OpenRouter to allocate projects");
-        var assignments = await OpenRouterClient
+        var plan = await OpenRouterClient
             .PlanAsync(config, dateNumber, events, projects, cancellation).ConfigureAwait(false);
 
         Report(75, "Preparing the Whistler worklog");
-        var worklog = WorklogBuilder.Build(assignments, events, projects, dateNumber);
+        var worklog = WorklogBuilder.Build(plan, events, projects, dateNumber);
 
         if (!dryRun)
         {
@@ -89,8 +89,12 @@ public sealed class WhistlerImporter
     public static string Summarize(Worklog worklog)
     {
         var projects = worklog.ProjectCount == 1 ? "1 project" : $"{worklog.ProjectCount} projects";
+        var skipped = worklog.SkippedEvents.Count == 0
+            ? string.Empty
+            : $" Skipped by your instructions: {string.Join("; ", worklog.SkippedEvents.Take(5).Select(item => item.Title))}"
+              + (worklog.SkippedEvents.Count > 5 ? $" and {worklog.SkippedEvents.Count - 5} more." : ".");
         return $"Imported {WorklogBuilder.FormatMinutes(worklog.TotalMinutes)} across {projects} "
             + $"from {worklog.AssignedEventCount} counted event(s)"
-            + $" ({WorklogBuilder.FormatMinutes(worklog.BreakMinutes)} break).";
+            + $" ({WorklogBuilder.FormatMinutes(worklog.BreakMinutes)} break)." + skipped;
     }
 }

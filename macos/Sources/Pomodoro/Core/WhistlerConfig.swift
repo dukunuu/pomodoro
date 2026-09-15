@@ -72,12 +72,33 @@ enum WhistlerConfig {
         return values.filter { !$0.value.isEmpty }
     }
 
-    /// Stores what the sign-in produced. The password is never written.
-    static func save(_ settings: Settings, sessionToken: String, openRouterKey: String) {
+    /// Stores what the sign-in produced. The password is never written. A nil
+    /// key leaves the stored one alone, so switching accounts does not mean
+    /// re-entering it.
+    static func save(_ settings: Settings, sessionToken: String, openRouterKey: String?) {
         writeSettings(settings)
         SecretStore.write(SecretStore.whistlerSession, sessionToken)
-        SecretStore.write(SecretStore.openRouterKey, openRouterKey)
+        if let openRouterKey, !openRouterKey.isEmpty {
+            SecretStore.write(SecretStore.openRouterKey, openRouterKey)
+        }
         SecretStore.delete(legacyPassword)
+    }
+
+    /// Forgets the Whistler session and nothing else: the API key, model,
+    /// calendar and instructions all survive, ready for the next account.
+    static func signOut() {
+        SecretStore.delete(SecretStore.whistlerSession)
+        SecretStore.delete(legacyPassword)
+    }
+
+    static var isSignedIn: Bool {
+        SecretStore.has(SecretStore.whistlerSession) || SecretStore.has(legacyPassword)
+    }
+
+    static func update(_ change: (inout Settings) -> Void) {
+        var settings = readSettings()
+        change(&settings)
+        writeSettings(settings)
     }
 
     /// Moves a pomodoro-whistler.env into the Keychain, then scrubs and

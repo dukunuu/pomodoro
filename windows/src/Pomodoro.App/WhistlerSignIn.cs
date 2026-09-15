@@ -11,36 +11,52 @@ namespace Pomodoro.App;
 /// Credentials used to be typed into pomodoro-whistler.env in Notepad, which
 /// meant the account password sat on disk in plain text next to the token it
 /// had produced. Here the password is used once, in memory, to obtain a
-/// session token and is then discarded; only the token and the OpenRouter key
-/// are kept, and those go to Credential Manager rather than to a file.
+/// session token and is then discarded; only the token is kept, and it goes
+/// to Credential Manager rather than to a file.
+///
+/// The form is about the account and nothing else. Model, calendar and API
+/// key each have their own row in Settings, so switching Whistler accounts
+/// does not mean re-entering them. The key is asked for here only when none is
+/// stored, because a first setup cannot send without one.
 /// </summary>
 internal static class WhistlerSignIn
 {
-    public static async Task<bool> ShowAsync(XamlRoot root)
+    /// <param name="switching">Signing in as a different account than the current one.</param>
+    public static async Task<bool> ShowAsync(XamlRoot root, bool switching = false)
     {
-        var settings = WhistlerConfig.ReadSettings();
-        var hasKey = SecretStore.Has(SecretStore.OpenRouterKey);
+        var previous = WhistlerConfig.ReadSettings();
+        var needsKey = !SecretStore.Has(SecretStore.OpenRouterKey);
 
-        var server = new TextBox { Header = "Whistler server", Text = settings.ApiUrl };
-        var email = new TextBox { Header = "Email", Text = settings.Email };
-        var password = new PasswordBox
+        var intro = new TextBlock
         {
-            Header = "Password",
-            PlaceholderText = "Exchanged for a session token, then discarded"
+            Text = switching && previous.Email.Length > 0
+                ? $"Currently signed in as {previous.Email}. Signing in replaces that session."
+                : "Your password is exchanged for a session token, then discarded.",
+            TextWrapping = TextWrapping.Wrap,
+            Style = (Style)Application.Current.Resources["RowDescription"]
         };
+        var server = new TextBox { Header = "Whistler server", Text = previous.ApiUrl };
+        // A different account usually means a different email; start blank
+        // rather than inviting a sign-in to the account being left.
+        var email = new TextBox
+        {
+            Header = "Email",
+            Text = switching ? string.Empty : previous.Email,
+            PlaceholderText = "name@company.com"
+        };
+        var password = new PasswordBox { Header = "Password" };
         var key = new PasswordBox
         {
             Header = "OpenRouter API key",
-            PlaceholderText = hasKey ? "Stored — leave blank to keep it" : "sk-or-…"
+            PlaceholderText = "sk-or-…",
+            Visibility = needsKey ? Visibility.Visible : Visibility.Collapsed
         };
-        var model = new TextBox { Header = "OpenRouter model", Text = settings.Model };
-        var calendar = new TextBox { Header = "Google calendar", Text = settings.CalendarId };
 
         var note = new TextBlock
         {
-            Text = "Your password is never written to disk. The session token and the "
-                 + "API key are stored in Windows Credential Manager, where you can "
-                 + "inspect or revoke them.",
+            Text = needsKey
+                ? "The session token and API key are stored in Windows Credential Manager. Choose the AI model afterwards in Settings."
+                : "The session token is stored in Windows Credential Manager, where you can inspect or revoke it.",
             TextWrapping = TextWrapping.Wrap,
             FontSize = 12,
             Opacity = 0.75
@@ -54,8 +70,7 @@ internal static class WhistlerSignIn
         var busy = new ProgressBar { IsIndeterminate = true, Visibility = Visibility.Collapsed };
 
         var panel = new StackPanel { Spacing = 10, Width = 400 };
-        foreach (var child in new UIElement[]
-                 { server, email, password, key, model, calendar, note, busy, error })
+        foreach (var child in new UIElement[] { intro, server, email, password, key, note, busy, error })
         {
             panel.Children.Add(child);
         }
@@ -63,8 +78,8 @@ internal static class WhistlerSignIn
         var dialog = new ContentDialog
         {
             XamlRoot = root,
-            Title = "Whistler credentials",
-            PrimaryButtonText = "Sign in and save",
+            Title = switching ? "Switch Whistler account" : "Sign in to Whistler",
+            PrimaryButtonText = "Sign in",
             CloseButtonText = "Cancel",
             DefaultButton = ContentDialogButton.Primary,
             Content = new ScrollViewer { Content = panel, MaxHeight = 540 }
@@ -85,35 +100,35 @@ internal static class WhistlerSignIn
                 {
                     ["WHISTLER_API_URL"] = server.Text.Trim()
                 });
-                if (email.Text.Trim().Length == 0) throw new ImportFailure("An email is required.");
+                var address = email.Text.Trim();
+                if (address.Length == 0) throw new ImportFailure("An email is required.");
                 if (password.Password.Length == 0) throw new ImportFailure("A password is required.");
 
-                var openRouter = key.Password.Length > 0
-                    ? key.Password
-                    : SecretStore.Read(SecretStore.OpenRouterKey) ?? string.Empty;
-                if (openRouter.Length == 0)
+                string? openRouter = null;
+                if (needsKey)
                 {
-                    throw new ImportFailure("An OpenRouter API key is required.");
+                    openRouter = key.Password.Trim();
+                    if (openRouter.Length == 0)
+                    {
+                        throw new ImportFailure("An OpenRouter API key is required.");
+                    }
+                    await OpenRouterClient.ValidateKeyAsync(openRouter);
+                }
+                var token = await WhistlerClient.SignInAsync(url, address, password.Password);
+
+                WhistlerConfig.Save(previous with { ApiUrl = url, Email = address }, token, openRouter);
+
+                // Sent-day markers describe the previous account; left in
+                // place they would silence reminders the new one needs.
+                var sameAccount = string.Equals(previous.Email, address, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(previous.ApiUrl.TrimEnd('/'), url.TrimEnd('/'), StringComparison.Ordinal);
+                if (previous.Email.Length > 0 && !sameAccount)
+                {
+                    try { File.Delete(DataPaths.WhistlerImportState); }
+                    catch (IOException) { /* only affects reminders */ }
                 }
 
-                await OpenRouterClient.ValidateKeyAsync(openRouter);
-                var token = await WhistlerClient.SignInAsync(url, email.Text.Trim(), password.Password);
-
-                WhistlerConfig.Save(
-                    new WhistlerConfig.Settings
-                    {
-                        ApiUrl = url,
-                        Email = email.Text.Trim(),
-                        CalendarId = calendar.Text.Trim() is { Length: > 0 } cal
-                            ? cal
-                            : WhistlerConfig.DefaultCalendar,
-                        Model = model.Text.Trim() is { Length: > 0 } chosen
-                            ? chosen
-                            : WhistlerConfig.DefaultModel
-                    },
-                    token,
-                    openRouter);
-
+                password.Password = string.Empty;
                 saved = true;
                 args.Cancel = false;
             }

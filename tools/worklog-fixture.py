@@ -41,6 +41,9 @@ events = [
     event("e4", "Internal Japanese club : class 1", (12, 0), (12, 45)),
     event("e5", "Tea time", (15, 0), (15, 30)),
     event("e6", "Quotomy planning", (16, 0), (17, 5)),
+    # Excluded by an instruction; it must neither count nor move the day's
+    # end, even though it is the last event.
+    event("e7", "Gym", (18, 0), (19, 0)),
 ]
 
 # One taskGroup shared across e2/e3 so they consolidate; e1 stays separate.
@@ -58,7 +61,10 @@ with open(sys.argv[1], "w") as handle:
         "dateNumber": date_number,
         "projects": projects,
         "events": events,
-        "plan": {"assignments": assignments},
+        "plan": {
+            "assignments": assignments,
+            "skipped": [{"eventId": "e7", "reason": "Instructions: ignore gym sessions"}],
+        },
     }, handle, indent=2)
     handle.write("\n")
 print(f"wrote {sys.argv[1]}")

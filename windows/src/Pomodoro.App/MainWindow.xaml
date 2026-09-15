@@ -487,6 +487,91 @@
                                 </Grid>
                             </Border>
 
+                            <TextBlock Text="Whistler account &amp; AI" Style="{StaticResource SectionHeader}" Margin="2,10,0,0" />
+
+                            <Border Style="{StaticResource SettingsRow}">
+                                <Grid ColumnSpacing="14">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <FontIcon Grid.Column="0" Glyph="&#xE77B;" Style="{StaticResource RowGlyph}" />
+                                    <StackPanel Grid.Column="1" Spacing="1">
+                                        <TextBlock x:Name="AccountTitle" Text="Not signed in" Style="{StaticResource RowTitle}" />
+                                        <TextBlock x:Name="AccountDetail" Style="{StaticResource RowDescription}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8"
+                                                VerticalAlignment="Center">
+                                        <Button x:Name="SignOutButton" Content="Sign out…" Click="OnSignOut" />
+                                        <Button x:Name="SwitchAccountButton" Content="Switch account…"
+                                                Click="OnSwitchAccount" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                            <Border Style="{StaticResource SettingsRow}">
+                                <Grid ColumnSpacing="14">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <FontIcon Grid.Column="0" Glyph="&#xE99A;" Style="{StaticResource RowGlyph}" />
+                                    <StackPanel Grid.Column="1" Spacing="1">
+                                        <TextBlock Text="AI model" Style="{StaticResource RowTitle}" />
+                                        <TextBlock x:Name="ModelText" Style="{StaticResource RowDescription}"
+                                                   FontFamily="Cascadia Mono, Consolas" IsTextSelectionEnabled="True" />
+                                    </StackPanel>
+                                    <Button Grid.Column="2" Content="Change…" Click="OnChangeModel"
+                                            VerticalAlignment="Center" />
+                                </Grid>
+                            </Border>
+
+                            <Border Style="{StaticResource SettingsRow}">
+                                <Grid ColumnSpacing="14">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <FontIcon Grid.Column="0" Glyph="&#xE8D7;" Style="{StaticResource RowGlyph}" />
+                                    <StackPanel Grid.Column="1" Spacing="1">
+                                        <TextBlock Text="OpenRouter API key" Style="{StaticResource RowTitle}" />
+                                        <TextBlock x:Name="KeyStatusText" Style="{StaticResource RowDescription}" />
+                                    </StackPanel>
+                                    <Button Grid.Column="2" x:Name="KeyButton" Content="Replace key…"
+                                            Click="OnReplaceKey" VerticalAlignment="Center" />
+                                </Grid>
+                            </Border>
+
+                            <Border Style="{StaticResource SettingsRow}">
+                                <Grid ColumnSpacing="14">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <FontIcon Grid.Column="0" Glyph="&#xE787;" Style="{StaticResource RowGlyph}" />
+                                    <StackPanel Grid.Column="1" Spacing="1">
+                                        <TextBlock Text="Google calendar" Style="{StaticResource RowTitle}" />
+                                        <TextBlock Text="“primary”, or a calendar ID from Google Calendar settings"
+                                                   Style="{StaticResource RowDescription}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8"
+                                                VerticalAlignment="Center">
+                                        <TextBox x:Name="CalendarBox" MinWidth="200" PlaceholderText="primary"
+                                                 LostFocus="OnCalendarLostFocus" />
+                                        <Button Content="Save" Click="OnSaveCalendar" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                            <InfoBar x:Name="AccountResultBar" IsOpen="False" IsClosable="True"
+                                     Severity="Informational" />
+                            <TextBlock Style="{StaticResource RowDescription}" Margin="2,0,0,0"
+                                       Text="Signing out removes only the Whistler session. Your API key, model and mapping instructions are kept. Model changes apply to the next send." />
+
                             <TextBlock Text="Updates" Style="{StaticResource SectionHeader}" Margin="2,10,0,0" />
 
                             <Border Style="{StaticResource SettingsRow}">

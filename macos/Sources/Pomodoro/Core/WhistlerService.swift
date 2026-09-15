@@ -186,6 +186,28 @@ final class WhistlerService: ObservableObject {
 
     func isDayImported(_ key: String) -> Bool { importedDays.contains(key) }
 
+    /// Called after a sign-in, sign-out or calendar change. Month coverage
+    /// described the previous account, so it is dropped rather than shown as
+    /// if it were this one's. The sent-day markers go too when the account
+    /// itself changed: they would otherwise silence reminders for days the
+    /// new account has never logged.
+    func accountDidChange(clearImportMarkers: Bool) {
+        if clearImportMarkers {
+            try? FileManager.default.removeItem(at: DataPaths.whistlerImportState)
+            importedDays = []
+        }
+        monthStatusKey = ""
+        monthStatusLoaded = false
+        monthStatusMessage = ""
+        incompleteDays = []
+        completeDays = []
+        worklogDetails = [:]
+        projectTotals = []
+        holidays = [:]
+        monthlyStats = WhistlerMonthlyStats()
+        calendarEventDays = 0
+    }
+
     // MARK: - Import
 
     func importDay(_ key: String) {
@@ -198,22 +220,28 @@ final class WhistlerService: ObservableObject {
         importProcess = Bridge.run(
             DataPaths.whistlerImportScript, [key],
             onLine: { [weak self] line in self?.handleProgress(line) },
-            completion: { [weak self] code, _, stderr in
+            completion: { [weak self] code, stdout, stderr in
                 guard let self else { return }
                 self.importRunning = false
                 self.importProcess = nil
                 if code == 0 {
                     self.importProgress = 100
-                    self.importStatus = "Complete"
+                    // The bridge's summary line says what was logged and which
+                    // events the instructions excluded; worth more than "Complete".
+                    let summary = stdout.split(separator: "\n")
+                        .map { $0.trimmingCharacters(in: .whitespaces) }
+                        .first { !$0.isEmpty && !$0.hasPrefix("PROGRESS\t") }
+                    self.importStatus = summary.map { String($0.prefix(400)) } ?? "Complete"
                 } else {
                     self.importProgress = 0
                     let detail = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
                     self.importStatus = detail.isEmpty
                         ? "Import failed"
-                        : String(detail.split(separator: "\n").first ?? "").prefix(180).description
+                        : String(detail.split(separator: "\n").first ?? "").prefix(400).description
                 }
                 self.loadImportState(AtomicFile.read(DataPaths.whistlerImportState))
-                self.scheduleStatusClear()
+                // Long enough to read a summary or an error that names events.
+                self.scheduleStatusClear(after: 30)
             }
         )
         if importProcess == nil {
@@ -239,14 +267,14 @@ final class WhistlerService: ObservableObject {
         importStatus = parts[2...].joined(separator: "\t")
     }
 
-    private func scheduleStatusClear() {
+    private func scheduleStatusClear(after seconds: Double = 5) {
         clearStatusWork?.cancel()
         let work = DispatchWorkItem { [weak self] in
             self?.importProgress = 0
             self?.importStatus = ""
         }
         clearStatusWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: work)
     }
 
     // MARK: - Month status
