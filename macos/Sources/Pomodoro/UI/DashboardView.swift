@@ -30,6 +30,7 @@ enum DashboardSection: String, CaseIterable, Identifiable, Hashable {
 /// Sidebar plus a pinned timer. The timer is the app; every section is a
 /// different reading of it, so it stays on screen rather than scrolling away.
 struct DashboardView: View {
+    @EnvironmentObject private var state: AppState
     @EnvironmentObject private var service: PomodoroService
     @EnvironmentObject private var whistler: WhistlerService
     @EnvironmentObject private var integrations: IntegrationStatus
@@ -42,68 +43,90 @@ struct DashboardView: View {
 
     var body: some View {
         NavigationSplitView {
+            // No background of its own: the sidebar's vibrancy is the system's
+            // to draw, and it carries the window's material under the
+            // transparent title bar.
             List(selection: $section) {
                 Section("Reports") {
                     row(.today); row(.week); row(.month); row(.allTime)
                 }
                 Section("Integrations") {
-                    row(.whistler, badge: integrations.whistlerReady ? nil : "!")
+                    row(.whistler, warning: !integrations.whistlerReady)
                 }
                 Section {
                     row(.settings)
                 }
             }
             .listStyle(.sidebar)
-            .scrollContentBackground(.hidden)
-            .background(Palette.black)
-            .navigationSplitViewColumnWidth(min: 168, ideal: 186, max: 240)
+            .navigationSplitViewColumnWidth(min: 176, ideal: 196, max: 260)
         } detail: {
-            VStack(spacing: 0) {
-                TimerHeader()
-                Divider()
-                ScrollView {
-                    // One column width for every page. Reports used to run to
-                    // the window edge while settings sat in a narrow column,
-                    // so the two halves of the app never lined up.
-                    VStack(spacing: 14) {
-                        if let update = updates.available { UpdateBanner(update: update) }
-                        content
+            // The timer is pinned as a safe-area inset rather than stacked
+            // above the page: that is what tells the page's scroll view how
+            // much room is already taken, so a grouped Form starts below the
+            // header instead of under it.
+            page
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    VStack(spacing: 0) {
+                        TimerHeader()
+                        Divider()
+                        if let update = updates.available {
+                            UpdateBanner(update: update)
+                            Divider()
+                        }
                     }
-                    .padding(16)
-                    .frame(maxWidth: 880)
-                    .frame(maxWidth: .infinity, alignment: .center)
                 }
-                .background(Theme.background)
-            }
-            .navigationTitle(section?.title ?? "Pomodoro")
-            .toolbar {
-                ToolbarItem {
-                    Button {
-                        section = .whistler
-                        whistler.importDay(service.todayKey)
-                    } label: {
-                        Label("Send today to Whistler", systemImage: "arrow.up.forward.app")
+                .navigationTitle(section?.title ?? "Pomodoro")
+                .onChange(of: section, initial: true) { _, value in
+                    state.setDashboardTitle(value?.title ?? "Pomodoro")
+                }
+                .toolbar {
+                    ToolbarItem {
+                        Button {
+                            section = .whistler
+                            whistler.importDay(service.todayKey)
+                        } label: {
+                            Label("Send today to Whistler", systemImage: "arrow.up.forward.app")
+                        }
+                        .disabled(whistler.importRunning || !integrations.whistlerReady)
+                        .help(integrations.whistlerReady
+                              ? "Send today's Calendar events to Whistler"
+                              : "Finish the Whistler setup first")
                     }
-                    .disabled(whistler.importRunning || !integrations.whistlerReady)
-                    .help(integrations.whistlerReady
-                          ? "Send today's Calendar events to Whistler"
-                          : "Finish the Whistler setup first")
                 }
-            }
         }
-        .frame(minWidth: 860, minHeight: 600)
-        .background(Theme.background)
-        .environment(\.colorScheme, .dark)
-        .tint(Theme.focus)
+        .frame(minWidth: 900, minHeight: 620)
     }
 
-    private func row(_ item: DashboardSection, badge: String? = nil) -> some View {
+    private func row(_ item: DashboardSection, warning: Bool = false) -> some View {
         Label(item.title, systemImage: item.symbol)
-            .badge(badge ?? "")
+            .badge(warning ? Text(Image(systemName: "exclamationmark.triangle.fill")) : nil)
             .tag(item)
     }
 
-    @ViewBuilder private var content: some View {
+    /// Settings scrolls itself — a grouped Form is a scroll view already — so
+    /// only the report pages get the shared column.
+    @ViewBuilder private var page: some View {
+        switch section ?? .today {
+        case .settings:
+            SettingsPanel()
+        default:
+            ScrollView {
+                // One column width for every page. Reports used to run to
+                // the window edge while settings sat in a narrow column,
+                // so the two halves of the app never lined up.
+                VStack(spacing: 18) {
+                    reports
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 18)
+                .frame(maxWidth: 880)
+                .frame(maxWidth: .infinity, alignment: .center)
+            }
+            .background(Theme.background)
+        }
+    }
+
+    @ViewBuilder private var reports: some View {
         switch section ?? .today {
         case .today:
             NoteCard()
@@ -118,7 +141,7 @@ struct DashboardView: View {
         case .whistler:
             WhistlerView()
         case .settings:
-            SettingsPanel()
+            EmptyView()
         }
     }
 }
@@ -132,21 +155,23 @@ struct NoteCard: View {
     private var dirty: Bool { draft != service.activeNote }
 
     var body: some View {
-        Card("What are you focusing on?") {
+        Card("Focus note") {
             HStack(spacing: 8) {
-                TextField("Add a note for this session", text: $draft)
+                TextField("What are you working on?", text: $draft)
                     .textFieldStyle(.roundedBorder)
+                    .controlSize(.large)
                     .focused($focused)
                     .onSubmit { service.saveActiveNote(draft) }
                     .disabled(service.phase != .focus)
                 Button("Save") { service.saveActiveNote(draft) }
+                    .controlSize(.large)
                     .disabled(service.phase != .focus || !dirty)
             }
             Text(service.phase == .focus
                  ? "Saved with the session when this focus phase ends."
                  : "Notes attach to focus sessions.")
                 .font(.caption)
-                .foregroundStyle(Theme.textMuted.opacity(0.7))
+                .foregroundStyle(.tertiary)
         }
         .onAppear { draft = service.activeNote }
         .onChange(of: service.activeNote) { _, value in
@@ -163,33 +188,35 @@ struct QuickStatsRow: View {
         let stats = service.statsForDay(service.todayKey)
         Card("Today") {
             HStack(spacing: 0) {
-                StatTile(label: "FOCUS", value: stats.focusText, detail: "active time", accented: true)
-                Divider().frame(height: 34)
-                StatTile(label: "BREAKS", value: stats.breakText, detail: "\(stats.breaks) taken")
-                    .padding(.leading, 14)
-                Divider().frame(height: 34)
-                StatTile(label: "SESSIONS", value: String(stats.sessions), detail: "completed", accented: true)
-                    .padding(.leading, 14)
-                Divider().frame(height: 34)
-                StatTile(label: "PHASES", value: String(stats.phases), detail: "recorded")
-                    .padding(.leading, 14)
+                StatTile(label: "Focus", value: stats.focusText, detail: "active time", accented: true)
+                Divider().frame(height: 38)
+                StatTile(label: "Breaks", value: stats.breakText, detail: "\(stats.breaks) taken")
+                    .padding(.leading, 16)
+                Divider().frame(height: 38)
+                StatTile(label: "Sessions", value: String(stats.sessions), detail: "completed", accented: true)
+                    .padding(.leading, 16)
+                Divider().frame(height: 38)
+                StatTile(label: "Phases", value: String(stats.phases), detail: "recorded")
+                    .padding(.leading, 16)
             }
         }
     }
 }
 
-/// Shared previous / label / next header used by the day, week and month tabs.
 /// The heading a page leads with. Sits above the cards rather than inside the
-/// first one, so every card on every page carries the same small uppercase
-/// label and nothing competes with it.
+/// first one, so every card on every page carries the same section label and
+/// nothing competes with it.
 struct PageHeading: View {
     var title: String
     var subtitle: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 1) {
-            Text(title).font(.headline).foregroundStyle(Theme.textBright)
-            Text(subtitle).font(.caption).foregroundStyle(Theme.textMuted)
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.title2.weight(.semibold))
+            Text(subtitle)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
         }
         // Cards fill the column, so a heading that only hugs its text would
         // sit centred between them.
@@ -197,6 +224,7 @@ struct PageHeading: View {
     }
 }
 
+/// Shared previous / label / next header used by the day, week and month tabs.
 struct PeriodStepper: View {
     var title: String
     var subtitle: String
@@ -206,23 +234,25 @@ struct PeriodStepper: View {
     var onToday: () -> Void
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(alignment: .center, spacing: 12) {
             PageHeading(title: title, subtitle: subtitle)
-            Spacer()
+            Spacer(minLength: 8)
             Button("Today", action: onToday)
-                .buttonStyle(.borderless)
-                .font(.caption)
-            HStack(spacing: 0) {
-                Button(action: onBack) { Image(systemName: "chevron.left") }
-                Button(action: onForward) { Image(systemName: "chevron.right") }
-                    .disabled(!canGoForward)
+            // The paired chevrons AppKit uses for stepping a date range.
+            ControlGroup {
+                Button(action: onBack) {
+                    Label("Previous", systemImage: "chevron.left")
+                }
+                Button(action: onForward) {
+                    Label("Next", systemImage: "chevron.right")
+                }
+                .disabled(!canGoForward)
             }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
+            .controlGroupStyle(.navigation)
+            .fixedSize()
         }
     }
 }
-
 
 /// Shown once a newer release exists. Downloading stays a click: the app
 /// writes files the other front ends read, so it never swaps itself out from
@@ -235,13 +265,14 @@ struct UpdateBanner: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "arrow.down.circle.fill")
-                .foregroundStyle(Theme.focus)
+                .font(.title3)
+                .foregroundStyle(.white, Color.accentColor)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.callout.weight(.medium))
-                    .foregroundStyle(Theme.textBright)
+                    .font(.subheadline.weight(.medium))
                 if case .downloading(let fraction) = installer.stage {
-                    ProgressBar(value: fraction, color: Theme.focus, height: 3)
+                    ProgressView(value: fraction)
+                        .progressViewStyle(.linear)
                         .frame(maxWidth: 220)
                 } else {
                     Text(subtitle)
@@ -252,22 +283,19 @@ struct UpdateBanner: View {
             }
             Spacer(minLength: 8)
             if !installer.stage.isBusy {
-                Button("Update and restart") {
+                Button("Release notes") { openURL(update.pageURL) }
+                Button("Update and Restart") {
                     Task { await installer.install(update) }
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(Theme.focus)
-                Button("Release notes") { openURL(update.pageURL) }
-                    .buttonStyle(.borderless)
-                    .font(.caption)
             }
         }
-        .padding(12)
-        .background(Theme.focus.opacity(0.1), in: RoundedRectangle(cornerRadius: Theme.cardCorner))
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.cardCorner)
-                .strokeBorder(Theme.focus.opacity(0.45), lineWidth: 1)
-        )
+        .padding(.horizontal, 20)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        // A notification bar below the toolbar, in the system's own register
+        // rather than a tinted slab of its own.
+        .background(.bar)
     }
 
     private var title: String {
@@ -287,6 +315,6 @@ struct UpdateBanner: View {
 
     private var subtitleColor: Color {
         if case .failed = installer.stage { return Theme.urgent }
-        return Theme.textMuted
+        return .secondary
     }
 }

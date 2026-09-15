@@ -11,7 +11,7 @@ struct TimerRing: View {
     var body: some View {
         ZStack {
             Circle()
-                .stroke(color.opacity(0.16), lineWidth: lineWidth)
+                .stroke(Theme.trackFill, lineWidth: lineWidth)
             Circle()
                 .trim(from: 0, to: max(0.001, min(1, progress)))
                 .stroke(
@@ -33,56 +33,71 @@ struct TimerHeader: View {
     private var accent: Color { Theme.color(for: service.phase) }
 
     var body: some View {
-        HStack(spacing: 18) {
+        HStack(spacing: 16) {
             ZStack {
                 TimerRing(progress: service.phaseProgress,
                           color: accent,
-                          lineWidth: 6,
+                          lineWidth: 5,
                           overtime: service.isOvertime)
                 Image(systemName: service.phase == .focus ? "brain.head.profile" : "cup.and.saucer.fill")
-                    .font(.system(size: 17))
+                    .font(.system(size: 18))
                     .foregroundStyle(service.isOvertime ? Theme.urgent : accent)
             }
             .frame(width: 54, height: 54)
 
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 7) {
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(spacing: 6) {
                     Text(service.phaseLabel)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.headline)
                     Text(service.statusLabel)
-                        .font(.caption)
-                        .foregroundStyle(service.isOvertime ? Theme.urgent : .secondary)
+                        .font(.subheadline)
+                        .foregroundStyle(service.isOvertime ? AnyShapeStyle(Theme.urgent) : AnyShapeStyle(.secondary))
                 }
                 Text(service.remainingText)
-                    .font(Theme.clockFont(38))
-                    .foregroundStyle(service.isOvertime ? Theme.urgent : Color.primary)
+                    .font(Theme.clockFont(40))
+                    .foregroundStyle(service.isOvertime ? AnyShapeStyle(Theme.urgent) : AnyShapeStyle(.primary))
                     .contentTransition(.numericText())
             }
 
             Spacer(minLength: 12)
 
-            VStack(alignment: .trailing, spacing: 6) {
-                HStack(spacing: 7) {
+            VStack(alignment: .trailing, spacing: 8) {
+                HStack(spacing: 8) {
                     Button(action: service.toggle) {
                         Label(service.running ? "Pause" : "Start",
                               systemImage: service.running ? "pause.fill" : "play.fill")
-                            .frame(width: 78)
+                            .frame(width: 66)
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(accent)
                     .keyboardShortcut(.space, modifiers: [])
 
-                    Button(action: service.skip) { Image(systemName: "forward.end.fill") }
-                        .help("Record this phase and move to the next")
-                    Button(action: service.reset) { Image(systemName: "arrow.counterclockwise") }
-                        .help("Record this phase and restart it")
+                    // Icon-only with tooltips, the way the system's own
+                    // transport controls read; the titles stay for
+                    // VoiceOver.
+                    Button(action: service.skip) {
+                        Label("Skip", systemImage: "forward.end.fill")
+                    }
+                    .help("Record this phase and move to the next")
+                    .labelStyle(.iconOnly)
+
+                    Button(action: service.reset) {
+                        Label("Reset", systemImage: "arrow.counterclockwise")
+                    }
+                    .help("Record this phase and restart it")
+                    .labelStyle(.iconOnly)
                 }
+                .controlSize(.large)
+
                 cycleDots
             }
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 14)
-        .background(Theme.surface)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        // The toolbar material, so the timer reads as window chrome pinned
+        // below the title bar rather than as the first card on the page.
+        .background(.bar)
     }
 
     private var cycleDots: some View {
@@ -91,13 +106,13 @@ struct TimerHeader: View {
             let done = service.completedFocus % every
             ForEach(0..<every, id: \.self) { index in
                 Circle()
-                    .fill(index < done ? Theme.focus : Palette.raised)
+                    .fill(index < done ? Theme.focus : Theme.trackFill)
                     .frame(width: 6, height: 6)
             }
             Text("\(service.completedFocus) today")
-                .font(.caption2)
-                .foregroundStyle(Theme.textMuted.opacity(0.7))
-                .padding(.leading, 3)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.leading, 4)
         }
     }
 }

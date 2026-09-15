@@ -14,9 +14,14 @@ enum Snapshot {
     }
 
     static func run(into directory: URL) {
-        Theme.applyAppearance()
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let state = AppState.shared
+
+        // The app follows the system appearance now, so a snapshot run has to
+        // cover both: `--snapshot <dir> --light` renders the other one.
+        let light = CommandLine.arguments.contains("--light")
+        let appearance = NSAppearance(named: light ? .aqua : .darkAqua)!
+        NSApp.appearance = appearance
 
         func capture<V: View>(_ name: String, size: CGSize, _ view: V) {
             let renderer = ImageRenderer(
@@ -30,11 +35,15 @@ enum Snapshot {
                     .environmentObject(state.preferences)
                     .frame(width: size.width, height: size.height)
                     .background(Theme.background)
-                    .environment(\.colorScheme, .dark)
-                    .tint(Theme.focus)
+                    .environment(\.colorScheme, light ? .light : .dark)
             )
+            renderer.proposedSize = ProposedViewSize(size)
             renderer.scale = 2
-            guard let image = renderer.nsImage,
+            // Semantic NSColors resolve against the drawing appearance, which
+            // an off-screen render does not inherit from the app.
+            var rendered: NSImage?
+            appearance.performAsCurrentDrawingAppearance { rendered = renderer.nsImage }
+            guard let image = rendered,
                   let tiff = image.tiffRepresentation,
                   let rep = NSBitmapImageRep(data: tiff),
                   let png = rep.representation(using: .png, properties: [:]) else {

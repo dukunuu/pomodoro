@@ -15,20 +15,20 @@ struct AllTimeReportView: View {
 
         Card("Totals") {
             LazyVGrid(columns: columns, spacing: 14) {
-                StatTile(label: "COMPLETED FOCUS", value: String(report.sessions), detail: "sessions", accented: true)
-                StatTile(label: "FOCUS TIME", value: report.focusText, detail: "active")
-                StatTile(label: "BREAK TIME", value: report.breakText, detail: "active")
-                StatTile(label: "BREAKS TAKEN", value: String(report.breaks), detail: "breaks")
-                StatTile(label: "ACTIVE DAYS", value: String(report.activeDays), detail: "with focus time")
-                StatTile(label: "CURRENT STREAK", value: String(report.currentStreak), detail: "days", accented: true)
-                StatTile(label: "LONGEST STREAK", value: String(report.longestStreak), detail: "days")
-                StatTile(label: "AVERAGE SESSION", value: report.averageSessionText, detail: "per completed focus")
+                StatTile(label: "Completed focus", value: String(report.sessions), detail: "sessions", accented: true)
+                StatTile(label: "Focus time", value: report.focusText, detail: "active")
+                StatTile(label: "Break time", value: report.breakText, detail: "active")
+                StatTile(label: "Breaks taken", value: String(report.breaks), detail: "breaks")
+                StatTile(label: "Active days", value: String(report.activeDays), detail: "with focus time")
+                StatTile(label: "Current streak", value: String(report.currentStreak), detail: "days", accented: true)
+                StatTile(label: "Longest streak", value: String(report.longestStreak), detail: "days")
+                StatTile(label: "Average session", value: report.averageSessionText, detail: "per completed focus")
             }
 
             if report.firstEndedAt > 0 {
                 Text("First session \(Fmt.dateKey(report.firstEndedAt)) · latest \(Fmt.dateKey(report.lastEndedAt)) · \(report.interrupted) interrupted phases")
                     .font(.caption2)
-                    .foregroundStyle(Theme.textMuted.opacity(0.7))
+                    .foregroundStyle(Theme.textFaint)
                     .padding(.top, 2)
             }
         }
@@ -41,14 +41,16 @@ struct AllTimeReportView: View {
                     ForEach(report.months) { month in
                         BarMark(
                             x: .value("Month", month.label),
-                            y: .value("Focus", Double(month.focusSeconds) / 3600)
+                            y: .value("Focus", Double(month.focusSeconds) / 3600),
+                            width: .fixed(26)
                         )
                         .foregroundStyle(by: .value("Kind", "Focus"))
                         .cornerRadius(3)
 
                         BarMark(
                             x: .value("Month", month.label),
-                            y: .value("Break", Double(month.breakSeconds) / 3600)
+                            y: .value("Break", Double(month.breakSeconds) / 3600),
+                            width: .fixed(26)
                         )
                         .foregroundStyle(by: .value("Kind", "Break"))
                         .cornerRadius(3)

@@ -102,10 +102,10 @@ struct FloatingTimerView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .frame(width: 232, alignment: .leading)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
         .overlay(
             RoundedRectangle(cornerRadius: 14)
-                .strokeBorder(accent.opacity(service.running ? 0.5 : 0.18), lineWidth: 1)
+                .strokeBorder(accent.opacity(service.running ? 0.45 : 0.15), lineWidth: 1)
         )
         .environment(\.colorScheme, .dark)
         .onHover { value in

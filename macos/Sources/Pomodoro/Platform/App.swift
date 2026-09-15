@@ -62,20 +62,22 @@ struct MenuBarPanel: View {
         VStack(alignment: .leading, spacing: 0) {
             header
             clock
-            ProgressBar(value: service.phaseProgress, color: accent, overtime: service.isOvertime)
+            ProgressView(value: min(1, max(0, service.phaseProgress)))
+                .progressViewStyle(.linear)
+                .tint(service.isOvertime ? Theme.urgent : accent)
                 .padding(.horizontal, 14)
-                .padding(.top, 11)
+                .padding(.top, 10)
             transport
-            separator
+            Divider().padding(.horizontal, 14).padding(.vertical, 12)
             stats
-            separator
+            Divider().padding(.horizontal, 14).padding(.vertical, 12)
             actions
         }
         .padding(.vertical, 12)
-        .frame(width: 272)
-        .background(Theme.background)
-        .environment(\.colorScheme, .dark)
-        .tint(Theme.focus)
+        .frame(width: 280)
+        // No background of its own: the menu bar window already carries the
+        // system's popover vibrancy, and painting over it is what made this
+        // read as a custom panel rather than a menu.
     }
 
     private var header: some View {
@@ -83,15 +85,12 @@ struct MenuBarPanel: View {
             Circle()
                 .fill(accent)
                 .frame(width: 7, height: 7)
-                .shadow(color: service.running ? accent.opacity(0.8) : .clear, radius: 3)
             Text(service.phaseLabel)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Theme.textBright)
-            Spacer()
-            Text(service.statusLabel.uppercased())
-                .font(.system(size: 9, weight: .semibold))
-                .kerning(0.8)
-                .foregroundStyle(service.isOvertime ? Theme.urgent : Theme.textMuted)
+            Spacer(minLength: 8)
+            Text(service.statusLabel)
+                .font(.system(size: 12))
+                .foregroundStyle(service.isOvertime ? AnyShapeStyle(Theme.urgent) : AnyShapeStyle(.secondary))
         }
         .padding(.horizontal, 14)
     }
@@ -100,113 +99,78 @@ struct MenuBarPanel: View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text(service.remainingText)
                 .font(Theme.clockFont(38))
-                .foregroundStyle(service.isOvertime ? Theme.urgent : Theme.textBright)
+                .foregroundStyle(service.isOvertime ? AnyShapeStyle(Theme.urgent) : AnyShapeStyle(.primary))
                 .contentTransition(.numericText())
-            Spacer()
+            Spacer(minLength: 8)
             if service.phaseStartedAt > 0 {
                 Text("\(Fmt.reportDuration(service.phaseElapsed(at: nowMillis()))) in")
-                    .font(.system(size: 10))
-                    .foregroundStyle(Theme.textMuted)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
             }
         }
         .padding(.horizontal, 14)
-        .padding(.top, 6)
+        .padding(.top, 4)
     }
 
     private var transport: some View {
         HStack(spacing: 6) {
-            PanelButton(title: service.running ? "Pause" : "Start",
-                        systemImage: service.running ? "pause.fill" : "play.fill",
-                        prominent: true,
-                        tint: accent,
-                        action: service.toggle)
-            PanelButton(title: "Skip", systemImage: "forward.end.fill", action: service.skip)
-            PanelButton(title: "Reset", systemImage: "arrow.counterclockwise", action: service.reset)
+            Button(action: service.toggle) {
+                Label(service.running ? "Pause" : "Start",
+                      systemImage: service.running ? "pause.fill" : "play.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(accent)
+
+            Button(action: service.skip) {
+                Label("Skip", systemImage: "forward.end.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            Button(action: service.reset) {
+                Label("Reset", systemImage: "arrow.counterclockwise")
+                    .labelStyle(.iconOnly)
+            }
+            .help("Record this phase and restart it")
         }
+        .controlSize(.large)
         .padding(.horizontal, 14)
         .padding(.top, 12)
     }
 
     private var stats: some View {
         HStack(spacing: 0) {
-            StatTile(label: "FOCUS", value: today.focusText, detail: "today", accented: true)
-            StatTile(label: "SESSIONS", value: String(today.sessions), detail: "completed")
-            StatTile(label: "BREAKS", value: today.breakText, detail: "\(today.breaks) taken")
+            StatTile(label: "Focus", value: today.focusText, detail: "today", accented: true)
+            StatTile(label: "Sessions", value: String(today.sessions), detail: "completed")
+            StatTile(label: "Breaks", value: today.breakText, detail: "\(today.breaks) taken")
         }
         .padding(.horizontal, 14)
     }
 
     private var actions: some View {
         VStack(spacing: 1) {
-            MenuRow("Open Dashboard", systemImage: "square.grid.2x2", shortcut: "⌘D") {
-                state.showDashboard()
-            }
-            MenuRow("Send today to Whistler", systemImage: "arrow.up.forward.app") {
+            MenuRow("Open Dashboard", systemImage: "square.grid.2x2", shortcut: "⌘D",
+                    action: { state.showDashboard() })
+            MenuRow("Send Today to Whistler", systemImage: "arrow.up.forward.app", action: {
                 state.showDashboard()
                 whistler.importDay(service.todayKey)
-            }
-            .opacity(integrations.whistlerReady && !whistler.importRunning ? 1 : 0.45)
+            })
             .disabled(!integrations.whistlerReady || whistler.importRunning)
-            MenuRow("Floating timer", systemImage: "macwindow.on.rectangle", trailing: {
+            MenuRow("Floating Timer", systemImage: "macwindow.on.rectangle", trailing: {
                 Toggle("", isOn: $preferences.showFloatingTimer)
                     .toggleStyle(.switch)
                     .controlSize(.mini)
                     .labelsHidden()
-                    .tint(Theme.focus)
             })
-            MenuRow("Quit Pomodoro", systemImage: "power", shortcut: "⌘Q") {
-                NSApplication.shared.terminate(nil)
-            }
+            Divider().padding(.horizontal, 8).padding(.vertical, 4)
+            MenuRow("Quit Pomodoro", systemImage: "power", shortcut: "⌘Q",
+                    action: { NSApplication.shared.terminate(nil) })
         }
         .padding(.horizontal, 6)
     }
-
-    private var separator: some View {
-        Rectangle()
-            .fill(Theme.border)
-            .frame(height: 1)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 11)
-    }
 }
 
-/// Compact transport button. AppKit's bordered styles do not take a custom
-/// palette cleanly, so the panel draws its own.
-private struct PanelButton: View {
-    var title: String
-    var systemImage: String
-    var prominent: Bool = false
-    var tint: Color = Palette.muted
-    var action: () -> Void
-
-    @State private var hovering = false
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 5) {
-                Image(systemName: systemImage).font(.system(size: 10))
-                Text(title).font(.system(size: 12, weight: prominent ? .semibold : .regular))
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
-            .background(
-                RoundedRectangle(cornerRadius: 7)
-                    .fill(prominent
-                          ? tint.opacity(hovering ? 0.34 : 0.24)
-                          : Palette.raised.opacity(hovering ? 1 : 0.75))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 7)
-                    .strokeBorder(prominent ? tint.opacity(0.65) : Theme.border, lineWidth: 1)
-            )
-            .foregroundStyle(prominent ? tint : Theme.text)
-        }
-        .buttonStyle(.plain)
-        .onHover { hovering = $0 }
-    }
-}
-
-/// Slim palette-coloured progress track.
+/// Slim palette-coloured progress track, for the places that need a specific
+/// weight rather than the system bar's.
 struct ProgressBar: View {
     var value: Double
     var color: Color
@@ -216,7 +180,7 @@ struct ProgressBar: View {
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
-                Capsule().fill(Palette.raised)
+                Capsule().fill(Theme.trackFill)
                 Capsule()
                     .fill(overtime ? Theme.urgent : color)
                     .frame(width: max(height, geo.size.width * max(0, min(1, value))))

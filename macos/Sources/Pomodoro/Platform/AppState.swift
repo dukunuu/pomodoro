@@ -17,6 +17,7 @@ final class AppState: ObservableObject {
     let preferences = Preferences.shared
 
     private var dashboardWindow: NSWindow?
+    private var dashboardTitle = "Pomodoro"
     private var floatingPanel: FloatingTimerPanel?
     private var cancellables = Set<AnyCancellable>()
 
@@ -73,7 +74,6 @@ final class AppState: ObservableObject {
     // MARK: - Windows
 
     func start() {
-        Theme.applyAppearance()
         Notifier.shared.configure()
         updates.checkOnLaunch()
         setFloatingPanel(visible: preferences.showFloatingTimer)
@@ -99,12 +99,19 @@ final class AppState: ObservableObject {
                     .environmentObject(updateInstaller)
                     .environmentObject(preferences)
             )
+            // Building the controller runs the view's first layout, which is
+            // where it reports its section title — before this window exists.
             let window = NSWindow(contentViewController: hosting)
-            window.title = "Pomodoro"
+            window.title = dashboardTitle
             window.setContentSize(NSSize(width: 900, height: 720))
             window.contentMinSize = NSSize(width: 720, height: 560)
             window.styleMask.insert(.fullSizeContentView)
             window.titlebarAppearsTransparent = true
+            // A unified title bar lets the sidebar's vibrancy run up behind
+            // it, which is what makes a split-view window look like a Mac
+            // window rather than a panel with a strip on top.
+            window.toolbarStyle = .unified
+            window.titlebarSeparatorStyle = .automatic
             window.isReleasedWhenClosed = false
             window.setFrameAutosaveName("PomodoroDashboard")
             window.center()
@@ -113,6 +120,15 @@ final class AppState: ObservableObject {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         dashboardWindow?.makeKeyAndOrderFront(nil)
+    }
+
+    /// SwiftUI's `navigationTitle` only reaches an NSWindow it did not create
+    /// itself if the first layout happens to land after the window exists,
+    /// which it does not reliably here. The dashboard reports its section
+    /// instead.
+    func setDashboardTitle(_ title: String) {
+        dashboardTitle = title
+        dashboardWindow?.title = title
     }
 
     func setFloatingPanel(visible: Bool) {

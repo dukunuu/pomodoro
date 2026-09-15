@@ -27,14 +27,16 @@ struct WeekReportView: View {
                 ForEach(report.days) { day in
                     BarMark(
                         x: .value("Day", day.label),
-                        y: .value("Focus", Double(day.focusSeconds) / 3600)
+                        y: .value("Focus", Double(day.focusSeconds) / 3600),
+                        width: .fixed(26)
                     )
                     .foregroundStyle(by: .value("Kind", "Focus"))
                     .cornerRadius(3)
 
                     BarMark(
                         x: .value("Day", day.label),
-                        y: .value("Break", Double(day.breakSeconds) / 3600)
+                        y: .value("Break", Double(day.breakSeconds) / 3600),
+                        width: .fixed(26)
                     )
                     .foregroundStyle(by: .value("Kind", "Break"))
                     .cornerRadius(3)
@@ -53,12 +55,12 @@ struct WeekReportView: View {
                 ForEach(report.days) { day in
                     HStack(spacing: 10) {
                         Text(day.label)
-                            .font(.system(size: 12, weight: day.isToday ? .semibold : .regular))
+                            .font(.callout.weight(day.isToday ? .semibold : .regular))
                             .frame(width: 40, alignment: .leading)
-                            .foregroundStyle(day.isToday ? Theme.focus : .primary)
+                            .foregroundStyle(day.isToday ? AnyShapeStyle(Theme.focus) : AnyShapeStyle(.primary))
                         Text(String(day.dayNumber))
                             .font(.caption2.monospacedDigit())
-                            .foregroundStyle(Theme.textMuted.opacity(0.7))
+                            .foregroundStyle(Theme.textFaint)
                             .frame(width: 20, alignment: .trailing)
 
                         GeometryReader { geo in
@@ -76,7 +78,7 @@ struct WeekReportView: View {
                         .frame(height: 18)
 
                         Text(day.focusText)
-                            .font(.system(size: 12).monospacedDigit())
+                            .font(.callout.monospacedDigit())
                             .frame(width: 62, alignment: .trailing)
                         Text("\(day.sessions)")
                             .font(.caption.monospacedDigit())
@@ -84,7 +86,7 @@ struct WeekReportView: View {
                             .frame(width: 26, alignment: .trailing)
                     }
                     .padding(.vertical, 5)
-                    if day.id != report.days.last?.id { Rectangle().fill(Theme.border).frame(height: 1) }
+                    if day.id != report.days.last?.id { Divider() }
                 }
             }
         }

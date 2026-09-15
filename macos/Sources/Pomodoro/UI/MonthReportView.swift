@@ -29,7 +29,7 @@ struct MonthReportView: View {
                 ForEach(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], id: \.self) { name in
                     Text(name)
                         .font(.caption2.weight(.medium))
-                        .foregroundStyle(Theme.textMuted.opacity(0.7))
+                        .foregroundStyle(Theme.textFaint)
                 }
                 ForEach(report.cells) { cell in
                     MonthDayCell(cell: cell, maxSeconds: report.maxDaySeconds)
@@ -38,17 +38,17 @@ struct MonthReportView: View {
             .padding(.top, 4)
 
             HStack(spacing: 8) {
-                Text("Less").font(.caption2).foregroundStyle(Theme.textMuted.opacity(0.7))
+                Text("Less").font(.caption2).foregroundStyle(Theme.textFaint)
                 ForEach([0.15, 0.4, 0.65, 0.9], id: \.self) { level in
                     RoundedRectangle(cornerRadius: 3)
                         .fill(Theme.focus.opacity(level))
                         .frame(width: 14, height: 10)
                 }
-                Text("More").font(.caption2).foregroundStyle(Theme.textMuted.opacity(0.7))
+                Text("More").font(.caption2).foregroundStyle(Theme.textFaint)
                 Spacer()
                 Text("Peak day \(Fmt.reportDuration(report.maxDaySeconds))")
                     .font(.caption2)
-                    .foregroundStyle(Theme.textMuted.opacity(0.7))
+                    .foregroundStyle(Theme.textFaint)
             }
         }
     }
@@ -71,7 +71,7 @@ struct MonthDayCell: View {
                 .fill(cell.inMonth ? Theme.focus.opacity(intensity) : .clear)
                 .background(
                     RoundedRectangle(cornerRadius: 6)
-                        .fill(cell.inMonth ? Palette.raised.opacity(0.75) : .clear)
+                        .fill(cell.inMonth ? Theme.trackFill : .clear)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 6)
@@ -81,10 +81,10 @@ struct MonthDayCell: View {
             if cell.inMonth {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(String(cell.dayNumber))
-                        .font(.system(size: 10, weight: cell.isToday ? .bold : .regular).monospacedDigit())
+                        .font(.caption.weight(cell.isToday ? .bold : .regular).monospacedDigit())
                     if cell.focusSeconds > 0 {
                         Text(cell.focusText)
-                            .font(.system(size: 9).monospacedDigit())
+                            .font(.caption2.monospacedDigit())
                             .foregroundStyle(Theme.textMuted)
                     }
                 }

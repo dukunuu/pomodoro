@@ -35,7 +35,7 @@ struct DayReportView: View {
                 Spacer()
                 Text("\(stats.interruptedFocus) interrupted focus · \(stats.completedBreaks) breaks completed")
                     .font(.caption2)
-                    .foregroundStyle(Theme.textMuted.opacity(0.7))
+                    .foregroundStyle(Theme.textFaint)
             }
         }
 
@@ -46,7 +46,7 @@ struct DayReportView: View {
                 VStack(spacing: 0) {
                     ForEach(entries.reversed()) { entry in
                         EntryRow(entry: entry)
-                        if entry.id != entries.first?.id { Rectangle().fill(Theme.border).frame(height: 1) }
+                        if entry.id != entries.first?.id { Divider() }
                     }
                 }
             }
@@ -54,53 +54,106 @@ struct DayReportView: View {
     }
 }
 
-/// A 24-hour band showing when the clock was actually running. Pauses leave
-/// gaps, which is the point: the row is working time, not wall-clock span.
+/// A band showing when the clock was actually running. Pauses leave gaps,
+/// which is the point: the row is working time, not wall-clock span.
+///
+/// It spans the working day rather than all 24 hours — a half-hour session on
+/// a midnight-to-midnight axis is a sliver — and widens to take in anything
+/// recorded outside it.
 struct DayTimeline: View {
     var entries: [SessionEntry]
     var key: String
     var service: PomodoroService
 
+    private struct Window {
+        var start: Double
+        var end: Double
+        var step: Double
+        var span: Double { end - start }
+        var hours: [Double] { Array(stride(from: start, through: end, by: step)) }
+    }
+
+    private var window: Window {
+        var first = 24.0, last = 0.0
+        for entry in entries {
+            for segment in entry.segments {
+                first = min(first, service.timelineRatio(segment.startedAt, key: key) * 24)
+                last = max(last, service.timelineRatio(segment.endedAt, key: key) * 24)
+            }
+        }
+        if key == service.todayKey {
+            let now = service.timelineRatio(nowMillis(), key: key) * 24
+            first = min(first, now)
+            last = max(last, now)
+        }
+        var start = 8.0, end = 18.0
+        if first < last {
+            start = min(start, (first - 0.5).rounded(.down))
+            end = max(end, (last + 0.5).rounded(.up))
+        }
+        let step: Double = end - start <= 12 ? 2 : (end - start <= 18 ? 3 : 4)
+        start = max(0, (start / step).rounded(.down) * step)
+        end = min(24, (end / step).rounded(.up) * step)
+        return Window(start: start, end: end, step: step)
+    }
+
     var body: some View {
+        let window = self.window
+        let place = { (ratio: Double) -> CGFloat in
+            CGFloat(max(0, min(1, (ratio * 24 - window.start) / window.span)))
+        }
+
         VStack(spacing: 4) {
             GeometryReader { geo in
                 let width = geo.size.width
                 ZStack(alignment: .topLeading) {
                     RoundedRectangle(cornerRadius: 5)
-                        .fill(Palette.raised)
+                        .fill(Theme.trackFill)
 
-                    // Three-hour gridlines.
-                    ForEach(1..<8) { index in
+                    ForEach(window.hours.dropFirst().dropLast(), id: \.self) { hour in
                         Rectangle()
                             .fill(Theme.border)
                             .frame(width: 1)
-                            .offset(x: width * CGFloat(index) / 8)
+                            .offset(x: width * CGFloat((hour - window.start) / window.span))
                     }
 
                     ForEach(entries) { entry in
                         ForEach(Array(entry.segments.enumerated()), id: \.offset) { _, segment in
-                            let start = service.timelineRatio(segment.startedAt, key: key)
-                            let end = service.timelineRatio(segment.endedAt, key: key)
-                            let barWidth = max(2, width * CGFloat(end - start))
+                            let start = place(service.timelineRatio(segment.startedAt, key: key))
+                            let end = place(service.timelineRatio(segment.endedAt, key: key))
                             RoundedRectangle(cornerRadius: 3)
                                 .fill(Theme.color(for: entry.phase).opacity(entry.isLive ? 0.95 : 0.75))
-                                .frame(width: barWidth)
-                                .offset(x: width * CGFloat(start))
+                                .frame(width: max(3, width * (end - start)))
+                                .offset(x: width * start)
                                 .help(tooltip(entry))
                         }
+                    }
+
+                    if key == service.todayKey {
+                        Capsule()
+                            .fill(Color.primary.opacity(0.55))
+                            .frame(width: 2)
+                            .padding(.vertical, -3)
+                            .offset(x: width * place(service.timelineRatio(nowMillis(), key: key)) - 1)
+                            .help("Now")
                     }
                 }
             }
             .frame(height: 42)
 
-            HStack(spacing: 0) {
-                ForEach(0..<9) { index in
-                    Text(index == 8 ? "24" : "\(index * 3)")
-                        .font(.system(size: 9).monospacedDigit())
-                        .foregroundStyle(Theme.textMuted.opacity(0.7))
-                        .frame(maxWidth: .infinity, alignment: index == 0 ? .leading : (index == 8 ? .trailing : .center))
+            GeometryReader { geo in
+                ForEach(window.hours, id: \.self) { hour in
+                    Text(String(format: "%02d:00", Int(hour)))
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(Theme.textFaint)
+                        .fixedSize()
+                        .position(
+                            x: min(max(geo.size.width * CGFloat((hour - window.start) / window.span), 16),
+                                   geo.size.width - 16),
+                            y: geo.size.height / 2)
                 }
             }
+            .frame(height: 14)
         }
     }
 
@@ -123,14 +176,13 @@ struct EntryRow: View {
                 .opacity(entry.status == .completed || entry.isLive ? 1 : 0.4)
 
             Text(Fmt.rangeLabel(entry))
-                .font(.system(size: 12).monospacedDigit())
+                .font(.callout.monospacedDigit())
                 .foregroundStyle(Theme.textMuted)
                 .frame(width: 96, alignment: .leading)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(entry.phase.label)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Theme.text)
+                    .font(.callout)
                 if !entry.note.isEmpty {
                     Text(entry.note)
                         .font(.caption2)
@@ -146,11 +198,10 @@ struct EntryRow: View {
                 .foregroundStyle(entry.isLive ? Theme.focus : Theme.textMuted)
 
             Text(Fmt.reportDuration(entry.activeSeconds))
-                .font(.system(size: 12, weight: .medium).monospacedDigit())
-                .foregroundStyle(Theme.textBright)
+                .font(.callout.weight(.medium).monospacedDigit())
                 .frame(width: 62, alignment: .trailing)
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 7)
     }
 }
 
@@ -172,7 +223,7 @@ struct EmptyHint: View {
     var body: some View {
         Text(text)
             .font(.callout)
-            .foregroundStyle(Theme.textMuted.opacity(0.7))
+            .foregroundStyle(Theme.textFaint)
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.vertical, 18)
     }

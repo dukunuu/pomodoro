@@ -201,7 +201,7 @@ struct SetupRow: View {
         HStack(spacing: 10) {
             Image(systemName: state.symbol)
                 .foregroundStyle(tint)
-                .font(.system(size: 14))
+                .font(.title3)
                 .frame(width: 18)
 
             VStack(alignment: .leading, spacing: 1) {
@@ -265,7 +265,7 @@ struct GoogleClientSheet: View {
 
             Text("It is copied to \(DataPaths.googleClient.path) and never leaves this Mac.")
                 .font(.caption2)
-                .foregroundStyle(Theme.textMuted.opacity(0.7))
+                .foregroundStyle(Theme.textFaint)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -283,7 +283,7 @@ struct GoogleClientSheet: View {
         HStack(alignment: .top, spacing: 7) {
             Text("\(number).")
                 .font(.callout.monospacedDigit())
-                .foregroundStyle(Theme.textMuted.opacity(0.7))
+                .foregroundStyle(Theme.textFaint)
             Text(text).font(.callout)
         }
     }
@@ -324,7 +324,7 @@ struct ReminderCard: View {
             }
             Text("Checked every minute after the given time. It only fires when Calendar shows work that Whistler has not recorded.")
                 .font(.caption)
-                .foregroundStyle(Theme.textMuted.opacity(0.7))
+                .foregroundStyle(Theme.textFaint)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .onAppear { time = whistler.reminderTime }
@@ -369,16 +369,16 @@ struct WhistlerMonthCard: View {
             if whistler.monthStatusLoaded {
                 let stats = whistler.monthlyStats
                 HStack(spacing: 0) {
-                    StatTile(label: "TARGET",
+                    StatTile(label: "Target",
                              value: Fmt.whistlerMinutes(stats.expectedMinutes),
                              detail: "\(stats.workdayCount) workdays")
-                    StatTile(label: "LOGGED",
+                    StatTile(label: "Logged",
                              value: Fmt.whistlerMinutes(stats.loggedMinutes),
                              detail: "\(stats.loggedDays) days", accented: true)
-                    StatTile(label: "TO DATE",
+                    StatTile(label: "To date",
                              value: Fmt.whistlerMinutes(stats.loggedToDateMinutes),
                              detail: "of \(Fmt.whistlerMinutes(stats.expectedToDateMinutes))")
-                    StatTile(label: "BALANCE",
+                    StatTile(label: "Balance",
                              value: Fmt.whistlerSignedMinutes(stats.balanceMinutes),
                              detail: stats.balanceMinutes >= 0 ? "ahead" : "behind",
                              accented: stats.balanceMinutes >= 0)
@@ -416,7 +416,7 @@ struct WhistlerMonthCard: View {
                             }
                             if whistler.projectTotals.count > 8 {
                                 Text("+\(whistler.projectTotals.count - 8) more")
-                                    .font(.caption2).foregroundStyle(Theme.textMuted.opacity(0.7))
+                                    .font(.caption2).foregroundStyle(Theme.textFaint)
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -427,7 +427,7 @@ struct WhistlerMonthCard: View {
 
                 LazyVGrid(columns: columns, spacing: 5) {
                     ForEach(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], id: \.self) { name in
-                        Text(name).font(.caption2).foregroundStyle(Theme.textMuted.opacity(0.7))
+                        Text(name).font(.caption2).foregroundStyle(Theme.textFaint)
                     }
                     ForEach(whistler.monthCells(monthKey, todayKey: service.todayKey)) { cell in
                         WhistlerDayCell(cell: cell, tooltip: whistler.dayTooltip(cell)) {
@@ -441,7 +441,7 @@ struct WhistlerMonthCard: View {
                     LegendDot(color: Theme.urgent.opacity(0.6), label: "Missing")
                     LegendDot(color: Theme.shortBreak.opacity(0.5), label: "Holiday")
                     Spacer()
-                    Text("Right-click a day to send it").font(.caption2).foregroundStyle(Theme.textMuted.opacity(0.7))
+                    Text("Right-click a day to send it").font(.caption2).foregroundStyle(Theme.textFaint)
                 }
             } else if !whistler.monthStatusLoading {
                 EmptyHint(text: integrations.whistlerReady
@@ -462,8 +462,8 @@ struct WhistlerDayCell: View {
         if cell.incomplete { return Theme.urgent.opacity(0.32) }
         if cell.complete { return Theme.longBreak.opacity(0.32) }
         if cell.holiday { return Theme.shortBreak.opacity(0.2) }
-        if !cell.required { return Palette.raised.opacity(0.6) }
-        return Palette.raised
+        if !cell.required { return Theme.trackFill }
+        return Theme.trackFill
     }
 
     var body: some View {
@@ -477,10 +477,10 @@ struct WhistlerDayCell: View {
                 if cell.inMonth {
                     VStack(alignment: .leading, spacing: 1) {
                         Text(String(cell.dayNumber))
-                            .font(.system(size: 10, weight: cell.isToday ? .bold : .regular).monospacedDigit())
+                            .font(.caption.weight(cell.isToday ? .bold : .regular).monospacedDigit())
                         if cell.loggedMinutes > 0 {
                             Text(Fmt.whistlerMinutes(cell.loggedMinutes))
-                                .font(.system(size: 9).monospacedDigit())
+                                .font(.caption2.monospacedDigit())
                                 .foregroundStyle(Theme.textMuted)
                         }
                     }
@@ -512,11 +512,11 @@ struct InstructionsCard: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             TextEditor(text: $draft)
-                .font(.system(size: 12, design: .monospaced))
+                .font(Theme.mono(12))
                 .frame(minHeight: 130)
                 .scrollContentBackground(.hidden)
                 .padding(7)
-                .background(Palette.raised, in: RoundedRectangle(cornerRadius: 8))
+                .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 6))
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
                         .strokeBorder(Theme.border, lineWidth: 1)
