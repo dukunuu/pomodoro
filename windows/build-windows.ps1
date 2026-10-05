@@ -12,6 +12,7 @@ Environment:
   ARCHS                       comma-separated: x64, arm64 (default both)
   GOOGLE_OAUTH_CLIENT_JSON    OAuth client JSON, inline; baked into the build
   GOOGLE_OAUTH_CLIENT_FILE    ...or a path to the same JSON
+  OPENROUTER_API_KEY          optional shared default; extractable from the app
 
 Windows on ARM runs x64 under emulation, so an x64-only release works
 everywhere but runs slowly on ARM devices. Both are published.
@@ -111,6 +112,20 @@ foreach ($arch in $archs) {
     } else {
         Write-Host '    no OAuth client supplied; users install their own in Settings'
     }
+
+    # Never pass the key on MSBuild's command line or generate checked-in source.
+    # Remove a stale default when republishing without a key into the same folder.
+    $keyDest = Join-Path $publish 'openrouter-default-key.txt'
+    $buildKey = if ($env:OPENROUTER_API_KEY) { $env:OPENROUTER_API_KEY.Trim() } else { '' }
+    if ($buildKey) {
+        if ($buildKey -match '[^\x21-\x7E]') { throw 'OPENROUTER_API_KEY must be a single ASCII token.' }
+        [IO.File]::WriteAllText($keyDest, $buildKey + "`n", [Text.UTF8Encoding]::new($false))
+        Write-Host '    shared OpenRouter build key included (extractable from the app)'
+    } else {
+        if (Test-Path $keyDest) { Remove-Item $keyDest -Force }
+        Write-Host '    no OpenRouter build key supplied; users provide their own'
+    }
+    $buildKey = $null
 
     Invoke-Sign (Join-Path $publish 'Pomodoro.exe')
 

@@ -538,7 +538,8 @@ final class PomodoroService: ObservableObject {
             "focus-start",
             String(Int64(phaseStartedAt)),
             String(Int64(phaseRunStartedAt)),
-            String(Int64(endAt))
+            String(Int64(endAt)),
+            activeNote.normalizedNote
         ])
     }
 

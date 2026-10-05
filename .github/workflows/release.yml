@@ -55,10 +55,15 @@ jobs:
           BUILD_NUMBER: ${{ github.run_number }}
           UNIVERSAL: '1'
           GOOGLE_OAUTH_CLIENT_JSON: ${{ secrets.GOOGLE_OAUTH_CLIENT_JSON }}
+          # Distributed defaults are extractable; use a dedicated, capped key.
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           if [ -z "${GOOGLE_OAUTH_CLIENT_JSON:-}" ]; then
             echo "::warning::GOOGLE_OAUTH_CLIENT_JSON is not set; \
               the release will require each user to install their own client"
+          fi
+          if [ -z "${OPENROUTER_API_KEY:-}" ]; then
+            echo "::warning::OPENROUTER_API_KEY is not set; users will need their own inference key"
           fi
           ./build-macos.sh
 
@@ -125,6 +130,7 @@ jobs:
         env:
           VERSION: ${{ needs.version.outputs.version }}
           GOOGLE_OAUTH_CLIENT_JSON: ${{ secrets.GOOGLE_OAUTH_CLIENT_JSON }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: ./build-windows.ps1
 
       # The portable zip is always produced; the installer needs Inno Setup on

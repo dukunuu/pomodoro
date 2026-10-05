@@ -343,7 +343,8 @@ public static class GoogleClient
                 Title = title,
                 StartMs = (long)clippedStart,
                 EndMs = (long)clippedEnd,
-                DurationMinutes = wallMinutes
+                DurationMinutes = wallMinutes,
+                EventType = entry["eventType"]?.GetValue<string>() ?? "default"
             });
         }
         return (result, skipped);

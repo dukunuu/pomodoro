@@ -33,6 +33,16 @@ try {
     dotnet build (Join-Path $root 'Pomodoro.sln') -c Release --nologo -v quiet
     if ($LASTEXITCODE -ne 0) { throw 'build failed' }
 
+    Write-Host '==> Offline mapping tests'
+    python (Join-Path $repo 'tools/test_mapping.py')
+    if ($LASTEXITCODE -ne 0) { throw 'mapping tests failed' }
+    python (Join-Path $repo 'tools/test_build_key.py') --dotnet dotnet
+    if ($LASTEXITCODE -ne 0) { throw 'build-key tests failed' }
+    python (Join-Path $repo 'tools/test_mapping_preferences.py') --dotnet dotnet
+    if ($LASTEXITCODE -ne 0) { throw 'mapping preference tests failed' }
+    python (Join-Path $repo 'tools/compare-mapping.py')
+    if ($LASTEXITCODE -ne 0) { throw 'mapping differential failed' }
+
     $dump = Join-Path $root 'src/Pomodoro.ReportDump/bin/Release/net8.0/Pomodoro.ReportDump.dll'
     if (-not (Test-Path $dump)) { throw "report dump not found at $dump" }
 

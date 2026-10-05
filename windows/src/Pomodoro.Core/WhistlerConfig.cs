@@ -5,8 +5,8 @@ namespace Pomodoro.Core;
 
 /// <summary>
 /// Where Whistler's configuration comes from: the non-secret parts from a
-/// JSON file beside the history, the secret parts from the OS credential
-/// store. Assembled into the flat dictionary the importer and the two API
+/// JSON file beside the history, personal secrets from the OS credential
+/// store, and an optional distributed OpenRouter default from the application. Assembled into the flat dictionary the importer and the two API
 /// clients already expect, so only the source changed, not the consumers.
 ///
 /// The old pomodoro-whistler.env held everything in plain text, including the
@@ -16,7 +16,7 @@ namespace Pomodoro.Core;
 public static class WhistlerConfig
 {
     public const string DefaultApiUrl = "https://whistler.nashatech.com";
-    public const string DefaultModel = "openai/gpt-4o-mini";
+    public const string MappingModel = "typesafe/jev-1.13";
     public const string DefaultCalendar = "primary";
 
     /// <summary>Kept only until a session token replaces it; see Migrate.</summary>
@@ -29,7 +29,6 @@ public static class WhistlerConfig
         public string ApiUrl { get; init; } = DefaultApiUrl;
         public string Email { get; init; } = string.Empty;
         public string CalendarId { get; init; } = DefaultCalendar;
-        public string Model { get; init; } = DefaultModel;
     }
 
     public static Settings ReadSettings()
@@ -44,8 +43,7 @@ public static class WhistlerConfig
             {
                 ApiUrl = Text(json["apiUrl"], DefaultApiUrl),
                 Email = Text(json["email"], string.Empty),
-                CalendarId = Text(json["calendarId"], DefaultCalendar),
-                Model = Text(json["model"], DefaultModel)
+                CalendarId = Text(json["calendarId"], DefaultCalendar)
             };
         }
         catch (JsonException)
@@ -62,8 +60,7 @@ public static class WhistlerConfig
             ["version"] = 1,
             ["apiUrl"] = settings.ApiUrl.TrimEnd('/'),
             ["email"] = settings.Email,
-            ["calendarId"] = settings.CalendarId,
-            ["model"] = settings.Model
+            ["calendarId"] = settings.CalendarId
         }));
     }
 
@@ -76,9 +73,9 @@ public static class WhistlerConfig
             ["WHISTLER_API_URL"] = settings.ApiUrl,
             ["WHISTLER_EMAIL"] = settings.Email,
             ["GOOGLE_CALENDAR_ID"] = settings.CalendarId,
-            ["OPENROUTER_MODEL"] = settings.Model,
+            ["OPENROUTER_MODEL"] = MappingModel,
             ["WHISTLER_SESSION_TOKEN"] = SecretStore.Read(SecretStore.WhistlerSession) ?? string.Empty,
-            ["OPENROUTER_API_KEY"] = SecretStore.Read(SecretStore.OpenRouterKey) ?? string.Empty
+            ["OPENROUTER_API_KEY"] = OpenRouterCredentials.Read() ?? string.Empty
         };
         // Only present for a configuration migrated before it had a token.
         var password = SecretStore.Read(LegacyPassword);
@@ -89,8 +86,7 @@ public static class WhistlerConfig
     /// <summary>True when there is enough to reach Whistler and OpenRouter.</summary>
     public static bool IsConfigured()
     {
-        if (!SecretStore.Has(SecretStore.OpenRouterKey) &&
-            string.IsNullOrEmpty(Environment.GetEnvironmentVariable("OPENROUTER_API_KEY")))
+        if (!OpenRouterCredentials.Has)
         {
             return false;
         }
@@ -157,8 +153,7 @@ public static class WhistlerConfig
                 {
                     ApiUrl = env.GetValueOrDefault("WHISTLER_API_URL", DefaultApiUrl),
                     Email = env.GetValueOrDefault("WHISTLER_EMAIL", string.Empty),
-                    CalendarId = env.GetValueOrDefault("GOOGLE_CALENDAR_ID", DefaultCalendar),
-                    Model = env.GetValueOrDefault("OPENROUTER_MODEL", DefaultModel)
+                    CalendarId = env.GetValueOrDefault("GOOGLE_CALENDAR_ID", DefaultCalendar)
                 });
 
                 var token = env.GetValueOrDefault("WHISTLER_SESSION_TOKEN", string.Empty);

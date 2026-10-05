@@ -14,6 +14,11 @@ mkdir -p "$WORK"
 
 command -v node >/dev/null || { echo "node is required for the reference run"; exit 1; }
 
+echo "==> Offline mapping tests"
+python3 "$REPO/tools/test_mapping.py"
+python3 "$REPO/tools/test_build_key.py" --swift
+python3 "$REPO/tools/test_mapping_preferences.py" --swift
+
 echo "==> Building"
 cd "$ROOT"
 swift build -c release >/dev/null

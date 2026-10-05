@@ -45,7 +45,7 @@ public sealed class AppState
         // calendar. Fire-and-forget: CalendarSync swallows and logs its own
         // failures, and the timer must not wait on a network call.
         Service.FocusStarted += (session, runStartedAt, endAt) =>
-            _ = CalendarSync.StartAsync(session, endAt);
+            _ = CalendarSync.StartAsync(session, endAt, Service.ActiveNote);
         Service.FocusEnded += (session, ended, active, status, note) =>
             _ = CalendarSync.FinishAsync(session, session, ended, active, status.Wire(), note);
     }

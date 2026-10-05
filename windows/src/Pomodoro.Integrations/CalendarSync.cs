@@ -27,7 +27,7 @@ public static class CalendarSync
         && config.GetValueOrDefault("GOOGLE_CALENDAR_ID", string.Empty).Length > 0;
 
     /// <summary>Creates the in-progress event, unless this session already has one.</summary>
-    public static async Task StartAsync(double sessionMs, double endMs)
+    public static async Task StartAsync(double sessionMs, double endMs, string note = "")
     {
         await RunAsync(async config =>
         {
@@ -35,8 +35,8 @@ public static class CalendarSync
             var map = ReadMap();
             if (EventId(map, session).Length > 0) return;
 
-            var id = await InsertAsync(config, sessionMs, endMs, "Focus time",
-                Description(string.Empty, 0, "in progress")).ConfigureAwait(false);
+            var id = await InsertAsync(config, sessionMs, endMs, Summary(note),
+                Description(note, 0, "in progress")).ConfigureAwait(false);
             Remember(map, session, Key(sessionMs), Key(endMs), id);
         }).ConfigureAwait(false);
     }

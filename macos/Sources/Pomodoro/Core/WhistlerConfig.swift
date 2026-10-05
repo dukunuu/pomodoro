@@ -1,13 +1,14 @@
 import Foundation
 
 /// Where Whistler's configuration comes from: the non-secret parts from a
-/// JSON file beside the history, the secret parts from the Keychain. Assembled
+/// JSON file beside the history, personal secrets from Keychain, and an optional
+/// distributed OpenRouter default from the bundle. Assembled
 /// into the flat dictionary the Python bridges already read, so only the
 /// source changed — and the secrets now reach the bridges through the child
 /// process environment rather than through a file on disk.
 enum WhistlerConfig {
     static let defaultApiUrl = "https://whistler.nashatech.com"
-    static let defaultModel = "openai/gpt-4o-mini"
+    static let mappingModel = "typesafe/jev-1.13"
     static let defaultCalendar = "primary"
 
     /// Carried over only for a setup migrated before it had a token.
@@ -17,7 +18,6 @@ enum WhistlerConfig {
         var apiUrl: String = WhistlerConfig.defaultApiUrl
         var email: String = ""
         var calendarId: String = WhistlerConfig.defaultCalendar
-        var model: String = WhistlerConfig.defaultModel
     }
 
     private static var settingsURL: URL { DataPaths.whistlerAccount }
@@ -35,8 +35,7 @@ enum WhistlerConfig {
         return Settings(
             apiUrl: text("apiUrl", defaultApiUrl),
             email: text("email", ""),
-            calendarId: text("calendarId", defaultCalendar),
-            model: text("model", defaultModel))
+            calendarId: text("calendarId", defaultCalendar))
     }
 
     static func writeSettings(_ settings: Settings) {
@@ -45,8 +44,7 @@ enum WhistlerConfig {
             "version": 1,
             "apiUrl": settings.apiUrl.hasSuffix("/") ? String(settings.apiUrl.dropLast()) : settings.apiUrl,
             "email": settings.email,
-            "calendarId": settings.calendarId,
-            "model": settings.model
+            "calendarId": settings.calendarId
         ]
         guard let data = try? JSONSerialization.data(
             withJSONObject: json, options: [.prettyPrinted, .sortedKeys]) else { return }
@@ -62,9 +60,9 @@ enum WhistlerConfig {
             "WHISTLER_EMAIL": settings.email,
             "GOOGLE_CALENDAR_ID": settings.calendarId,
             "CALENDAR_ID": settings.calendarId,
-            "OPENROUTER_MODEL": settings.model,
+            "OPENROUTER_MODEL": mappingModel,
             "WHISTLER_SESSION_TOKEN": SecretStore.read(SecretStore.whistlerSession) ?? "",
-            "OPENROUTER_API_KEY": SecretStore.read(SecretStore.openRouterKey) ?? ""
+            "OPENROUTER_API_KEY": OpenRouterCredentials.read ?? ""
         ]
         if let password = SecretStore.read(legacyPassword), !password.isEmpty {
             values["WHISTLER_PASSWORD"] = password
@@ -114,8 +112,7 @@ enum WhistlerConfig {
             writeSettings(Settings(
                 apiUrl: env["WHISTLER_API_URL"] ?? defaultApiUrl,
                 email: env["WHISTLER_EMAIL"] ?? "",
-                calendarId: env["GOOGLE_CALENDAR_ID"] ?? env["CALENDAR_ID"] ?? defaultCalendar,
-                model: env["OPENROUTER_MODEL"] ?? defaultModel))
+                calendarId: env["GOOGLE_CALENDAR_ID"] ?? env["CALENDAR_ID"] ?? defaultCalendar))
 
             SecretStore.write(SecretStore.openRouterKey, env["OPENROUTER_API_KEY"] ?? "")
             let token = env["WHISTLER_SESSION_TOKEN"] ?? ""

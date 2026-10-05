@@ -146,37 +146,103 @@ struct DashboardView: View {
     }
 }
 
-/// The note attached to the focus session in progress.
+/// Pick a project without typing; optional notes remain available.
 struct NoteCard: View {
     @EnvironmentObject private var service: PomodoroService
+    @EnvironmentObject private var whistler: WhistlerService
     @State private var draft = ""
+    @State private var selection = "continue"
+    @State private var noteExpanded = false
+    @State private var message = ""
     @FocusState private var focused: Bool
 
     private var dirty: Bool { draft != service.activeNote }
+    private var scope: String { WhistlerMappingSettings.scope(WhistlerConfig.readSettings()) }
 
     var body: some View {
-        Card("Focus note") {
+        Card("Focus") {
             HStack(spacing: 8) {
-                TextField("What are you working on?", text: $draft)
-                    .textFieldStyle(.roundedBorder)
-                    .controlSize(.large)
-                    .focused($focused)
-                    .onSubmit { service.saveActiveNote(draft) }
-                    .disabled(service.phase != .focus)
-                Button("Save") { service.saveActiveNote(draft) }
-                    .controlSize(.large)
-                    .disabled(service.phase != .focus || !dirty)
+                Picker("Project", selection: Binding(get: { selection }, set: { choose($0) })) {
+                    Text("Continue previous work").tag("continue")
+                    Text("Custom note").tag("custom")
+                    if whistler.mappingProjectsScope == scope {
+                        ForEach(whistler.mappingProjects) { project in
+                            Text(project.name).tag("project:" + project.id)
+                        }
+                    }
+                }
+                .disabled(service.phase != .focus || whistler.importRunning || whistler.mappingProjectsLoading)
+                Button(whistler.mappingProjectsLoading ? "Loading…" : "Reload projects") {
+                    whistler.refreshMappingProjects()
+                }.disabled(!WhistlerConfig.isSignedIn || whistler.mappingProjectsLoading)
             }
-            Text(service.phase == .focus
-                 ? "Saved with the session when this focus phase ends."
-                 : "Notes attach to focus sessions.")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+            if !message.isEmpty { Text(message).font(.caption).foregroundStyle(Theme.urgent) }
+            if !whistler.mappingProjectsMessage.isEmpty {
+                Text(whistler.mappingProjectsMessage).font(.caption).foregroundStyle(Theme.textMuted)
+            }
+            DisclosureGroup("Optional focus note", isExpanded: $noteExpanded) {
+                HStack(spacing: 8) {
+                    TextField("What are you working on?", text: $draft)
+                        .textFieldStyle(.roundedBorder).controlSize(.large).focused($focused)
+                        .onSubmit { service.saveActiveNote(draft) }
+                        .disabled(service.phase != .focus)
+                    Button("Save") { service.saveActiveNote(draft) }
+                        .disabled(service.phase != .focus || !dirty)
+                }
+            }
+            Text("Pick a project to save its Calendar label automatically, or continue previous work with unnamed focus. The choice applies to this whole focus session; a note is optional.")
+                .font(.caption).foregroundStyle(.tertiary)
         }
-        .onAppear { draft = service.activeNote }
+        .onAppear {
+            draft = service.activeNote
+            syncSelection()
+            if WhistlerConfig.isSignedIn && whistler.mappingProjectsScope != scope { whistler.refreshMappingProjects() }
+        }
+        .onChange(of: scope) { _, _ in
+            message = ""
+            syncSelection()
+            if WhistlerConfig.isSignedIn { whistler.refreshMappingProjects() }
+        }
+        .onChange(of: whistler.mappingProjects) { _, _ in syncSelection() }
         .onChange(of: service.activeNote) { _, value in
             if !focused { draft = value }
+            syncSelection()
         }
+    }
+
+    private func syncSelection() {
+        if service.activeNote.isEmpty { selection = "continue"; return }
+        let aliases = (try? WhistlerMappingSettings.read().projectAliases[scope]) ?? []
+        if whistler.mappingProjectsScope == scope,
+           let alias = aliases.first(where: {
+               WhistlerMappingSettings.normalized(service.activeNote).hasPrefix("[" + WhistlerMappingSettings.normalized($0.alias) + "]")
+           }),
+           whistler.mappingProjects.contains(where: { $0.id == alias.projectId }) {
+            selection = "project:" + alias.projectId
+        } else { selection = "custom" }
+    }
+
+    private func choose(_ value: String) {
+        guard service.phase == .focus, !whistler.importRunning else { return }
+        if value == "custom" { selection = value; noteExpanded = true; focused = true; return }
+        do {
+            var note = ""
+            if value != "continue" {
+                guard whistler.mappingProjectsScope == scope,
+                      let project = whistler.mappingProjects.first(where: { "project:" + $0.id == value }) else {
+                    throw WhistlerMappingSettings.Failure.invalid("Reload projects for the current account.")
+                }
+                var settings = try WhistlerMappingSettings.read()
+                note = try FocusProjectSelection.select(projectId: project.id, name: project.name, scope: scope, settings: &settings)
+                try settings.save()
+                whistler.mappingDidChange()
+            }
+            focused = false
+            draft = note
+            service.saveActiveNote(note)
+            selection = value
+            message = ""
+        } catch { message = error.localizedDescription }
     }
 }
 

@@ -75,14 +75,13 @@ final class IntegrationStatus: ObservableObject {
         var summary: [(String, String)] = [
             ("Server", settings.apiUrl),
             ("Calendar", settings.calendarId),
-            ("Model", settings.model)
+            ("Project mapping", "Jev")
         ]
         if !settings.email.isEmpty { summary.append(("Account", settings.email)) }
         whistlerSummary = summary
 
         var missing: [String] = []
-        if !SecretStore.has(SecretStore.openRouterKey)
-            && (ProcessInfo.processInfo.environment["OPENROUTER_API_KEY"] ?? "").isEmpty {
+        if !OpenRouterCredentials.has {
             missing.append("OpenRouter API key")
         }
         if !SecretStore.has(SecretStore.whistlerSession)

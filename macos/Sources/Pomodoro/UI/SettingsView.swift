@@ -11,7 +11,7 @@ struct SettingsPanel: View {
             TimerSettingsSection()
             BehaviourSection()
             WhistlerAccountSection()
-            AISection()
+            ProjectMappingSection()
             UpdatesSection()
             DataSection()
         }

@@ -58,9 +58,17 @@ final class WhistlerService: ObservableObject {
     @Published private(set) var settingsLoaded = false
     private var lastReminderDate = ""
 
-    // AI mapping instructions
+    // Plain-language mapping instructions
     @Published var instructionsText = ""
     @Published private(set) var instructionsLoaded = false
+
+    // Active projects for focus and alias pickers (read-only bridge call).
+    @Published private(set) var mappingProjects: [WhistlerMappingProject] = []
+    @Published private(set) var mappingProjectsScope = ""
+    @Published private(set) var mappingProjectsLoading = false
+    @Published private(set) var mappingProjectsMessage = ""
+    private var mappingProjectsProcess: Process?
+    private var mappingProjectsGeneration = 0
 
     // Import
     @Published private(set) var importRunning = false
@@ -84,6 +92,7 @@ final class WhistlerService: ObservableObject {
     private var reminderStatusPending = false
     private var importProcess: Process?
     private var statusProcess: Process?
+    private var statusGeneration = 0
     private var clearStatusWork: DispatchWorkItem?
     private var watchers: [FileWatcher] = []
 
@@ -170,6 +179,42 @@ final class WhistlerService: ObservableObject {
         return AtomicFile.write(text, to: DataPaths.whistlerInstructions)
     }
 
+    func refreshMappingProjects() {
+        guard !mappingProjectsLoading else { return }
+        mappingProjectsLoading = true
+        mappingProjectsMessage = "Loading active projects…"
+        let generation = mappingProjectsGeneration
+        let scope = WhistlerMappingSettings.scope(WhistlerConfig.readSettings())
+        mappingProjectsProcess = Bridge.run(DataPaths.whistlerImportScript, ["--projects"],
+            completion: { [weak self] code, stdout, stderr in
+                guard let self, generation == self.mappingProjectsGeneration else { return }
+                self.mappingProjectsLoading = false
+                self.mappingProjectsProcess = nil
+                guard scope == WhistlerMappingSettings.scope(WhistlerConfig.readSettings()) else {
+                    self.mappingProjects = []
+                    self.mappingProjectsMessage = "Account changed. Reload projects."
+                    return
+                }
+                if code == 0, let data = stdout.data(using: .utf8),
+                   let projects = try? JSONDecoder().decode([WhistlerMappingProject].self, from: data) {
+                    self.mappingProjectsScope = scope
+                    self.mappingProjects = projects
+                    self.mappingProjectsMessage = projects.isEmpty ? "No active projects for this account." : ""
+                } else {
+                    self.mappingProjectsMessage = stderr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        ? "Could not load projects." : String(stderr.prefix(300))
+                }
+            })
+        if mappingProjectsProcess == nil {
+            mappingProjectsLoading = false
+            mappingProjectsMessage = "Project bridge unavailable."
+        }
+    }
+
+    func mappingDidChange() {
+        invalidateMonthStatus()
+    }
+
     // MARK: - Import state
 
     private func loadImportState(_ raw: String?) {
@@ -192,10 +237,26 @@ final class WhistlerService: ObservableObject {
     /// itself changed: they would otherwise silence reminders for days the
     /// new account has never logged.
     func accountDidChange(clearImportMarkers: Bool) {
+        mappingProjectsGeneration += 1
+        mappingProjectsScope = ""
+        mappingProjectsProcess?.terminate()
+        mappingProjectsProcess = nil
+        mappingProjectsLoading = false
+        mappingProjects = []
+        mappingProjectsMessage = ""
         if clearImportMarkers {
             try? FileManager.default.removeItem(at: DataPaths.whistlerImportState)
             importedDays = []
         }
+        invalidateMonthStatus()
+    }
+
+    private func invalidateMonthStatus() {
+        statusGeneration += 1
+        statusProcess?.terminate()
+        statusProcess = nil
+        monthStatusLoading = false
+        reminderStatusPending = false
         monthStatusKey = ""
         monthStatusLoaded = false
         monthStatusMessage = ""
@@ -286,13 +347,19 @@ final class WhistlerService: ObservableObject {
         monthStatusMessage = "Checking Calendar and Whistler…"
         monthStatusLoading = true
         monthStatusLoaded = false
+        let generation = statusGeneration
+        let scope = WhistlerMappingSettings.scope(WhistlerConfig.readSettings())
 
         statusProcess = Bridge.run(
             DataPaths.whistlerImportScript, ["--month-status", monthKey],
             completion: { [weak self] code, stdout, stderr in
-                guard let self else { return }
+                guard let self, generation == self.statusGeneration else { return }
                 self.monthStatusLoading = false
                 self.statusProcess = nil
+                guard scope == WhistlerMappingSettings.scope(WhistlerConfig.readSettings()) else {
+                    self.monthStatusMessage = "Account changed. Refresh month status."
+                    return
+                }
                 if code == 0 {
                     self.applyMonthStatus(stdout)
                     if self.reminderStatusPending {

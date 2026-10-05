@@ -90,9 +90,41 @@ app at 100 users, who must be added as test users on the consent screen. For a
 personal or small-team release that is usually fine; for a public one, submit
 for verification before advertising the download.
 
-Whistler and OpenRouter credentials are **never** baked in — those stay
-per-user in the OS keystore — Credential Manager on Windows, the login
-Keychain on macOS.
+Whistler session tokens are **never** baked in. Personal OpenRouter keys stay
+in the OS keystore; an optional shared inference default is described below.
+
+## Optional shared OpenRouter key
+
+Set the repository secret `OPENROUTER_API_KEY`. The command prompts for hidden
+input; do not put the value in a command argument or committed file:
+
+```sh
+gh secret set OPENROUTER_API_KEY --repo dukunuu/pomodoro
+```
+
+Use a **dedicated, capped, revocable** OpenRouter key, not a personal key shared
+with other tools. Cheap model prices do not limit third-party use of an extracted
+key, and an extracted key can request other models outside this app. Apply a hard spending limit when
+creating the key in OpenRouter's key settings.
+
+The release workflow exposes this secret **only to the packaging steps** on
+macOS and Windows, through the process environment. Packaging writes
+`openrouter-default-key.txt` into the app's resources (macOS) or beside its
+executable (Windows). It is not logged, generated into source, or committed.
+Normal PR/push CI builds do not receive it and assert that their artifacts carry
+no inference key. Missing secrets produce usable builds that ask for a user's
+own key. Republishing without a key removes a stale default.
+
+**The shipped default is intentionally extractable and readable. GitHub Secrets
+protects its pre-build storage, not the distributed application.** Anyone with
+an installer can use the key outside Pomodoro. Rotate/revoke it through
+OpenRouter; setting a replacement CI secret requires a new release and does not
+change already-installed copies. Old builds lose access if their key is revoked.
+
+Resolution is personal OS-keystore key → runtime `OPENROUTER_API_KEY` environment
+→ bundled default. Settings shows which source is in use, never the value. A
+user can supply their own key without replacing the bundle or changing the
+fixed Jev engine. The shared default is not copied into the user's keystore.
 
 ## Code signing
 

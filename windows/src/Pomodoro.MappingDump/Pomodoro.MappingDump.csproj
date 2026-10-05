@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>Pomodoro.MappingDump</AssemblyName>
+    <RootNamespace>Pomodoro.MappingDump</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Pomodoro.Integrations\Pomodoro.Integrations.csproj" />
+  </ItemGroup>
+</Project>

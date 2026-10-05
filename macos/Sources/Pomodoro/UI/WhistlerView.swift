@@ -17,6 +17,7 @@ struct WhistlerView: View {
         ReminderCard()
         WhistlerMonthCard()
         InstructionsCard()
+        WhistlerMappingCard()
     }
 }
 
@@ -497,7 +498,7 @@ struct WhistlerDayCell: View {
     }
 }
 
-/// Free-text rules appended to the classification prompt for every event.
+/// Plain-language preferences supplied to Jev alongside projects and Calendar context.
 struct InstructionsCard: View {
     @EnvironmentObject private var state: AppState
     @EnvironmentObject private var whistler: WhistlerService
@@ -505,8 +506,8 @@ struct InstructionsCard: View {
     @State private var saved = false
 
     var body: some View {
-        Card("AI mapping instructions") {
-            Text("Added to the OpenRouter prompt for every event. Use it to map calendar wording onto Whistler projects.")
+        Card("Mapping instructions") {
+            Text("Tell Jev how your Calendar relates to projects, what not to log, and when to use your work categories. For example: ‘Opeone to Quotomy belongs to quotomy. Don’t log Japanese club meetings.’ Unnamed focus continues previous work automatically. Calendar-type switches take precedence.")
                 .font(.caption)
                 .foregroundStyle(Theme.textMuted)
                 .fixedSize(horizontal: false, vertical: true)

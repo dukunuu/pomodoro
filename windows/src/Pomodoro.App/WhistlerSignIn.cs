@@ -17,7 +17,7 @@ namespace Pomodoro.App;
 /// The form is about the account and nothing else. Model, calendar and API
 /// key each have their own row in Settings, so switching Whistler accounts
 /// does not mean re-entering them. The key is asked for here only when none is
-/// stored, because a first setup cannot send without one.
+/// available from the user's store, environment, or the distributed default.
 /// </summary>
 internal static class WhistlerSignIn
 {
@@ -25,7 +25,7 @@ internal static class WhistlerSignIn
     public static async Task<bool> ShowAsync(XamlRoot root, bool switching = false)
     {
         var previous = WhistlerConfig.ReadSettings();
-        var needsKey = !SecretStore.Has(SecretStore.OpenRouterKey);
+        var needsKey = !OpenRouterCredentials.Has;
 
         var intro = new TextBlock
         {
@@ -55,7 +55,7 @@ internal static class WhistlerSignIn
         var note = new TextBlock
         {
             Text = needsKey
-                ? "The session token and API key are stored in Windows Credential Manager. Choose the AI model afterwards in Settings."
+                ? "The session token and personal API key are stored in Windows Credential Manager. Jev handles project mapping."
                 : "The session token is stored in Windows Credential Manager, where you can inspect or revoke it.",
             TextWrapping = TextWrapping.Wrap,
             FontSize = 12,

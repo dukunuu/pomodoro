@@ -179,6 +179,11 @@ public static class MonthStatus
         var (events, skipped) = await GoogleClient
             .ReadEventsAsync(config, start, end, cancellation).ConfigureAwait(false);
 
+        WhistlerMappingSettings mapping;
+        try { mapping = WhistlerMappingSettings.Read(); }
+        catch (Exception error) when (error is System.Text.Json.JsonException or FormatException or IOException)
+        { throw new ImportFailure("Mapping settings are unreadable: " + error.Message); }
+        events = events.Where(item => mapping.Exclusion(item.Title, item.EventType) is null).ToList();
         var todayKey = Fmt.DateKey(DateTime.Now);
         // Only days that have already happened can be "missing" a worklog.
         var eventDays = events

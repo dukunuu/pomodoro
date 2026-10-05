@@ -11,6 +11,7 @@ public sealed record CalendarEvent
     public required long StartMs { get; init; }
     public required long EndMs { get; init; }
     public required int DurationMinutes { get; init; }
+    public string EventType { get; init; } = "default";
 }
 
 public sealed record WhistlerProject
@@ -26,41 +27,8 @@ public sealed record Assignment
     public required string EventId { get; init; }
     public required string ProjectId { get; init; }
     public string TaskGroup { get; init; } = string.Empty;
-}
-
-/// <summary>
-/// One entry from OpenRouter's catalogue, reduced to what a person choosing a
-/// classifier needs: what it costs and whether it honours JSON mode.
-/// </summary>
-public sealed record AiModel
-{
-    public required string Id { get; init; }
-    public required string Name { get; init; }
-    /// <summary>US dollars per million tokens; null when the price is variable.</summary>
-    public double? PromptPrice { get; init; }
-    public double? CompletionPrice { get; init; }
-    public int ContextLength { get; init; }
-    public bool SupportsJson { get; init; }
-
-    public string PriceLabel
-    {
-        get
-        {
-            if (PromptPrice is not { } prompt || CompletionPrice is not { } completion)
-            {
-                return "Variable pricing";
-            }
-            if (prompt == 0 && completion == 0) return "Free";
-            return $"{Dollars(prompt)} in · {Dollars(completion)} out per 1M";
-        }
-    }
-
-    public string ContextLabel => ContextLength >= 1000
-        ? $"{ContextLength / 1000}K context"
-        : $"{ContextLength} context";
-
-    private static string Dollars(double value) =>
-        "$" + value.ToString(value < 0.1 ? "0.000" : "0.00", System.Globalization.CultureInfo.InvariantCulture);
+    /// <summary>Local inheritance provenance; never accepted from a model.</summary>
+    public string ContinuationOf { get; init; } = string.Empty;
 }
 
 /// <summary>An event the user's instructions exclude from the worklog.</summary>

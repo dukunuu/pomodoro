@@ -139,7 +139,7 @@ public static class WorklogBuilder
             {
                 repeated.Minutes += minutes;
                 repeated.Count += 1;
-                if (repeated.SourceKeys.Add(sourceKey)) repeated.SourceTitles.Add(taskText);
+                if (raw.ContinuationOf.Length == 0 && repeated.SourceKeys.Add(sourceKey)) repeated.SourceTitles.Add(taskText);
             }
             else
             {

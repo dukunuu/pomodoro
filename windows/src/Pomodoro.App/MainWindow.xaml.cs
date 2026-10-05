@@ -21,6 +21,15 @@ public sealed partial class MainWindow : Window
     private int _monthOffset;
     private bool _loadingPreferences;
     private bool _sending;
+    private bool? _keySetupWasMissing;
+    private int _monthGeneration;
+    private List<WhistlerProject> _focusProjects = [];
+    private string _focusScope = string.Empty;
+    private bool? _focusSignedIn;
+    private bool _loadingFocusProjects;
+    private bool _renderingFocusProjects;
+    private string? _renderedFocusNote;
+    private int _focusGeneration;
 
     public MainWindow()
     {
@@ -127,6 +136,8 @@ public sealed partial class MainWindow : Window
 
         if (NoteBox.FocusState == FocusState.Unfocused) NoteBox.Text = Service.ActiveNote;
         NoteBox.IsEnabled = Service.Phase == Phase.Focus;
+        FocusProjectPicker.IsEnabled = Service.Phase == Phase.Focus && !_loadingFocusProjects && !_sending;
+        SyncFocusProjectSelection();
 
         DayLabel.Text = Fmt.DayLabel(Service.CurrentDate).ToUpperInvariant();
 
@@ -532,6 +543,20 @@ public sealed partial class MainWindow : Window
     private void OnSendDateChanged(CalendarDatePicker sender, CalendarDatePickerDateChangedEventArgs args) =>
         RefreshWhistler();
 
+    private async void OnConfigureMapping(object sender, RoutedEventArgs e)
+    {
+        if (_sending) { Report("Wait for the current send to finish before changing mapping rules.", InfoBarSeverity.Informational); return; }
+        try
+        {
+            if (await WhistlerMappingDialog.ShowAsync(Content.XamlRoot))
+            {
+                ResetMonthStatus();
+                Report("Mapping rules saved. They apply to the next send.", InfoBarSeverity.Success);
+            }
+        }
+        catch (Exception error) { Report(error.Message, InfoBarSeverity.Error); }
+    }
+
     private void OnSaveInstructions(object sender, RoutedEventArgs e)
     {
         AtomicFile.Write(DataPaths.WhistlerInstructions, InstructionsBox.Text);
@@ -561,16 +586,34 @@ public sealed partial class MainWindow : Window
         SwitchAccountButton.Content = signedIn ? "Switch account…" : "Sign in…";
         SignOutButton.Visibility = signedIn ? Visibility.Visible : Visibility.Collapsed;
 
-        ModelText.Text = settings.Model;
-
-        var hasKey = SecretStore.Has(SecretStore.OpenRouterKey);
-        KeyStatusText.Text = hasKey
-            ? "Stored in Windows Credential Manager"
-            : "Not set — sending is unavailable";
-        KeyButton.Content = hasKey ? "Replace key…" : "Add key…";
+        var keySource = OpenRouterCredentials.Source;
+        var missingKey = keySource == OpenRouterCredentials.KeySource.Missing;
+        ApiKeyAdvanced.Header = missingKey ? "OpenRouter setup" : "Advanced";
+        KeyRowTitle.Text = missingKey ? "OpenRouter API key" : "Personal API key override";
+        if (_keySetupWasMissing != missingKey) ApiKeyAdvanced.IsExpanded = missingKey;
+        _keySetupWasMissing = missingKey;
+        KeyStatusText.Text = keySource switch
+        {
+            OpenRouterCredentials.KeySource.Stored => "Stored in Windows Credential Manager",
+            OpenRouterCredentials.KeySource.Environment => "Provided by environment",
+            OpenRouterCredentials.KeySource.Bundled => "Provided by this build — shared key",
+            _ => "Not set — sending is unavailable"
+        };
+        KeyButton.Content = keySource == OpenRouterCredentials.KeySource.Stored ? "Replace key…"
+            : keySource == OpenRouterCredentials.KeySource.Missing ? "Add key…" : "Use own key…";
 
         // Leave a half-typed calendar ID alone.
         if (CalendarBox.FocusState == FocusState.Unfocused) CalendarBox.Text = settings.CalendarId;
+        var scope = WhistlerMappingSettings.Scope(settings);
+        if (_focusScope != scope || _focusSignedIn != signedIn)
+        {
+            _focusScope = scope; _focusSignedIn = signedIn; _focusGeneration++;
+            _loadingFocusProjects = false; _focusProjects.Clear();
+            FocusProjectStatus.Text = signedIn ? string.Empty : "Sign in to Whistler to pick a project.";
+            RenderFocusProjects();
+            if (signedIn) _ = LoadFocusProjectsAsync();
+        }
+        ReloadFocusProjects.IsEnabled = signedIn && !_loadingFocusProjects;
     }
 
     private async void OnSwitchAccount(object sender, RoutedEventArgs e)
@@ -591,7 +634,7 @@ public sealed partial class MainWindow : Window
         {
             XamlRoot = Content.XamlRoot,
             Title = "Sign out of Whistler?",
-            Content = "Sending stops until you sign in again. Your API key, model and mapping "
+            Content = "Sending stops until you sign in again. Your API key and mapping "
                     + "instructions are kept, and nothing already in Whistler is changed.",
             PrimaryButtonText = "Sign out",
             CloseButtonText = "Cancel",
@@ -602,17 +645,6 @@ public sealed partial class MainWindow : Window
         WhistlerConfig.SignOut();
         ResetMonthStatus();
         ReportAccount("Signed out of Whistler.", InfoBarSeverity.Informational);
-        Integrations.Refresh();
-    }
-
-    private async void OnChangeModel(object sender, RoutedEventArgs e)
-    {
-        var current = WhistlerConfig.ReadSettings().Model;
-        var chosen = await WhistlerSettingsDialogs.PickModelAsync(Content.XamlRoot, current);
-        if (chosen is null || chosen == current) return;
-
-        WhistlerConfig.Update(settings => settings with { Model = chosen });
-        ReportAccount($"AI model set to {chosen}. It applies to the next send.", InfoBarSeverity.Success);
         Integrations.Refresh();
     }
 
@@ -645,6 +677,7 @@ public sealed partial class MainWindow : Window
     /// <summary>Month coverage described the previous account or calendar.</summary>
     private void ResetMonthStatus()
     {
+        _monthGeneration++;
         MonthSummary.Visibility = Visibility.Collapsed;
         MonthStatusText.Text = "Refresh to compare Google Calendar against Whistler for this month.";
         MonthStatusText.Foreground = Brush("TextMutedBrush");
@@ -664,15 +697,17 @@ public sealed partial class MainWindow : Window
         RefreshMonthButton.IsEnabled = false;
         MonthStatusText.Text = "Checking Calendar and Whistler…";
         MonthStatusText.Foreground = Brush("TextMutedBrush");
+        var generation = _monthGeneration;
         try
         {
             var month = Service.TodayKey[..7];
             var config = WhistlerConfig.Resolve();
             var status = await Task.Run(() => MonthStatus.FetchAsync(config, month));
-            RenderMonth(status);
+            if (generation == _monthGeneration) RenderMonth(status);
         }
         catch (Exception error)
         {
+            if (generation != _monthGeneration) return;
             MonthSummary.Visibility = Visibility.Collapsed;
             MonthStatusText.Text = error.Message;
             MonthStatusText.Foreground = Brush("UrgentBrush");
@@ -973,6 +1008,106 @@ public sealed partial class MainWindow : Window
     private void OnSkip(object sender, RoutedEventArgs e) => Service.Skip();
     private void OnReset(object sender, RoutedEventArgs e) => Service.Reset();
     private void OnSaveNote(object sender, RoutedEventArgs e) => Service.SaveActiveNote(NoteBox.Text);
+
+    private async void OnReloadFocusProjects(object sender, RoutedEventArgs e) => await LoadFocusProjectsAsync();
+
+    private async Task LoadFocusProjectsAsync()
+    {
+        if (_loadingFocusProjects || !WhistlerConfig.IsSignedIn) return;
+        var scope = _focusScope;
+        var generation = ++_focusGeneration;
+        _loadingFocusProjects = true;
+        ReloadFocusProjects.IsEnabled = false; FocusProjectPicker.IsEnabled = false;
+        FocusProjectStatus.Text = "Loading active projects…";
+        try
+        {
+            var config = WhistlerConfig.Resolve();
+            if (WhistlerMappingSettings.Scope(config) != scope) return;
+            var client = await WhistlerClient.ConnectAsync(config);
+            var projects = await client.ProjectsAsync();
+            if (generation != _focusGeneration || WhistlerMappingSettings.Scope(WhistlerConfig.ReadSettings()) != scope) return;
+            _focusProjects = projects;
+            FocusProjectStatus.Text = projects.Count == 0 ? "No active projects for this account." : string.Empty;
+            RenderFocusProjects();
+        }
+        catch (Exception error)
+        {
+            if (generation != _focusGeneration) return;
+            _focusProjects.Clear(); RenderFocusProjects();
+            FocusProjectStatus.Text = error.Message;
+        }
+        finally
+        {
+            if (generation == _focusGeneration)
+            {
+                _loadingFocusProjects = false;
+                ReloadFocusProjects.IsEnabled = WhistlerConfig.IsSignedIn;
+                FocusProjectPicker.IsEnabled = Service.Phase == Phase.Focus && !_sending;
+            }
+        }
+    }
+
+    private void RenderFocusProjects()
+    {
+        _renderingFocusProjects = true;
+        FocusProjectPicker.Items.Clear();
+        FocusProjectPicker.Items.Add(new ComboBoxItem { Content = "Continue previous work", Tag = "continue" });
+        FocusProjectPicker.Items.Add(new ComboBoxItem { Content = "Custom note", Tag = "custom" });
+        foreach (var project in _focusProjects)
+            FocusProjectPicker.Items.Add(new ComboBoxItem { Content = project.Name, Tag = "project:" + project.Id });
+        _renderingFocusProjects = false;
+        _renderedFocusNote = null;
+        SyncFocusProjectSelection();
+    }
+
+    private void SyncFocusProjectSelection()
+    {
+        if (_renderedFocusNote == Service.ActiveNote) return;
+        _renderedFocusNote = Service.ActiveNote;
+        var selected = Service.ActiveNote.Length == 0 ? "continue" : "custom";
+        try
+        {
+            var aliases = WhistlerMappingSettings.Read().ProjectAliases.GetValueOrDefault(_focusScope) ?? [];
+            var alias = aliases.FirstOrDefault(a => WhistlerMappingSettings.Normalized(Service.ActiveNote)
+                .StartsWith("[" + WhistlerMappingSettings.Normalized(a.Alias) + "]", StringComparison.Ordinal)
+                && _focusProjects.Any(p => p.Id == a.ProjectId));
+            if (alias is not null) selected = "project:" + alias.ProjectId;
+        }
+        catch (Exception error) { FocusProjectStatus.Text = error.Message; }
+        _renderingFocusProjects = true;
+        FocusProjectPicker.SelectedItem = FocusProjectPicker.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (i.Tag as string) == selected);
+        _renderingFocusProjects = false;
+    }
+
+    private void OnFocusProjectChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_renderingFocusProjects || _loadingFocusProjects || _sending || Service.Phase != Phase.Focus) return;
+        var selected = (FocusProjectPicker.SelectedItem as ComboBoxItem)?.Tag as string;
+        if (selected is null) return;
+        if (selected == "custom") { FocusNoteAdvanced.IsExpanded = true; NoteBox.Focus(FocusState.Programmatic); return; }
+        try
+        {
+            var note = string.Empty;
+            if (selected != "continue")
+            {
+                if (_focusScope != WhistlerMappingSettings.Scope(WhistlerConfig.ReadSettings()))
+                    throw new InvalidOperationException("Account changed. Reload projects.");
+                var project = _focusProjects.FirstOrDefault(p => "project:" + p.Id == selected)
+                    ?? throw new InvalidOperationException("Reload active projects for this account.");
+                var picked = FocusProjectSelection.Select(project.Id, project.Name, _focusScope, WhistlerMappingSettings.Read());
+                picked.Settings.Save(); note = picked.Note;
+                ResetMonthStatus();
+            }
+            NoteBox.Text = note;
+            Service.SaveActiveNote(note);
+            FocusProjectStatus.Text = string.Empty;
+        }
+        catch (Exception error)
+        {
+            _renderedFocusNote = null; SyncFocusProjectSelection();
+            FocusProjectStatus.Text = error.Message;
+        }
+    }
 
     // ---- Helpers ----------------------------------------------------------
 

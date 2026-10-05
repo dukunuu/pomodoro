@@ -20,9 +20,10 @@ enum DataPaths {
     static var history: URL { directory.appendingPathComponent("pomodoro-history.json") }
     static var whistlerSettings: URL { directory.appendingPathComponent("pomodoro-whistler-settings.json") }
     static var whistlerInstructions: URL { directory.appendingPathComponent("pomodoro-whistler-instructions.txt") }
+    static var whistlerMapping: URL { directory.appendingPathComponent("pomodoro-whistler-mapping.json") }
     static var whistlerImportState: URL { directory.appendingPathComponent("pomodoro-whistler-imports.json") }
     static var whistlerConfig: URL { directory.appendingPathComponent("pomodoro-whistler.env") }
-    /// Server, account and model. The secrets that went with them in the
+    /// Server, account and Calendar. The secrets that went with them in the
     /// legacy .env now live in the Keychain.
     static var whistlerAccount: URL { directory.appendingPathComponent("pomodoro-whistler-account.json") }
     static var integrationsConfig: URL { directory.appendingPathComponent("pomodoro-integrations.env") }
@@ -41,7 +42,7 @@ enum DataPaths {
 
     static let whistlerInstructionsTemplate = """
     # Optional instructions for project and client mapping.
-    # This text is added to the AI classification prompt.
+    # Jev receives these preferences alongside projects and Calendar context.
     # Example: Events containing Eventomy are work for the Whistler project Quotomy.
     # Remove the # characters and add your own rules.
 

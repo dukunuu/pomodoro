@@ -13,6 +13,7 @@
 #                               or the artifact will not run on Intel Macs)
 #   GOOGLE_OAUTH_CLIENT_JSON    OAuth client JSON, inline; baked into the app
 #   GOOGLE_OAUTH_CLIENT_FILE    ...or a path to the same JSON
+#   OPENROUTER_API_KEY          optional shared default; extractable from the app
 set -eu
 
 ROOT=$(cd "$(dirname "$0")" && pwd)
@@ -100,6 +101,10 @@ assert client.get('client_id'), 'no client_id'
 else
     echo "    no OAuth client supplied; users install their own in Settings"
 fi
+
+# Optional shared inference key, supplied by the release job through its
+# environment. It is intentionally extractable: use a dedicated capped key.
+python3 "$REPO/tools/bundle-openrouter-key.py" "$APP/Contents/Resources/openrouter-default-key.txt"
 
 echo "==> Rendering icon"
 ICONSET=$(mktemp -d)/Pomodoro.iconset

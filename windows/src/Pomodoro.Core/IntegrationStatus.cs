@@ -61,14 +61,13 @@ public sealed class IntegrationStatus
         {
             ("Server", settings.ApiUrl),
             ("Calendar", settings.CalendarId),
-            ("Model", settings.Model)
+            ("Project mapping", "Jev")
         };
         if (settings.Email.Length > 0) summary.Add(("Account", settings.Email));
         WhistlerSummary = summary;
 
         var missing = new List<string>();
-        if (!SecretStore.Has(SecretStore.OpenRouterKey) &&
-            string.IsNullOrEmpty(Environment.GetEnvironmentVariable("OPENROUTER_API_KEY")))
+        if (!OpenRouterCredentials.Has)
         {
             missing.Add("OpenRouter API key");
         }

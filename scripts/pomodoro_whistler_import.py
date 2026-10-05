@@ -19,6 +19,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from pomodoro_mapping import MappingBatch, MappingError, MappingSettings, JEV_MODEL
 from pomodoro_paths import (
     BUNDLED_GOOGLE_CLIENT_FILE,
     GOOGLE_CLIENT_FILE,
@@ -404,6 +405,11 @@ def normalise_holidays(value: Any) -> list[dict[str, Any]]:
 def month_status(config: dict[str, str], value: str) -> dict[str, Any]:
     month, start, end = parse_month(value)
     events, skipped_count = read_calendar_events(config, start, end)
+    try:
+        mapping = MappingSettings.read(config)
+        events = [event for event in events if not mapping.exclusion(event)]
+    except MappingError as error:
+        raise ImportFailure(str(error)) from error
     today_key = datetime.now().strftime("%Y-%m-%d")
     event_days = sorted(
         {
@@ -562,6 +568,7 @@ def read_calendar_events(
             "startMs": round(clipped_start * 1000),
             "endMs": round(clipped_end * 1000),
             "durationMinutes": wall_minutes,
+            "eventType": str(event.get("eventType") or "default"),
         }
         result.append(item)
     return result, skipped_count
@@ -664,120 +671,30 @@ def read_custom_instructions(path: Path = WHISTLER_INSTRUCTIONS_FILE) -> str:
 def generate_plan(
     config: dict[str, str], date_number: int, events: list[dict[str, Any]], projects: list[dict[str, Any]]
 ) -> dict[str, Any]:
-    api_key = (
-        config.get("OPENROUTER_API_KEY", "")
-        or os.environ.get("OPENROUTER_API_KEY", "")
-        or read_bashrc_value("OPENROUTER_API_KEY")
-    )
-    if not api_key:
-        raise ImportFailure(
-            "OPENROUTER_API_KEY is not configured. Use Settings → CONFIGURE WHISTLER."
-        )
-    model = config.get("OPENROUTER_MODEL", "openai/gpt-4o-mini")
-    safe_events = []
-    for event in events:
-        safe_events.append(
-            {
-                "id": event["id"],
-                "title": event["title"],
-                "start": datetime.fromtimestamp(event["startMs"] / 1000).isoformat(
-                    timespec="minutes"
-                ),
-                "end": datetime.fromtimestamp(event["endMs"] / 1000).isoformat(
-                    timespec="minutes"
-                ),
-                "durationMinutes": event["durationMinutes"],
-            }
-        )
-    custom_instructions = read_custom_instructions()
-    custom_section = (
-        "\nUser-authored mapping instructions (apply these when interpreting event titles, "
-        "client names, aliases, and project references):\n"
-        + custom_instructions
-        + "\n"
-        if custom_instructions
-        else ""
-    )
-    prompt = f"""Create a Whistler daily worklog allocation from these timed Google Calendar events.
-
-Date: {date_number}
-
-Available Whistler projects. Use only the exact IDs listed here:
-{json.dumps(projects, ensure_ascii=False)}
-
-Your job is ONLY to classify events to projects. Do not calculate, estimate, round, split, or return any time values.
-The importing program will calculate the exact wall-clock duration from each Calendar event's start and end. Calendar descriptions are intentionally ignored. durationMinutes is supplied only as a reference and must never be returned, changed, or calculated by you.
-{PLAN_RULES}
-{custom_section}
-{PLAN_SHAPE_RULES}
-
-Events:
-{json.dumps(safe_events, ensure_ascii=False)}"""
-    system_prompt = PLAN_SYSTEM_PROMPT
-
-    def request_plan(user_content: str) -> Any:
-        return http_json(
-            "https://openrouter.ai/api/v1/chat/completions",
-            method="POST",
-            payload={
-                "model": model,
-                "temperature": 0,
-                "max_tokens": 4000,
-                "response_format": {"type": "json_object"},
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_content},
-                ],
-            },
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "HTTP-Referer": config.get("WHISTLER_API_URL", "https://whistler.nashatech.com"),
-                "X-Title": "Pomodoro Whistler importer",
-            },
-            timeout=60,
-            retries=2,
-        )
-
-    def response_content(response: Any) -> Any:
-        try:
-            return response["choices"][0]["message"]["content"]
-        except (KeyError, IndexError, TypeError) as error:
-            raise ImportFailure("OpenRouter returned no worklog plan.") from error
-
-    response = request_plan(prompt)
+    """Jev is the fixed engine. Legacy model settings cannot change the route."""
     try:
-        plan = parse_model_json(response_content(response))
-    except ImportFailure as first_error:
-        # A few providers occasionally ignore JSON mode. Give the same
-        # allocation request one clean retry without asking the model to repair
-        # or repeat any event text.
-        retry_prompt = (
-            prompt
-            + "\n\nYour previous response was unusable. Account for every supplied event exactly once. Return only the exact JSON object "
-            + '{"assignments":[{"eventId":"...","projectId":"...","taskGroup":"..."}],"skipped":[{"eventId":"...","reason":"..."}]}.'
-        )
-        try:
-            return parse_model_json(response_content(request_plan(retry_prompt)))
-        except ImportFailure as retry_error:
-            raise retry_error from first_error
-
-    missing = unaccounted_events(plan, events)
-    if not missing:
-        return plan
-    # Models asked to exclude something tend to just leave it out. Ask once
-    # more, naming the events, rather than failing the whole import on it.
-    retry_prompt = (
-        prompt
-        + "\n\nYour previous response did not account for these event IDs: "
-        + json.dumps([event["id"] for event in missing])
-        + ". Return the complete JSON object again. Put each of them in \"assignments\", "
-        + "or in \"skipped\" with a reason if a user-authored instruction excludes it."
-    )
-    try:
-        retried = parse_model_json(response_content(request_plan(retry_prompt)))
-    except ImportFailure:
-        return plan
-    return retried if len(unaccounted_events(retried, events)) < len(missing) else plan
+        batch = MappingBatch(events, projects, MappingSettings.read(config), read_custom_instructions())
+        plan: dict[str, Any] = {"assignments": [], "skipped": []}
+        for offset in range(0, len(batch.model_events), 20):
+            selected = batch.model_events[offset:offset + 20]
+            payload = batch.jev_payload(JEV_MODEL, date_number, selected)
+            response = {"answers": {}}
+            if payload["questions"]:
+                key = config.get("OPENROUTER_API_KEY") or os.environ.get("OPENROUTER_API_KEY") or read_bashrc_value("OPENROUTER_API_KEY")
+                if not key:
+                    raise ImportFailure("No project-mapping key is available. Use Advanced → Personal API key override.")
+                response = http_json(
+                    "https://openrouter.ai/api/v1/systemone", method="POST", payload=payload,
+                    headers={"Authorization": f"Bearer {key}",
+                             "HTTP-Referer": config.get("WHISTLER_API_URL", "https://whistler.nashatech.com"),
+                             "X-Title": "Pomodoro Whistler importer"}, timeout=60, retries=2,
+                )
+            partial = batch.read_jev(response, selected)
+            plan["assignments"].extend(partial["assignments"])
+            plan["skipped"].extend(partial["skipped"])
+        return batch.resolve(plan)
+    except MappingError as error:
+        raise ImportFailure(str(error)) from error
 
 
 def get_whistler_token(config: dict[str, str], base_url: str) -> str:
@@ -940,7 +857,7 @@ def build_worklog(
         if repeated_task:
             repeated_task["minutes"] += minutes
             repeated_task["count"] += 1
-            if source_key not in repeated_task["sourceKeys"]:
+            if not raw.get("continuationOf") and source_key not in repeated_task["sourceKeys"]:
                 repeated_task["sourceKeys"].add(source_key)
                 repeated_task["sourceTitles"].append(task_text)
         else:
@@ -1148,12 +1065,22 @@ def main() -> int:
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     parser.add_argument("--dry-run", action="store_true", help="generate the plan without posting it")
     parser.add_argument("--month-status", metavar="YYYY-MM", help="compare Calendar event days with Whistler worklogs")
+    parser.add_argument("--projects", action="store_true", help="list active Whistler projects without importing")
     args = parser.parse_args()
-    if args.month_status and (args.date or args.dry_run):
-        parser.error("--month-status cannot be combined with a date or --dry-run")
+    if (args.month_status or args.projects) and (args.date or args.dry_run) or (args.month_status and args.projects):
+        parser.error("--month-status and --projects cannot be combined with an import or each other")
     config = load_env(args.config.expanduser())
     config.update(config_from_environment())
     try:
+        if args.projects:
+            base_url = config.get("WHISTLER_API_URL", "https://whistler.nashatech.com").rstrip("/")
+            target = urllib.parse.urlsplit(base_url)
+            if not target.hostname or not (target.scheme == "https" or
+                    target.scheme == "http" and target.hostname in ("localhost", "127.0.0.1", "::1")):
+                raise ImportFailure("WHISTLER_API_URL must use HTTPS outside localhost.")
+            token = get_whistler_token(config, base_url)
+            print(json.dumps(normalise_projects(whistler_request(base_url, token, "/api/project/me")), ensure_ascii=False))
+            return 0
         if args.month_status:
             print(json.dumps(month_status(config, args.month_status), ensure_ascii=False))
             return 0

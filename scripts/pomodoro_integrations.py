@@ -355,10 +355,10 @@ def delete_event(config: dict[str, str], token: str, event_id: str) -> None:
     google_request(config, token, "DELETE", calendar_url(config, event_id))
 
 
-def start_event(config: dict[str, str], token: str, mapping: dict[str, Any], session: str, end_ms: str) -> None:
+def start_event(config: dict[str, str], token: str, mapping: dict[str, Any], session: str, end_ms: str, note: str = "") -> None:
     if map_event_id(mapping, session):
         return
-    event_id = insert_event(config, token, session, end_ms, "Focus time", focus_description("", "0", "in progress"))
+    event_id = insert_event(config, token, session, end_ms, calendar_summary(note), focus_description(note, "0", "in progress"))
     map_add_event(mapping, session, "session", session, end_ms, event_id)
 
 
@@ -408,7 +408,7 @@ def finish_event(
 def usage() -> str:
     return (
         "Usage:\n"
-        "  pomodoro_integrations.py focus-start SESSION SEGMENT_START_MS END_MS\n"
+        "  pomodoro_integrations.py focus-start SESSION SEGMENT_START_MS END_MS [NOTE]\n"
         "  pomodoro_integrations.py focus-end SESSION START_MS END_MS ACTIVE_SECONDS STATUS NOTE\n"
     )
 
@@ -442,10 +442,10 @@ def main(argv: list[str]) -> int:
         with integration_lock():
             mapping = load_map()
             if argv[0] == "focus-start":
-                if len(argv) != 4:
+                if len(argv) not in (4, 5):
                     print(usage(), file=sys.stderr)
                     return 2
-                start_event(config, token, mapping, argv[1], argv[3])
+                start_event(config, token, mapping, argv[1], argv[3], argv[4] if len(argv) == 5 else "")
             else:
                 if len(argv) != 7:
                     print(usage(), file=sys.stderr)

@@ -107,7 +107,7 @@ struct WhistlerCredentialsSheet: View {
             // A different account usually means a different email; start
             // blank rather than inviting a sign-in to the one being left.
             if purpose == .switchAccount { settings.email = "" }
-            needsKey = !SecretStore.has(SecretStore.openRouterKey)
+            needsKey = !OpenRouterCredentials.has
         }
     }
 
@@ -142,7 +142,6 @@ struct WhistlerCredentialsSheet: View {
                 var saved = settings
                 saved.apiUrl = url
                 saved.email = email
-                if saved.model.isEmpty { saved.model = WhistlerConfig.defaultModel }
                 if saved.calendarId.isEmpty { saved.calendarId = WhistlerConfig.defaultCalendar }
                 WhistlerConfig.save(saved, sessionToken: token, openRouterKey: key)
 

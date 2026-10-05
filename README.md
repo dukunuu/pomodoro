@@ -98,26 +98,78 @@ a step before its prerequisite is met:
 After setup, each piece changes on its own in **Settings**, on both platforms:
 
 - **Whistler account** — *Switch account…* signs in as someone else;
-  *Sign out…* removes only the session token. The API key, model, calendar and
+  *Sign out…* removes only the session token. The API key, calendar and
   mapping instructions are kept. Switching to a different account also clears
   the sent-day markers, which belonged to the previous account.
 - **Google calendar** — `primary`, or any calendar ID.
-- **AI model** — *Change…* opens OpenRouter's catalogue with prices, searchable,
-  with a few models suited to this job listed first. Any model ID can be typed.
-- **OpenRouter API key** — replaced after validation; a failed check leaves the
-  old key intact.
+- **Project mapping** — Jev is the fixed decision engine; there is no model
+  picker. Configure project aliases, skip rules, and additional mapping instructions.
+- **OpenRouter API key** — a release can provide a shared default, so no key
+  entry is needed. The optional personal-key override lives under *Advanced*;
+  *Use Own Key…* stores it after validation. The key source is shown there. Source builds without a
+  default still ask for a key. A failed check leaves the old key intact.
 
-The mapping instructions can exclude events as well as map them — "ignore gym
-sessions", "don't log 1:1s". The model returns those as skipped, with the rule
-it applied, and the send summary lists them. An event the model leaves out
-without an instruction behind it is still an error, after one retry.
+**Mapping instructions** is the primary editor: describe aliases, exclusions,
+and category preferences in plain language. Jev receives these instructions
+alongside active projects and Calendar context. Unnamed focus continuation is
+built in—you do not need to repeat it in your instructions.
+
+**Mapping preferences** offers optional refinements on both platforms (a card
+on macOS, *Configure mapping…* on Windows):
+
+- **Work categories** start with Implementation, Bug fix, Meetings, PR reviews,
+  Management, and Work. Add, rename, or remove categories and optionally explain
+  when each should be used. Jev can choose only configured categories; an
+  inherited focus block keeps its work anchor’s category. Changes apply to future
+  sends, not existing worklogs. Keep at least one category (up to 255). Old
+  settings without this field retain the defaults; malformed lists fail closed.
+
+- Out-of-office and working-location exclusions default on and use Google’s
+  actual event type, not guesses from titles such as “Office.” Turning a switch
+  off prevents the model from reinstating that type exclusion through old text.
+- Under **Advanced**, literal custom exclusions are individually selectable, case-insensitive title
+  matches: contains, exact title, or starts with. An enabled matching rule wins.
+  An unchecked matching rule blocks AI exclusions for that title, so old text
+  cannot silently turn it back on; another enabled rule can still exclude it.
+- Project aliases associate Calendar labels with active Whistler project IDs,
+  scoped to server and account. Load projects, choose `quotomy`, and enter
+  `Opeone to Quotomy`. Exact labels, `[tags]`, and prefixes before a space, colon,
+  or dash are locked locally. Wording variations remain model decisions. Missing
+  project targets and conflicting aliases require review rather than guessing.
+- Unnamed `Focus time` continues the preceding accepted work by default, adding
+  hours without a separate task title. Skips do not replace that work anchor;
+  named/tagged focus is classified independently. An explicit alias takes
+  precedence. A continuation with no accepted work requires review.
+
+Existing mapping instructions are preserved, not automatically rewritten. They
+can still define semantic exclusions and mappings. Every event must be assigned
+or explicitly skipped exactly once; malformed or incomplete decisions fail
+before posting a worklog.
+
+**Jev** (`typesafe/jev-1.13`) is pinned as the project-mapping engine. Old saved
+model selections and `OPENROUTER_MODEL` overrides cannot route imports to Luna,
+chat completions, or `jev-router`. No second text-generation model is used.
+Project and work-category choices are bounded. Task groups use configured
+category names, with source-title details assembled locally; a second model
+never invents category names or worklog text. Offline tests cover request
+routing, legacy settings, custom categories, exclusions, aliases, focus
+restoration, and event accounting—not live accuracy or performance.
+
+**Focus project picker** on Today loads active Whistler projects, so you can pick
+what you’re working on without typing. It saves a visible Calendar tag (for
+example `[quotomy] Focus time`) backed by an account-scoped project-ID alias.
+Project renames preserve previous labels; duplicate names are disambiguated
+instead of retargeting another project’s alias. The selected label is used when
+the in-progress Calendar event is created and when the session finishes. You can
+still choose **Continue previous work** for unnamed focus or add an optional note.
+The choice applies to the whole focus session, not a split of its elapsed time.
 
 **Send to Whistler** stays disabled until every step is ready and says which
 one is outstanding. Only *timed* Calendar events are counted; all-day events
 are skipped, since they carry no duration for a worklog.
 
-The model only ever classifies events to projects. Every duration is computed
-locally from the Calendar events, which the prompt states and the worklog
+Jev only chooses projects, permitted exclusions, and configured work categories. Every duration is computed
+locally from the Calendar events, which the decision policy states and the worklog
 builder enforces.
 
 ## Data
@@ -131,21 +183,27 @@ builder enforces.
 | --- | --- |
 | `pomodoro.json` | Timer state, version 4 |
 | `pomodoro-history.json` | Session history, version 1 |
-| `pomodoro-whistler-account.json` | Whistler server, account and model — no secrets |
+| `pomodoro-whistler-account.json` | Whistler server, account and Calendar — no secrets; legacy model fields are ignored |
 | `google-calendar-client.json` | Google OAuth client |
 | `pomodoro-google-token.json` | Google refresh token |
-| `pomodoro-whistler-instructions.txt` | AI mapping instructions |
+| `pomodoro-whistler-instructions.txt` | Additional project-mapping instructions |
+| `pomodoro-whistler-mapping.json` | Work categories, skip rules, focus preference, and account-scoped project aliases — no secrets |
 | `pomodoro-whistler-imports.json` | Which days have been sent |
 | `pomodoro-whistler.log` | Importer log |
 | `pomodoro-crash.log` | Written only if the Windows app fails to start |
 
 `POMODORO_DATA_DIR` overrides the location on both platforms.
 
-Secrets are not in this directory. The Whistler session token and the
-OpenRouter key are held in the login Keychain on macOS and in Credential
-Manager on Windows, where they can be inspected and revoked outside the app.
-macOS hands them to the Python bridges through the child process environment,
-so they are never written to disk.
+The Whistler session token and personal OpenRouter overrides are held in the
+login Keychain on macOS and Credential Manager on Windows, where they can be
+inspected and revoked outside the app. macOS hands them to the Python bridges
+through the child process environment, not a configuration file.
+
+A release may also bundle a shared OpenRouter default. Personal overrides take
+precedence, then a runtime `OPENROUTER_API_KEY`, then that default. The bundled
+key is extractable—not a confidential desktop credential. Release maintainers
+must use a dedicated capped key; see [releasing](docs/releasing.md#optional-shared-openrouter-key).
+Google's OAuth client and refresh token remain in the files listed above.
 
 The two apps reach the same services by different routes. macOS runs
 `scripts/*.py` — standard-library-only Python holding the Google and Whistler
@@ -200,6 +258,16 @@ The Windows suite additionally diffs `WorklogBuilder` — the half of the
 importer that decides how much time is logged against which project — against
 the Python bridge it was ported from, covering project-tag stripping, task
 consolidation, project ordering and break derivation.
+
+Both suites run the credential-free mapping tests. The Windows suite also
+compares Python and C# mapping settings, native Jev payloads/choices, aliases,
+rule toggles, focus restoration, and rendered worklog hours/text across shared
+fixtures. These can run separately on any machine with Python and .NET 8:
+
+```sh
+python3 tools/test_mapping.py
+python3 tools/compare-mapping.py
+```
 
 Run the relevant suite after changing anything under `Pomodoro/Core` or
 `Pomodoro.Core`.

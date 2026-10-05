@@ -3,7 +3,14 @@
 /macos/dist/
 *.icns
 
+# Windows / portable .NET build output
+/windows/**/bin/
+/windows/**/obj/
+/windows/dist/
+
 # Runtime data and local credentials
+openrouter-default-key.txt
+.openrouter-key-*
 *.log
 *.tmp
 pomodoro-*.env

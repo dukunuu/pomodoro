@@ -10,6 +10,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Pomodoro.Integrations", "sr
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Pomodoro.WorklogDump", "src\\Pomodoro.WorklogDump\\Pomodoro.WorklogDump.csproj", "{1B365EDE-EDE7-48F4-AB73-26D7B5E04CFF}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Pomodoro.MappingDump", "src\Pomodoro.MappingDump\Pomodoro.MappingDump.csproj", "{78B98266-198C-4B11-9A76-7903BBE58AB2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -32,6 +34,10 @@ Global
 		{1B365EDE-EDE7-48F4-AB73-26D7B5E04CFF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1B365EDE-EDE7-48F4-AB73-26D7B5E04CFF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1B365EDE-EDE7-48F4-AB73-26D7B5E04CFF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{78B98266-198C-4B11-9A76-7903BBE58AB2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{78B98266-198C-4B11-9A76-7903BBE58AB2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{78B98266-198C-4B11-9A76-7903BBE58AB2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{78B98266-198C-4B11-9A76-7903BBE58AB2}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

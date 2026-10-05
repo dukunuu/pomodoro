@@ -177,19 +177,32 @@
                                 </Grid>
                             </Border>
 
-                            <Border Style="{StaticResource SettingsRow}">
-                                <Grid ColumnSpacing="14">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <FontIcon Grid.Column="0" Glyph="&#xE70F;" Style="{StaticResource RowGlyph}" />
-                                    <TextBox Grid.Column="1" x:Name="NoteBox"
-                                             PlaceholderText="What are you focusing on?"
-                                             BorderThickness="0" Background="Transparent" />
-                                    <Button Grid.Column="2" Content="Save" Click="OnSaveNote" />
-                                </Grid>
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel Spacing="10">
+                                    <Grid ColumnSpacing="10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <ComboBox x:Name="FocusProjectPicker" Header="Focus project"
+                                                  HorizontalAlignment="Stretch" SelectionChanged="OnFocusProjectChanged" />
+                                        <Button x:Name="ReloadFocusProjects" Grid.Column="1" Content="Reload projects"
+                                                VerticalAlignment="Bottom" Click="OnReloadFocusProjects" />
+                                    </Grid>
+                                    <TextBlock x:Name="FocusProjectStatus" FontSize="12" TextWrapping="Wrap" />
+                                    <Expander x:Name="FocusNoteAdvanced" Header="Optional focus note" HorizontalAlignment="Stretch"
+                                              HorizontalContentAlignment="Stretch">
+                                        <Grid ColumnSpacing="10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox x:Name="NoteBox" PlaceholderText="What are you focusing on?" />
+                                            <Button Grid.Column="1" Content="Save" Click="OnSaveNote" />
+                                        </Grid>
+                                    </Expander>
+                                    <TextBlock Style="{StaticResource RowDescription}" Text="Pick a project to save its Calendar label automatically, or continue previous work with unnamed focus. The choice applies to this whole focus session; a note is optional." />
+                                </StackPanel>
                             </Border>
 
                             <TextBlock x:Name="DayLabel" Text="Today"
@@ -332,12 +345,12 @@
                                 </StackPanel>
                             </Border>
 
-                            <TextBlock Text="AI mapping instructions" Style="{StaticResource SectionHeader}"
+                            <TextBlock Text="Mapping instructions" Style="{StaticResource SectionHeader}"
                                        Margin="2,10,0,0" />
                             <Border Style="{StaticResource Card}">
                                 <StackPanel Spacing="10">
                                     <TextBlock Style="{StaticResource RowDescription}"
-                                               Text="Added to the OpenRouter prompt for every event. Use it to map calendar wording onto Whistler projects." />
+                                               Text="Tell Jev how your Calendar relates to projects, what not to log, and when to use your work categories. For example: ‘Opeone to Quotomy belongs to quotomy. Don’t log Japanese club meetings.’ Unnamed focus continues previous work automatically. Calendar-type switches take precedence." />
                                     <TextBox x:Name="InstructionsBox" AcceptsReturn="True" TextWrapping="Wrap"
                                              Height="150" FontFamily="Cascadia Mono, Consolas" />
                                     <StackPanel Orientation="Horizontal" Spacing="8">
@@ -348,6 +361,13 @@
                                                    VerticalAlignment="Center"
                                                    Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
                                     </StackPanel>
+                                </StackPanel>
+                            </Border>
+                            <TextBlock Text="Mapping preferences" Style="{StaticResource SectionHeader}" Margin="2,10,0,0" />
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel Spacing="10">
+                                    <TextBlock Style="{StaticResource RowDescription}" Text="Optional: customize work categories and Calendar-type defaults. Literal exclusions and project aliases are under Advanced." />
+                                    <Button Content="Configure mapping…" Click="OnConfigureMapping" />
                                 </StackPanel>
                             </Border>
                         </StackPanel>
@@ -519,31 +539,30 @@
                                     </Grid.ColumnDefinitions>
                                     <FontIcon Grid.Column="0" Glyph="&#xE99A;" Style="{StaticResource RowGlyph}" />
                                     <StackPanel Grid.Column="1" Spacing="1">
-                                        <TextBlock Text="AI model" Style="{StaticResource RowTitle}" />
-                                        <TextBlock x:Name="ModelText" Style="{StaticResource RowDescription}"
-                                                   FontFamily="Cascadia Mono, Consolas" IsTextSelectionEnabled="True" />
+                                        <TextBlock Text="Project mapping" Style="{StaticResource RowTitle}" />
+                                        <TextBlock Text="Jev maps Calendar events using your aliases and skip rules. Hours and worklog text are assembled locally." Style="{StaticResource RowDescription}" />
                                     </StackPanel>
-                                    <Button Grid.Column="2" Content="Change…" Click="OnChangeModel"
-                                            VerticalAlignment="Center" />
                                 </Grid>
                             </Border>
 
-                            <Border Style="{StaticResource SettingsRow}">
-                                <Grid ColumnSpacing="14">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <FontIcon Grid.Column="0" Glyph="&#xE8D7;" Style="{StaticResource RowGlyph}" />
-                                    <StackPanel Grid.Column="1" Spacing="1">
-                                        <TextBlock Text="OpenRouter API key" Style="{StaticResource RowTitle}" />
-                                        <TextBlock x:Name="KeyStatusText" Style="{StaticResource RowDescription}" />
-                                    </StackPanel>
-                                    <Button Grid.Column="2" x:Name="KeyButton" Content="Replace key…"
-                                            Click="OnReplaceKey" VerticalAlignment="Center" />
-                                </Grid>
-                            </Border>
+                            <Expander x:Name="ApiKeyAdvanced" Header="Advanced" IsExpanded="False" HorizontalAlignment="Stretch">
+                                <Border Style="{StaticResource SettingsRow}">
+                                    <Grid ColumnSpacing="14">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <FontIcon Grid.Column="0" Glyph="&#xE8D7;" Style="{StaticResource RowGlyph}" />
+                                        <StackPanel Grid.Column="1" Spacing="1">
+                                            <TextBlock x:Name="KeyRowTitle" Text="Personal API key override" Style="{StaticResource RowTitle}" />
+                                            <TextBlock x:Name="KeyStatusText" Style="{StaticResource RowDescription}" />
+                                        </StackPanel>
+                                        <Button Grid.Column="2" x:Name="KeyButton" Content="Replace key…"
+                                                Click="OnReplaceKey" VerticalAlignment="Center" />
+                                    </Grid>
+                                </Border>
+                            </Expander>
 
                             <Border Style="{StaticResource SettingsRow}">
                                 <Grid ColumnSpacing="14">
@@ -570,7 +589,7 @@
                             <InfoBar x:Name="AccountResultBar" IsOpen="False" IsClosable="True"
                                      Severity="Informational" />
                             <TextBlock Style="{StaticResource RowDescription}" Margin="2,0,0,0"
-                                       Text="Signing out removes only the Whistler session. Your API key, model and mapping instructions are kept. Model changes apply to the next send." />
+                                       Text="Signing out removes only the Whistler session. Your API key and mapping instructions are kept. Jev is the fixed project-mapping engine." />
 
                             <TextBlock Text="Updates" Style="{StaticResource SectionHeader}" Margin="2,10,0,0" />
 
