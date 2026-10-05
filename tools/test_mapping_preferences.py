@@ -138,7 +138,7 @@ File.WriteAllText(args[1], JsonSerializer.Serialize(output, options));
 
 
 def check_output(path, cases, language):
-    actual = json.loads(path.read_text())
+    actual = json.loads(path.read_text(encoding='utf-8'))
     expected = [c['expected'] for c in cases]
     if actual != expected:
         for ref, got in zip(expected, actual):
@@ -183,11 +183,11 @@ def main():
     with tempfile.TemporaryDirectory() as tmp:
         directory = Path(tmp)
         source = directory / 'fixtures.json'
-        source.write_text(json.dumps(cases, ensure_ascii=False))
+        source.write_text(json.dumps(cases, ensure_ascii=False), encoding='utf-8')
         env = {**os.environ, 'POMODORO_DATA_DIR': tmp, 'DOTNET_CLI_TELEMETRY_OPTOUT': '1', 'DOTNET_GENERATE_ASPNET_CERTIFICATE': 'false'}
         if args.swift:
             main_file = directory / 'main.swift'
-            main_file.write_text(SWIFT_MAIN)
+            main_file.write_text(SWIFT_MAIN, encoding='utf-8')
             core = ROOT / 'macos/Sources/Pomodoro/Core'
             sources = ['AtomicFile', 'DataPaths', 'SecretStore', 'OpenRouterCredentials', 'WhistlerConfig', 'WhistlerMappingSettings', 'FocusProjectSelection']
             binary = directory / 'preferences-test'
@@ -200,8 +200,8 @@ def main():
             core = ROOT / 'windows/src/Pomodoro.Core/Pomodoro.Core.csproj'
             project.write_text(f'''<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType>
 <TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup>
-<ItemGroup><ProjectReference Include="{core}" /></ItemGroup></Project>''')
-            (directory / 'Program.cs').write_text(CS_MAIN)
+<ItemGroup><ProjectReference Include="{core}" /></ItemGroup></Project>''', encoding='utf-8')
+            (directory / 'Program.cs').write_text(CS_MAIN, encoding='utf-8')
             subprocess.run([args.dotnet, 'build', str(project), '-c', 'Release', '--nologo', '-v', 'quiet', '--disable-build-servers', '-m:1'], check=True, env=env)
             output = directory / 'csharp.json'
             subprocess.run([args.dotnet, str(directory / 'bin/Release/net8.0/Preferences.dll'), str(source), str(output)], check=True, env=env)
