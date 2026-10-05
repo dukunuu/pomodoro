@@ -114,8 +114,10 @@ and category preferences in plain language. Jev receives these instructions
 alongside active projects and Calendar context. Unnamed focus continuation is
 built in—you do not need to repeat it in your instructions.
 
-**Mapping preferences** offers optional refinements on both platforms (a card
-on macOS, *Configure mapping…* on Windows):
+**Work categories** offers optional customization on both platforms (a card
+on macOS, *Customize categories…* on Windows). The old manual exclusion and
+project-alias editors are removed; new preferences belong in Mapping instructions,
+and the focus picker creates its project mappings automatically.
 
 - **Work categories** start with Implementation, Bug fix, Meetings, PR reviews,
   Management, and Work. Add, rename, or remove categories and optionally explain
@@ -125,21 +127,20 @@ on macOS, *Configure mapping…* on Windows):
   settings without this field retain the defaults; malformed lists fail closed.
 
 - Out-of-office and working-location exclusions default on and use Google’s
-  actual event type, not guesses from titles such as “Office.” Turning a switch
-  off prevents the model from reinstating that type exclusion through old text.
-- Under **Advanced**, literal custom exclusions are individually selectable, case-insensitive title
-  matches: contains, exact title, or starts with. An enabled matching rule wins.
-  An unchecked matching rule blocks AI exclusions for that title, so old text
-  cannot silently turn it back on; another enabled rule can still exclude it.
-- Project aliases associate Calendar labels with active Whistler project IDs,
-  scoped to server and account. Load projects, choose `quotomy`, and enter
-  `Opeone to Quotomy`. Exact labels, `[tags]`, and prefixes before a space, colon,
-  or dash are locked locally. Wording variations remain model decisions. Missing
-  project targets and conflicting aliases require review rather than guessing.
+  actual event type, not guesses from titles such as “Office.” Their switches are
+  optional overrides under **Advanced**. Turning one off prevents Jev from
+  reinstating that type exclusion through old instructions.
+- Existing saved literal exclusions and account-scoped project aliases remain
+  active and are never cleared by editing categories or defaults. Enabled literal
+  rules still win; disabled matching rules still protect their titles from
+  instruction-based exclusions. **Advanced → Open saved mapping data…** provides
+  access to the data file for legacy-rule or stale-project recovery. Missing
+  targets and conflicting aliases still fail closed.
 - Unnamed `Focus time` continues the preceding accepted work by default, adding
   hours without a separate task title. Skips do not replace that work anchor;
   named/tagged focus is classified independently. An explicit alias takes
-  precedence. A continuation with no accepted work requires review.
+  precedence. A continuation with no accepted work requires review. Its optional
+  override is also under **Advanced**, not part of normal setup.
 
 Existing mapping instructions are preserved, not automatically rewritten. They
 can still define semantic exclusions and mappings. Every event must be assigned

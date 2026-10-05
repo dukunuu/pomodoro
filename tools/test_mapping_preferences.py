@@ -35,6 +35,9 @@ def fixtures():
     add('custom categories', {'workCategories': [{'id': 'ops', 'name': 'Operations', 'description': 'Deploy and restore'},
                                                 {'id': 'calls', 'name': 'Client conversations'}]})
     add('one category', {'workCategories': [{'id': 'one', 'name': 'Work'}]})
+    add('saved literal rules survive preference edits', {'customSkipRules': [
+        {'id': 'club', 'title': 'Japanese club', 'match': 'contains', 'enabled': True},
+        {'id': 'disabled', 'title': 'Workshop', 'match': 'equals', 'enabled': False}]})
     for i, categories in enumerate((None, [], [None], [{'id': 'a', 'name': ''}],
             [{'id': 'a', 'name': 'Work', 'description': None}], [{'id': 'a', 'name': 'Work'}, {'id': 'b', 'name': ' ＷＯＲＫ '}],
             [{'id': 'a', 'name': 'One'}, {'id': 'a', 'name': 'Two'}], [{'name': 'No ID'}],
@@ -79,6 +82,15 @@ for c in cases {
         for p in c["picks"] as! [[String: String]] {
             note = try FocusProjectSelection.select(projectId: p["projectId"]!, name: p["name"]!, scope: p["scope"]!, settings: &settings)
         }
+        // Work-category/default edits must not touch hidden legacy rules or picker aliases.
+        var edited = WhistlerMappingSettings()
+        edited.workCategories = [.init(id: "ops", name: "Operations")]
+        edited.skipOutOfOffice = false
+        edited.skipWorkingLocation = false
+        edited.inheritUnnamedFocus = false
+        let merged = try settings.updatingWorkPreferences(from: edited)
+        precondition(merged.projectAliases == settings.projectAliases && merged.customSkipRules == settings.customSkipRules)
+        precondition(merged.workCategories == edited.workCategories && !merged.skipOutOfOffice && !merged.skipWorkingLocation && !merged.inheritUnnamedFocus)
         // Exercise the portable save/read shape without touching the user's data path.
         settings = try JSONDecoder().decode(WhistlerMappingSettings.self, from: JSONEncoder().encode(settings))
         try settings.validate()
@@ -106,6 +118,16 @@ foreach (var c in cases) {
             var picked = FocusProjectSelection.Select(p!["projectId"]!.GetValue<string>(), p["name"]!.GetValue<string>(), p["scope"]!.GetValue<string>(), settings);
             settings = picked.Settings; note = picked.Note;
         }
+        var edited = new WhistlerMappingSettings {
+            WorkCategories = [new() { Id = "ops", Name = "Operations" }],
+            SkipOutOfOffice = false, SkipWorkingLocation = false, InheritUnnamedFocus = false
+        };
+        var merged = settings.WithWorkPreferences(edited);
+        if (JsonSerializer.Serialize(merged.ProjectAliases, options) != JsonSerializer.Serialize(settings.ProjectAliases, options)
+            || !merged.CustomSkipRules.SequenceEqual(settings.CustomSkipRules)
+            || !merged.WorkCategories.SequenceEqual(edited.WorkCategories)
+            || merged.SkipOutOfOffice || merged.SkipWorkingLocation || merged.InheritUnnamedFocus)
+            throw new Exception("Preference edit discarded hidden settings or ignored editable fields");
         settings = WhistlerMappingSettings.FromJson(JsonSerializer.Serialize(settings, options));
         output.Add(new { name, ok = true, categories = settings.WorkCategories.Select(v => new { v.Id, v.Name, v.Description }), note,
             aliases = settings.ProjectAliases.ToDictionary(v => v.Key, v => v.Value.Select(a => new { a.ProjectId, a.Alias }).ToArray()) });

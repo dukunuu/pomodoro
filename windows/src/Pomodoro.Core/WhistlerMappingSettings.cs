@@ -79,6 +79,20 @@ public sealed record WhistlerMappingSettings
         catch (DirectoryNotFoundException) { return new(); }
     }
 
+    /// <summary>Visible preferences cannot overwrite saved rules or focus-picker aliases.</summary>
+    public WhistlerMappingSettings WithWorkPreferences(WhistlerMappingSettings edited)
+    {
+        var result = this with
+        {
+            SkipOutOfOffice = edited.SkipOutOfOffice,
+            SkipWorkingLocation = edited.SkipWorkingLocation,
+            InheritUnnamedFocus = edited.InheritUnnamedFocus,
+            WorkCategories = edited.WorkCategories
+        };
+        result.Validate();
+        return result;
+    }
+
     public void Save()
     {
         Validate();

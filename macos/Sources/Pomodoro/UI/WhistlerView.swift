@@ -17,7 +17,7 @@ struct WhistlerView: View {
         ReminderCard()
         WhistlerMonthCard()
         InstructionsCard()
-        WhistlerMappingCard()
+        WorkCategoriesCard()
     }
 }
 
@@ -507,7 +507,7 @@ struct InstructionsCard: View {
 
     var body: some View {
         Card("Mapping instructions") {
-            Text("Tell Jev how your Calendar relates to projects, what not to log, and when to use your work categories. For example: ‘Opeone to Quotomy belongs to quotomy. Don’t log Japanese club meetings.’ Unnamed focus continues previous work automatically. Calendar-type switches take precedence.")
+            Text("Tell Jev how your Calendar relates to projects, what not to log, and when to use your work categories. For example: ‘Opeone to Quotomy belongs to quotomy. Don’t log Japanese club meetings.’ Unnamed focus continues previous work automatically. Calendar-type defaults apply unless overridden under Advanced.")
                 .font(.caption)
                 .foregroundStyle(Theme.textMuted)
                 .fixedSize(horizontal: false, vertical: true)

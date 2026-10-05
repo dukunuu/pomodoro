@@ -132,6 +132,17 @@ struct WhistlerMappingSettings: Codable, Equatable {
         return settings
     }
 
+    /// The visible editor owns categories/defaults, not saved rules or picker aliases.
+    func updatingWorkPreferences(from edited: Self) throws -> Self {
+        var result = self
+        result.skipOutOfOffice = edited.skipOutOfOffice
+        result.skipWorkingLocation = edited.skipWorkingLocation
+        result.inheritUnnamedFocus = edited.inheritUnnamedFocus
+        result.workCategories = edited.workCategories
+        try result.validate()
+        return result
+    }
+
     func save() throws {
         try validate()
         let encoder = JSONEncoder()

@@ -543,15 +543,15 @@ public sealed partial class MainWindow : Window
     private void OnSendDateChanged(CalendarDatePicker sender, CalendarDatePickerDateChangedEventArgs args) =>
         RefreshWhistler();
 
-    private async void OnConfigureMapping(object sender, RoutedEventArgs e)
+    private async void OnConfigureWorkCategories(object sender, RoutedEventArgs e)
     {
-        if (_sending) { Report("Wait for the current send to finish before changing mapping rules.", InfoBarSeverity.Informational); return; }
+        if (_sending) { Report("Wait for the current send to finish before changing work categories.", InfoBarSeverity.Informational); return; }
         try
         {
-            if (await WhistlerMappingDialog.ShowAsync(Content.XamlRoot))
+            if (await WorkCategoriesDialog.ShowAsync(Content.XamlRoot))
             {
                 ResetMonthStatus();
-                Report("Mapping rules saved. They apply to the next send.", InfoBarSeverity.Success);
+                Report("Work preferences saved. They apply to the next send.", InfoBarSeverity.Success);
             }
         }
         catch (Exception error) { Report(error.Message, InfoBarSeverity.Error); }

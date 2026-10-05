@@ -350,7 +350,7 @@
                             <Border Style="{StaticResource Card}">
                                 <StackPanel Spacing="10">
                                     <TextBlock Style="{StaticResource RowDescription}"
-                                               Text="Tell Jev how your Calendar relates to projects, what not to log, and when to use your work categories. For example: ‘Opeone to Quotomy belongs to quotomy. Don’t log Japanese club meetings.’ Unnamed focus continues previous work automatically. Calendar-type switches take precedence." />
+                                               Text="Tell Jev how your Calendar relates to projects, what not to log, and when to use your work categories. For example: ‘Opeone to Quotomy belongs to quotomy. Don’t log Japanese club meetings.’ Unnamed focus continues previous work automatically. Calendar-type defaults apply unless overridden under Advanced." />
                                     <TextBox x:Name="InstructionsBox" AcceptsReturn="True" TextWrapping="Wrap"
                                              Height="150" FontFamily="Cascadia Mono, Consolas" />
                                     <StackPanel Orientation="Horizontal" Spacing="8">
@@ -363,11 +363,11 @@
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
-                            <TextBlock Text="Mapping preferences" Style="{StaticResource SectionHeader}" Margin="2,10,0,0" />
+                            <TextBlock Text="Work categories" Style="{StaticResource SectionHeader}" Margin="2,10,0,0" />
                             <Border Style="{StaticResource Card}">
                                 <StackPanel Spacing="10">
-                                    <TextBlock Style="{StaticResource RowDescription}" Text="Optional: customize work categories and Calendar-type defaults. Literal exclusions and project aliases are under Advanced." />
-                                    <Button Content="Configure mapping…" Click="OnConfigureMapping" />
+                                    <TextBlock Style="{StaticResource RowDescription}" Text="Optional: customize the kinds of work Jev can choose, with short descriptions to explain each one." />
+                                    <Button Content="Customize categories…" Click="OnConfigureWorkCategories" />
                                 </StackPanel>
                             </Border>
                         </StackPanel>
