@@ -34,71 +34,60 @@ struct WhistlerCredentialsSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title).font(.headline)
-                Text(purpose == .switchAccount && !previous.email.isEmpty
-                     ? "Currently signed in as \(previous.email). Signing in replaces that session."
-                     : "Your password is exchanged for a session token, then discarded.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 20)
+        VStack(alignment: .leading, spacing: 16) {
+            SheetHeader(symbol: "person.crop.circle.fill",
+                        title: title,
+                        subtitle: purpose == .switchAccount && !previous.email.isEmpty
+                            ? "Currently signed in as \(previous.email). Signing in replaces that session."
+                            : "Your password is exchanged for a session token, then discarded.")
 
-            Form {
-                Section {
-                    TextField("Server", text: $settings.apiUrl)
-                    TextField("Email", text: $settings.email, prompt: Text("name@company.com"))
+            VStack(alignment: .leading, spacing: 12) {
+                FieldLabel("Server") {
+                    InputField(label: "Server", text: $settings.apiUrl,
+                               prompt: "https://whistler.example.com", icon: "server.rack")
+                }
+                FieldLabel("Email") {
+                    InputField(label: "Email", text: $settings.email,
+                               prompt: "name@company.com", icon: "envelope")
                         .textContentType(.username)
-                    SecureField("Password", text: $password)
+                }
+                FieldLabel("Password") {
+                    InputField(label: "Password", text: $password, prompt: "Password",
+                               icon: "lock", secure: true, onSubmit: { if canSubmit { save() } })
                         .textContentType(.password)
                 }
-
                 if needsKey {
-                    Section {
-                        SecureField("OpenRouter key", text: $openRouterKey, prompt: Text("sk-or-…"))
-                    } footer: {
-                        Text("Classifies calendar events onto Whistler projects. Choose the model afterwards in Settings.")
+                    FieldLabel("OpenRouter key",
+                               hint: "Classifies calendar events onto Whistler projects.") {
+                        InputField(label: "OpenRouter key", text: $openRouterKey, prompt: "sk-or-…",
+                                   icon: "key", secure: true, font: Theme.mono(12))
                     }
                 }
             }
-            .formStyle(.grouped)
-            .scrollContentBackground(.hidden)
-            .scrollDisabled(true)
-            .frame(height: needsKey ? 250 : 160)
             .disabled(working)
 
-            if let failure {
-                Label(failure, systemImage: "exclamationmark.triangle.fill")
-                    .font(.callout)
-                    .foregroundStyle(Theme.urgent)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 8)
-            }
+            if let failure { Notice(.error, failure) }
 
             Text("The session token\(needsKey ? " and API key are" : " is") stored in your login Keychain, where you can inspect or revoke it.")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 20)
 
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 if working { ProgressView().controlSize(.small) }
                 Spacer()
                 Button("Cancel") { dismiss() }
+                    .buttonStyle(.secondary)
                     .keyboardShortcut(.cancelAction)
                     .disabled(working)
                 Button(working ? "Signing In…" : "Sign In") { save() }
+                    .buttonStyle(.primary)
                     .keyboardShortcut(.defaultAction)
-                    .buttonStyle(.borderedProminent)
                     .disabled(working || !canSubmit)
             }
             .controlSize(.large)
-            .padding(20)
         }
+        .padding(20)
         .frame(width: 460)
         .interactiveDismissDisabled(working)
         .onAppear {

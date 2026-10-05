@@ -4,7 +4,7 @@ import Charts
 struct AllTimeReportView: View {
     @EnvironmentObject private var service: PomodoroService
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 4)
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 4)
 
     var body: some View {
         let report = service.allTimeStats()
@@ -13,16 +13,24 @@ struct AllTimeReportView: View {
             title: "All time",
             subtitle: "\(report.focusText) focus · \(report.sessions) sessions · \(report.activeDays) active days")
 
-        Card("Totals") {
-            LazyVGrid(columns: columns, spacing: 14) {
-                StatTile(label: "Completed focus", value: String(report.sessions), detail: "sessions", accented: true)
-                StatTile(label: "Focus time", value: report.focusText, detail: "active")
-                StatTile(label: "Break time", value: report.breakText, detail: "active")
-                StatTile(label: "Breaks taken", value: String(report.breaks), detail: "breaks")
-                StatTile(label: "Active days", value: String(report.activeDays), detail: "with focus time")
-                StatTile(label: "Current streak", value: String(report.currentStreak), detail: "days", accented: true)
-                StatTile(label: "Longest streak", value: String(report.longestStreak), detail: "days")
-                StatTile(label: "Average session", value: report.averageSessionText, detail: "per completed focus")
+        Card("Totals", symbol: "sum") {
+            LazyVGrid(columns: columns, spacing: 10) {
+                StatTile(label: "Completed focus", value: String(report.sessions), detail: "sessions",
+                         symbol: "checkmark.circle.fill", tint: Theme.longBreak)
+                StatTile(label: "Focus time", value: report.focusText, detail: "active",
+                         symbol: "brain.head.profile", tint: Theme.focus)
+                StatTile(label: "Break time", value: report.breakText, detail: "active",
+                         symbol: "cup.and.saucer.fill", tint: Theme.shortBreak)
+                StatTile(label: "Breaks taken", value: String(report.breaks), detail: "breaks",
+                         symbol: "pause.circle.fill", tint: Theme.shortBreak)
+                StatTile(label: "Active days", value: String(report.activeDays), detail: "with focus time",
+                         symbol: "calendar", tint: .secondary)
+                StatTile(label: "Current streak", value: String(report.currentStreak), detail: "days",
+                         symbol: "flame.fill", tint: Theme.focus)
+                StatTile(label: "Longest streak", value: String(report.longestStreak), detail: "days",
+                         symbol: "trophy.fill", tint: Theme.focus)
+                StatTile(label: "Average session", value: report.averageSessionText, detail: "per completed focus",
+                         symbol: "timer", tint: .secondary)
             }
 
             if report.firstEndedAt > 0 {
@@ -33,9 +41,9 @@ struct AllTimeReportView: View {
             }
         }
 
-        Card("Last 12 months") {
+        Card("Last 12 months", symbol: "chart.bar.fill") {
             if report.months.isEmpty {
-                EmptyHint(text: "No completed sessions yet.")
+                EmptyHint(text: "No completed sessions yet.", symbol: "chart.bar")
             } else {
                 Chart {
                     ForEach(report.months) { month in

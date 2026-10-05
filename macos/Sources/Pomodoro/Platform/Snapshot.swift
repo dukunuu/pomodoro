@@ -23,9 +23,12 @@ enum Snapshot {
         let appearance = NSAppearance(named: light ? .aqua : .darkAqua)!
         NSApp.appearance = appearance
 
+        // Hosted in a window that is never ordered front, rather than drawn by
+        // ImageRenderer: text fields, menus and date pickers are AppKit views,
+        // which ImageRenderer replaces with a placeholder.
         func capture<V: View>(_ name: String, size: CGSize, _ view: V) {
-            let renderer = ImageRenderer(
-                content: view
+            let hosting = NSHostingView(
+                rootView: view
                     .environmentObject(state)
                     .environmentObject(state.service)
                     .environmentObject(state.whistler)
@@ -37,16 +40,20 @@ enum Snapshot {
                     .background(Theme.background)
                     .environment(\.colorScheme, light ? .light : .dark)
             )
-            renderer.proposedSize = ProposedViewSize(size)
-            renderer.scale = 2
-            // Semantic NSColors resolve against the drawing appearance, which
-            // an off-screen render does not inherit from the app.
-            var rendered: NSImage?
-            appearance.performAsCurrentDrawingAppearance { rendered = renderer.nsImage }
-            guard let image = rendered,
-                  let tiff = image.tiffRepresentation,
-                  let rep = NSBitmapImageRep(data: tiff),
-                  let png = rep.representation(using: .png, properties: [:]) else {
+            hosting.frame = NSRect(origin: .zero, size: size)
+            let window = NSWindow(contentRect: hosting.frame, styleMask: [.borderless],
+                                  backing: .buffered, defer: false)
+            window.appearance = appearance
+            window.contentView = hosting
+            hosting.layoutSubtreeIfNeeded()
+            // onAppear handlers load their drafts a turn after the first layout.
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+            guard let rep = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else {
+                FileHandle.standardError.write(Data("snapshot failed: \(name)\n".utf8))
+                return
+            }
+            hosting.cacheDisplay(in: hosting.bounds, to: rep)
+            guard let png = rep.representation(using: .png, properties: [:]) else {
                 FileHandle.standardError.write(Data("snapshot failed: \(name)\n".utf8))
                 return
             }
@@ -54,15 +61,19 @@ enum Snapshot {
             print("wrote \(name).png")
         }
 
-        capture("today", size: CGSize(width: 800, height: 940), SnapshotTab(tab: .today))
+        capture("today", size: CGSize(width: 800, height: 1260), SnapshotTab(tab: .today))
         capture("week", size: CGSize(width: 800, height: 760), SnapshotTab(tab: .week))
         capture("month", size: CGSize(width: 800, height: 700), SnapshotTab(tab: .month))
-        capture("all-time", size: CGSize(width: 800, height: 760), SnapshotTab(tab: .allTime))
-        capture("whistler", size: CGSize(width: 800, height: 900), SnapshotTab(tab: .whistler))
-        capture("settings", size: CGSize(width: 800, height: 760), SnapshotTab(tab: .settings))
+        capture("all-time", size: CGSize(width: 800, height: 820), SnapshotTab(tab: .allTime))
+        capture("whistler", size: CGSize(width: 800, height: 1400), SnapshotTab(tab: .whistler))
+        capture("settings", size: CGSize(width: 800, height: 1260), SnapshotTab(tab: .settings))
         capture("floating", size: CGSize(width: 260, height: 120),
                 FloatingTimerView(service: state.service, onOpenDashboard: {}).padding(12))
         capture("menubar", size: CGSize(width: 300, height: 430), MenuBarPanel())
+        capture("sheet-sign-in", size: CGSize(width: 460, height: 460), WhistlerCredentialsSheet())
+        capture("sheet-api-key", size: CGSize(width: 480, height: 300), AIKeySheet(replacing: false) {})
+        capture("sheet-google-client", size: CGSize(width: 480, height: 440),
+                GoogleClientSheet(installError: .constant(nil)))
 
         exit(0)
     }

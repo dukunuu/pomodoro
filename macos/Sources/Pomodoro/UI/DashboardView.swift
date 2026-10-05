@@ -103,27 +103,19 @@ struct DashboardView: View {
             .tag(item)
     }
 
-    /// Settings scrolls itself — a grouped Form is a scroll view already — so
-    /// only the report pages get the shared column.
-    @ViewBuilder private var page: some View {
-        switch section ?? .today {
-        case .settings:
-            SettingsPanel()
-        default:
-            ScrollView {
-                // One column width for every page. Reports used to run to
-                // the window edge while settings sat in a narrow column,
-                // so the two halves of the app never lined up.
-                VStack(spacing: 18) {
-                    reports
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 18)
-                .frame(maxWidth: 880)
-                .frame(maxWidth: .infinity, alignment: .center)
+    private var page: some View {
+        ScrollView {
+            // One column width for every page, settings included, so the
+            // cards line up as the sidebar selection changes.
+            VStack(spacing: 14) {
+                reports
             }
-            .background(Theme.background)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 18)
+            .frame(maxWidth: 880)
+            .frame(maxWidth: .infinity, alignment: .center)
         }
+        .background(Theme.background)
     }
 
     @ViewBuilder private var reports: some View {
@@ -141,7 +133,7 @@ struct DashboardView: View {
         case .whistler:
             WhistlerView()
         case .settings:
-            EmptyView()
+            SettingsPanel()
         }
     }
 }
@@ -159,39 +151,74 @@ struct NoteCard: View {
     private var dirty: Bool { draft != service.activeNote }
     private var scope: String { WhistlerMappingSettings.scope(WhistlerConfig.readSettings()) }
 
+    private var projects: [WhistlerMappingProject] {
+        whistler.mappingProjectsScope == scope ? whistler.mappingProjects : []
+    }
+
+    private var selectionTitle: String {
+        switch selection {
+        case "continue": return "Continue previous work"
+        case "custom": return "Custom note"
+        default: return projects.first { "project:" + $0.id == selection }?.name ?? "Continue previous work"
+        }
+    }
+
+    private var selectionIcon: String {
+        switch selection {
+        case "continue": return "arrow.turn.down.right"
+        case "custom": return "pencil.line"
+        default: return "folder"
+        }
+    }
+
     var body: some View {
-        Card("Focus") {
+        Card("Focus", symbol: "scope",
+             subtitle: "Pick a project to save its Calendar label automatically, or continue previous work with unnamed focus. The choice applies to this whole focus session; a note is optional.") {
             HStack(spacing: 8) {
-                Picker("Project", selection: Binding(get: { selection }, set: { choose($0) })) {
-                    Text("Continue previous work").tag("continue")
-                    Text("Custom note").tag("custom")
-                    if whistler.mappingProjectsScope == scope {
-                        ForEach(whistler.mappingProjects) { project in
-                            Text(project.name).tag("project:" + project.id)
+                MenuField(label: "Project", value: selectionTitle, icon: selectionIcon) {
+                    Picker("Project", selection: Binding(get: { selection }, set: { choose($0) })) {
+                        Text("Continue previous work").tag("continue")
+                        Text("Custom note").tag("custom")
+                        if !projects.isEmpty {
+                            Divider()
+                            ForEach(projects) { project in
+                                Text(project.name).tag("project:" + project.id)
+                            }
                         }
                     }
+                    .pickerStyle(.inline)
+                    .labelsHidden()
                 }
                 .disabled(service.phase != .focus || whistler.importRunning || whistler.mappingProjectsLoading)
-                Button(whistler.mappingProjectsLoading ? "Loading…" : "Reload projects") {
-                    whistler.refreshMappingProjects()
-                }.disabled(!WhistlerConfig.isSignedIn || whistler.mappingProjectsLoading)
+
+                Button { whistler.refreshMappingProjects() } label: {
+                    if whistler.mappingProjectsLoading {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Label("Reload projects", systemImage: "arrow.clockwise").labelStyle(.iconOnly)
+                    }
+                }
+                .buttonStyle(.iconFilled)
+                .help("Reload projects from Whistler")
+                .disabled(!WhistlerConfig.isSignedIn || whistler.mappingProjectsLoading)
             }
-            if !message.isEmpty { Text(message).font(.caption).foregroundStyle(Theme.urgent) }
-            if !whistler.mappingProjectsMessage.isEmpty {
-                Text(whistler.mappingProjectsMessage).font(.caption).foregroundStyle(Theme.textMuted)
+            if !message.isEmpty { Notice(.error, message) }
+            if !whistler.mappingProjectsMessage.isEmpty && !whistler.mappingProjectsLoading {
+                Notice(.info, whistler.mappingProjectsMessage)
             }
-            DisclosureGroup("Optional focus note", isExpanded: $noteExpanded) {
+            Disclosure("Focus note", detail: "Optional", isExpanded: $noteExpanded) {
                 HStack(spacing: 8) {
-                    TextField("What are you working on?", text: $draft)
-                        .textFieldStyle(.roundedBorder).controlSize(.large).focused($focused)
-                        .onSubmit { service.saveActiveNote(draft) }
-                        .disabled(service.phase != .focus)
+                    FieldChrome(icon: "text.alignleft", focused: focused) {
+                        TextField("Focus note", text: $draft, prompt: Text("What are you working on?"))
+                            .focused($focused)
+                            .onSubmit { service.saveActiveNote(draft) }
+                    }
+                    .disabled(service.phase != .focus)
                     Button("Save") { service.saveActiveNote(draft) }
+                        .buttonStyle(.secondary)
                         .disabled(service.phase != .focus || !dirty)
                 }
             }
-            Text("Pick a project to save its Calendar label automatically, or continue previous work with unnamed focus. The choice applies to this whole focus session; a note is optional.")
-                .font(.caption).foregroundStyle(.tertiary)
         }
         .onAppear {
             draft = service.activeNote
@@ -252,18 +279,16 @@ struct QuickStatsRow: View {
 
     var body: some View {
         let stats = service.statsForDay(service.todayKey)
-        Card("Today") {
-            HStack(spacing: 0) {
-                StatTile(label: "Focus", value: stats.focusText, detail: "active time", accented: true)
-                Divider().frame(height: 38)
-                StatTile(label: "Breaks", value: stats.breakText, detail: "\(stats.breaks) taken")
-                    .padding(.leading, 16)
-                Divider().frame(height: 38)
-                StatTile(label: "Sessions", value: String(stats.sessions), detail: "completed", accented: true)
-                    .padding(.leading, 16)
-                Divider().frame(height: 38)
-                StatTile(label: "Phases", value: String(stats.phases), detail: "recorded")
-                    .padding(.leading, 16)
+        Card("Today", symbol: "sun.max.fill") {
+            HStack(spacing: 10) {
+                StatTile(label: "Focus", value: stats.focusText, detail: "active time",
+                         symbol: "brain.head.profile", tint: Theme.focus)
+                StatTile(label: "Breaks", value: stats.breakText, detail: "\(stats.breaks) taken",
+                         symbol: "cup.and.saucer.fill", tint: Theme.shortBreak)
+                StatTile(label: "Sessions", value: String(stats.sessions), detail: "completed",
+                         symbol: "checkmark.circle.fill", tint: Theme.longBreak)
+                StatTile(label: "Phases", value: String(stats.phases), detail: "recorded",
+                         symbol: "square.stack.3d.up.fill", tint: .secondary)
             }
         }
     }
@@ -304,17 +329,23 @@ struct PeriodStepper: View {
             PageHeading(title: title, subtitle: subtitle)
             Spacer(minLength: 8)
             Button("Today", action: onToday)
-            // The paired chevrons AppKit uses for stepping a date range.
-            ControlGroup {
+                .buttonStyle(.secondary)
+            // Back and forward share one well, so they read as a pair.
+            HStack(spacing: 0) {
                 Button(action: onBack) {
-                    Label("Previous", systemImage: "chevron.left")
+                    Label("Previous", systemImage: "chevron.left").labelStyle(.iconOnly)
                 }
+                .help("Previous")
+                Divider().frame(height: 14)
                 Button(action: onForward) {
-                    Label("Next", systemImage: "chevron.right")
+                    Label("Next", systemImage: "chevron.right").labelStyle(.iconOnly)
                 }
+                .help("Next")
                 .disabled(!canGoForward)
             }
-            .controlGroupStyle(.navigation)
+            .buttonStyle(.icon)
+            .background(Theme.controlFill,
+                        in: RoundedRectangle(cornerRadius: Theme.controlCorner, style: .continuous))
             .fixedSize()
         }
     }
@@ -330,16 +361,14 @@ struct UpdateBanner: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: "arrow.down.circle.fill")
-                .font(.title3)
-                .foregroundStyle(.white, Color.accentColor)
+            IconBadge(systemName: "arrow.down", tint: Theme.accent)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.subheadline.weight(.medium))
                 if case .downloading(let fraction) = installer.stage {
-                    ProgressView(value: fraction)
-                        .progressViewStyle(.linear)
+                    ProgressBar(value: fraction, color: Theme.accent, height: 5)
                         .frame(maxWidth: 220)
+                        .padding(.top, 3)
                 } else {
                     Text(subtitle)
                         .font(.caption)
@@ -350,10 +379,11 @@ struct UpdateBanner: View {
             Spacer(minLength: 8)
             if !installer.stage.isBusy {
                 Button("Release notes") { openURL(update.pageURL) }
+                    .buttonStyle(.ghost)
                 Button("Update and Restart") {
                     Task { await installer.install(update) }
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.primary)
             }
         }
         .padding(.horizontal, 20)

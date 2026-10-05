@@ -14,52 +14,82 @@ struct WorkCategoriesCard: View {
     private var currentScope: String { WhistlerMappingSettings.scope(WhistlerConfig.readSettings()) }
 
     var body: some View {
-        Card("Work categories") {
-            Text("Jev chooses from these names. Optional descriptions explain when to use each one. Changes apply to future sends, not existing worklogs.")
-                .font(.caption).foregroundStyle(Theme.textMuted).fixedSize(horizontal: false, vertical: true)
-            Text(draft.workCategories.map(\.name).joined(separator: " · "))
-                .font(.caption).foregroundStyle(Theme.textMuted)
-            DisclosureGroup("Customize categories") {
-                ForEach($draft.workCategories) { $category in
-                    HStack(alignment: .top) {
-                        VStack(alignment: .leading, spacing: 5) {
-                            TextField("Category name", text: $category.name)
-                            TextField("When to use this category (optional)", text: $category.description)
-                                .font(.caption)
-                        }
-                        Button {
-                            let id = category.id
-                            draft.workCategories.removeAll { $0.id == id }
-                        } label: { Image(systemName: "minus.circle") }
-                        .buttonStyle(.plain).help("Remove category")
-                        .disabled(draft.workCategories.count == 1)
-                    }.padding(.vertical, 3)
-                }
-                HStack {
-                    Button("Add category") { draft.workCategories.append(.init()) }
-                        .disabled(draft.workCategories.count >= 255)
-                    Button("Restore defaults") { draft.workCategories = WhistlerMappingSettings.defaultWorkCategories }
+        Card("Work categories", symbol: "tag.fill",
+             subtitle: "Jev chooses from these names. Optional descriptions explain when to use each one. Changes apply to future sends, not existing worklogs.",
+             accessory: draft != original ? AnyView(StatusPill(text: "Unsaved", tint: Theme.accent)) : nil) {
+            FlowLayout(spacing: 6) {
+                ForEach(draft.workCategories) { category in
+                    Chip(text: category.name.isEmpty ? "Unnamed" : category.name)
+                        .opacity(category.name.isEmpty ? 0.5 : 1)
                 }
             }
-            DisclosureGroup("Advanced") {
+            Disclosure("Customize categories", detail: "\(draft.workCategories.count)") {
+                VStack(spacing: 8) {
+                    ForEach($draft.workCategories) { $category in
+                        HStack(alignment: .center, spacing: 8) {
+                            VStack(spacing: 6) {
+                                InputField(label: "Category name", text: $category.name,
+                                           icon: "tag", font: .system(size: 13, weight: .medium))
+                                InputField(label: "When to use this category",
+                                           text: $category.description,
+                                           prompt: "When to use this category (optional)",
+                                           icon: "text.alignleft", font: .system(size: 12))
+                            }
+                            Button {
+                                let id = category.id
+                                draft.workCategories.removeAll { $0.id == id }
+                            } label: {
+                                Label("Remove category", systemImage: "trash").labelStyle(.iconOnly)
+                            }
+                            .buttonStyle(.icon)
+                            .help("Remove category")
+                            .disabled(draft.workCategories.count == 1)
+                        }
+                        .padding(9)
+                        .background(Theme.controlFill.opacity(0.55),
+                                    in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    }
+                }
+                HStack(spacing: 8) {
+                    Button { draft.workCategories.append(.init()) } label: {
+                        Label("Add category", systemImage: "plus")
+                    }
+                    .buttonStyle(.secondary)
+                    .disabled(draft.workCategories.count >= 255)
+                    Button("Restore defaults") { draft.workCategories = WhistlerMappingSettings.defaultWorkCategories }
+                        .buttonStyle(.ghost)
+                }
+            }
+            Disclosure("Advanced") {
                 Text("By default, out-of-office events and location markers are excluded, and unnamed focus continues previous work. Override only if needed. These switches take precedence over mapping instructions.")
                     .font(.caption).foregroundStyle(Theme.textMuted).fixedSize(horizontal: false, vertical: true)
-                Toggle("Skip out-of-office events", isOn: $draft.skipOutOfOffice)
-                Toggle("Skip working-location markers", isOn: $draft.skipWorkingLocation)
-                Toggle("Unnamed focus continues previous work", isOn: $draft.inheritUnnamedFocus)
+                VStack(spacing: 9) {
+                    ToggleRow(title: "Skip out-of-office events", icon: "airplane",
+                              tint: Theme.shortBreak, isOn: $draft.skipOutOfOffice)
+                    RowDivider()
+                    ToggleRow(title: "Skip working-location markers", icon: "mappin.and.ellipse",
+                              tint: Theme.longBreak, isOn: $draft.skipWorkingLocation)
+                    RowDivider()
+                    ToggleRow(title: "Unnamed focus continues previous work", icon: "arrow.turn.down.right",
+                              tint: Theme.focus, isOn: $draft.inheritUnnamedFocus)
+                }
                 Text("Saved exclusion rules and project mappings remain active. Use Mapping instructions for new rules, or the focus picker to choose a project. The data file is available for recovering legacy settings.")
                     .font(.caption).foregroundStyle(Theme.textMuted).fixedSize(horizontal: false, vertical: true)
-                Button("Open saved mapping data…") { openMappingData() }
+                Button { openMappingData() } label: {
+                    Label("Open saved mapping data…", systemImage: "doc.text")
+                }
+                .buttonStyle(.secondary)
             }
-            HStack {
-                Button("Save") { save() }.buttonStyle(.borderedProminent)
+            if !message.isEmpty && failed { Notice(.error, message) }
+            HStack(spacing: 8) {
+                Button("Save") { save() }.buttonStyle(.primary)
                     .disabled(!loaded || draft == original || whistler.importRunning)
-                Button("Revert") { load() }.disabled(draft == original)
-                if !message.isEmpty {
-                    Text(message).font(.caption).foregroundStyle(failed ? Theme.urgent : Theme.longBreak)
+                Button("Revert") { load() }.buttonStyle(.secondary).disabled(draft == original)
+                if !message.isEmpty && !failed {
+                    StatusPill(text: message, tint: Theme.longBreak, systemImage: "checkmark")
                 }
                 Spacer()
-            }.padding(.top, 5)
+            }
         }
         .onAppear { load() }
         .onChange(of: currentScope) { _, _ in load() }

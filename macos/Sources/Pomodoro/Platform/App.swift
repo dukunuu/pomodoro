@@ -62,9 +62,8 @@ struct MenuBarPanel: View {
         VStack(alignment: .leading, spacing: 0) {
             header
             clock
-            ProgressView(value: min(1, max(0, service.phaseProgress)))
-                .progressViewStyle(.linear)
-                .tint(service.isOvertime ? Theme.urgent : accent)
+            ProgressBar(value: service.phaseProgress, color: accent,
+                        overtime: service.isOvertime, height: 5)
                 .padding(.horizontal, 14)
                 .padding(.top, 10)
             transport
@@ -119,17 +118,18 @@ struct MenuBarPanel: View {
                       systemImage: service.running ? "pause.fill" : "play.fill")
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(accent)
+            .buttonStyle(.primary(tint: accent))
 
             Button(action: service.skip) {
                 Label("Skip", systemImage: "forward.end.fill")
                     .frame(maxWidth: .infinity)
             }
+            .buttonStyle(.secondary)
             Button(action: service.reset) {
                 Label("Reset", systemImage: "arrow.counterclockwise")
                     .labelStyle(.iconOnly)
             }
+            .buttonStyle(.iconFilled)
             .help("Record this phase and restart it")
         }
         .controlSize(.large)
@@ -156,10 +156,8 @@ struct MenuBarPanel: View {
             })
             .disabled(!integrations.whistlerReady || whistler.importRunning)
             MenuRow("Floating Timer", systemImage: "macwindow.on.rectangle", trailing: {
-                Toggle("", isOn: $preferences.showFloatingTimer)
-                    .toggleStyle(.switch)
-                    .controlSize(.mini)
-                    .labelsHidden()
+                Switch(label: "Floating Timer", isOn: $preferences.showFloatingTimer)
+                    .scaleEffect(0.8, anchor: .trailing)
             })
             Divider().padding(.horizontal, 8).padding(.vertical, 4)
             MenuRow("Quit Pomodoro", systemImage: "power", shortcut: "⌘Q",

@@ -68,8 +68,7 @@ struct TimerHeader: View {
                               systemImage: service.running ? "pause.fill" : "play.fill")
                             .frame(width: 66)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(accent)
+                    .buttonStyle(.primary(tint: accent))
                     .keyboardShortcut(.space, modifiers: [])
 
                     // Icon-only with tooltips, the way the system's own
@@ -80,12 +79,14 @@ struct TimerHeader: View {
                     }
                     .help("Record this phase and move to the next")
                     .labelStyle(.iconOnly)
+                    .buttonStyle(.iconFilled)
 
                     Button(action: service.reset) {
                         Label("Reset", systemImage: "arrow.counterclockwise")
                     }
                     .help("Record this phase and restart it")
                     .labelStyle(.iconOnly)
+                    .buttonStyle(.iconFilled)
                 }
                 .controlSize(.large)
 

@@ -23,7 +23,7 @@ struct DayReportView: View {
             onToday: { offset = 0 }
         )
 
-        Card("Timeline") {
+        Card("Timeline", symbol: "calendar.day.timeline.left") {
             DayTimeline(entries: entries, key: key, service: service)
                 .frame(height: 62)
                 .padding(.top, 2)
@@ -39,14 +39,15 @@ struct DayReportView: View {
             }
         }
 
-        Card("Phases") {
+        Card("Phases", symbol: "list.bullet",
+             accessory: entries.isEmpty ? nil : AnyView(StatusPill(text: "\(entries.count)"))) {
             if entries.isEmpty {
-                EmptyHint(text: "No phases recorded for this day yet.")
+                EmptyHint(text: "No phases recorded for this day yet.", symbol: "moon.zzz")
             } else {
                 VStack(spacing: 0) {
                     ForEach(entries.reversed()) { entry in
                         EntryRow(entry: entry)
-                        if entry.id != entries.first?.id { Divider() }
+                        if entry.id != entries.first?.id { RowDivider() }
                     }
                 }
             }
@@ -168,38 +169,42 @@ struct DayTimeline: View {
 struct EntryRow: View {
     var entry: SessionEntry
 
+    private var counted: Bool { entry.status == .completed || entry.isLive }
+
+    private var status: (text: String, tint: Color, symbol: String?) {
+        if entry.isLive { return ("In progress", Theme.color(for: entry.phase), "circle.fill") }
+        switch entry.status {
+        case .completed: return ("Completed", Theme.longBreak, "checkmark")
+        case .interrupted: return ("Interrupted", Theme.urgent, nil)
+        default: return (entry.status.label, .secondary, nil)
+        }
+    }
+
     var body: some View {
-        HStack(spacing: 10) {
-            Circle()
-                .fill(Theme.color(for: entry.phase))
-                .frame(width: 8, height: 8)
-                .opacity(entry.status == .completed || entry.isLive ? 1 : 0.4)
+        HStack(spacing: 11) {
+            IconBadge(systemName: entry.phase == .focus ? "brain.head.profile" : "cup.and.saucer.fill",
+                      tint: Theme.color(for: entry.phase))
+                .opacity(counted ? 1 : 0.5)
 
-            Text(Fmt.rangeLabel(entry))
-                .font(.callout.monospacedDigit())
-                .foregroundStyle(Theme.textMuted)
-                .frame(width: 96, alignment: .leading)
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text(entry.phase.label)
-                    .font(.callout)
-                if !entry.note.isEmpty {
-                    Text(entry.note)
-                        .font(.caption2)
-                        .foregroundStyle(Theme.textMuted)
-                        .lineLimit(1)
-                }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(entry.note.isEmpty ? entry.phase.label : entry.note)
+                    .font(.system(size: 13, weight: .medium))
+                    .lineLimit(1)
+                Text(entry.note.isEmpty
+                     ? Fmt.rangeLabel(entry)
+                     : "\(Fmt.rangeLabel(entry)) · \(entry.phase.label)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(Theme.textMuted)
+                    .lineLimit(1)
             }
 
             Spacer(minLength: 8)
 
-            Text(entry.isLive ? "in progress" : entry.status.label)
-                .font(.caption2)
-                .foregroundStyle(entry.isLive ? Theme.focus : Theme.textMuted)
+            StatusPill(text: status.text, tint: status.tint, systemImage: status.symbol)
 
             Text(Fmt.reportDuration(entry.activeSeconds))
-                .font(.callout.weight(.medium).monospacedDigit())
-                .frame(width: 62, alignment: .trailing)
+                .font(.system(size: 13, weight: .medium).monospacedDigit())
+                .frame(width: 58, alignment: .trailing)
         }
         .padding(.vertical, 7)
     }
@@ -219,12 +224,21 @@ struct LegendDot: View {
 
 struct EmptyHint: View {
     var text: String
+    var symbol: String?
 
     var body: some View {
-        Text(text)
-            .font(.callout)
-            .foregroundStyle(Theme.textFaint)
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.vertical, 18)
+        VStack(spacing: 8) {
+            if let symbol {
+                Image(systemName: symbol)
+                    .font(.system(size: 22, weight: .light))
+                    .foregroundStyle(Theme.textFaint)
+            }
+            Text(text)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(.vertical, 18)
     }
 }

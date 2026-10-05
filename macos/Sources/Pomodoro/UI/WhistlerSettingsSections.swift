@@ -14,38 +14,36 @@ struct WhistlerAccountSection: View {
     private var host: String { URL(string: settings.apiUrl)?.host ?? settings.apiUrl }
 
     var body: some View {
-        Section {
-            LabeledContent {
-                HStack(spacing: 8) {
+        Card("Whistler account", symbol: "person.crop.circle.fill",
+             subtitle: "Signing out removes only the Whistler session from Keychain. Your API key and mapping instructions are kept.",
+             accessory: AnyView(StatusPill(text: signedIn ? "Signed in" : "Signed out",
+                                           tint: signedIn ? Theme.longBreak : .secondary,
+                                           systemImage: signedIn ? "checkmark" : nil))) {
+            VStack(spacing: 9) {
+                SettingRow(signedIn ? (settings.email.isEmpty ? "Signed in" : settings.email) : "Not signed in",
+                           subtitle: signedIn ? host : "Sign in to send worklogs to Whistler.",
+                           icon: signedIn ? "person.fill" : "person.fill.questionmark",
+                           tint: signedIn ? Theme.accent : .secondary) {
                     if signedIn {
-                        Button("Sign Out…") { confirmingSignOut = true }
-                        Button("Switch Account…") { showingSignIn = true }
+                        Button("Sign Out…") { confirmingSignOut = true }.buttonStyle(.destructive)
+                        Button("Switch Account…") { showingSignIn = true }.buttonStyle(.secondary)
                     } else {
-                        Button("Sign In…") { showingSignIn = true }.buttonStyle(.borderedProminent)
+                        Button("Sign In…") { showingSignIn = true }.buttonStyle(.primary)
                     }
                 }
-            } label: {
-                Label {
-                    Text(signedIn ? (settings.email.isEmpty ? "Signed in" : settings.email) : "Not signed in")
-                    Text(signedIn ? host : "Sign in to send worklogs to Whistler.")
-                } icon: {
-                    Image(systemName: signedIn ? "person.crop.circle.fill" : "person.crop.circle.badge.questionmark")
-                        .font(.title2)
-                        .foregroundStyle(signedIn ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.secondary))
+                RowDivider()
+                SettingRow("Google calendar",
+                           subtitle: "“primary”, or a calendar ID from Google Calendar settings.",
+                           icon: "calendar", tint: Theme.shortBreak) {
+                    FieldChrome(focused: calendarFocused) {
+                        TextField("Google calendar", text: $calendar, prompt: Text(WhistlerConfig.defaultCalendar))
+                            .font(.system(size: 13))
+                            .focused($calendarFocused)
+                            .onSubmit(saveCalendar)
+                    }
+                    .frame(width: 240)
                 }
             }
-            LabeledContent {
-                TextField("Google calendar", text: $calendar, prompt: Text(WhistlerConfig.defaultCalendar))
-                    .labelsHidden().multilineTextAlignment(.trailing).frame(maxWidth: 260)
-                    .focused($calendarFocused).onSubmit(saveCalendar)
-            } label: {
-                Text("Google calendar")
-                Text("“primary”, or a calendar ID from Google Calendar settings.")
-            }
-        } header: {
-            Text("Whistler account")
-        } footer: {
-            Text("Signing out removes only the Whistler session from Keychain. Your API key and mapping instructions are kept.")
         }
         .onAppear(perform: load)
         .onChange(of: integrations.whistler) { _, _ in load() }
@@ -101,17 +99,18 @@ struct ProjectMappingSection: View {
     }
 
     var body: some View {
-        Section {
-            LabeledContent("Mapping engine", value: "Jev")
+        Card("Project mapping", symbol: "arrow.triangle.branch",
+             subtitle: "Jev maps Calendar events to your Whistler projects using your aliases and skip rules. Configure those in Whistler. Hours and worklog text are assembled locally; there is no model to choose.") {
+            SettingRow("Mapping engine", subtitle: "Fixed for every send.",
+                       icon: "cpu", tint: Theme.longBreak) {
+                StatusPill(text: "Jev", tint: Theme.accent)
+            }
             if hasKey {
-                DisclosureGroup("Advanced") { apiKeyConfiguration }
+                Disclosure("Advanced") { apiKeyConfiguration }
             } else {
+                RowDivider()
                 apiKeyConfiguration
             }
-        } header: {
-            Text("Project mapping")
-        } footer: {
-            Text("Jev maps Calendar events to your Whistler projects using your aliases and skip rules. Configure those in Whistler. Hours and worklog text are assembled locally; there is no model to choose.")
         }
         .onAppear(perform: load)
         .onChange(of: integrations.whistler) { _, _ in load() }
@@ -121,16 +120,12 @@ struct ProjectMappingSection: View {
     }
 
     private var apiKeyConfiguration: some View {
-        LabeledContent {
+        SettingRow(hasKey ? "Personal API key override" : "OpenRouter API key",
+                   subtitle: keyDescription,
+                   icon: hasKey ? "key.fill" : "key.slash",
+                   tint: hasKey ? .secondary : Theme.urgent) {
             Button(hasStoredKey ? "Replace Key…" : hasKey ? "Use Own Key…" : "Add Key…") { showingKey = true }
-        } label: {
-            Label {
-                Text(hasKey ? "Personal API key override" : "OpenRouter API key")
-                Text(keyDescription)
-            } icon: {
-                Image(systemName: hasKey ? "key.fill" : "key.slash")
-                    .foregroundStyle(hasKey ? AnyShapeStyle(.secondary) : AnyShapeStyle(Theme.urgent))
-            }
+                .buttonStyle(AppButtonStyle(kind: hasKey ? .secondary : .primary))
         }
     }
 
@@ -147,27 +142,31 @@ struct AIKeySheet: View {
     @State private var failure: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text(replacing ? "Replace API Key" : "Add API Key").font(.headline)
-            Text("Enter an OpenRouter key. It is checked with OpenRouter before it \(replacing ? "replaces your current key" : "is stored") in the login Keychain. Your Whistler sign-in and mapping rules are not changed.")
-                .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            SecureField("OpenRouter API key", text: $key, prompt: Text("sk-or-…"))
-                .textFieldStyle(.roundedBorder).controlSize(.large).disabled(working)
-            Link("Manage keys on OpenRouter", destination: URL(string: "https://openrouter.ai/settings/keys")!).font(.callout)
-            if let failure {
-                Label(failure, systemImage: "exclamationmark.triangle.fill")
-                    .font(.callout).foregroundStyle(Theme.urgent).fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: 16) {
+            SheetHeader(symbol: "key.fill",
+                        title: replacing ? "Replace API Key" : "Add API Key",
+                        subtitle: "Enter an OpenRouter key. It is checked with OpenRouter before it \(replacing ? "replaces your current key" : "is stored") in the login Keychain. Your Whistler sign-in and mapping rules are not changed.")
+            FieldLabel("OpenRouter API key") {
+                InputField(label: "OpenRouter API key", text: $key, prompt: "sk-or-…",
+                           icon: "key", secure: true, font: Theme.mono(12), onSubmit: save)
+                    .disabled(working)
             }
-            HStack(spacing: 10) {
-                if working { ProgressView().controlSize(.small) }
+            if let failure { Notice(.error, failure) }
+            HStack(spacing: 8) {
+                Link(destination: URL(string: "https://openrouter.ai/settings/keys")!) {
+                    Label("Manage keys on OpenRouter", systemImage: "arrow.up.right")
+                }
+                .buttonStyle(.ghost)
                 Spacer()
-                Button("Cancel") { key = ""; dismiss() }.keyboardShortcut(.cancelAction).disabled(working)
+                if working { ProgressView().controlSize(.small) }
+                Button("Cancel") { key = ""; dismiss() }
+                    .buttonStyle(.secondary).keyboardShortcut(.cancelAction).disabled(working)
                 Button(working ? "Checking…" : "Validate and Save") { save() }
-                    .keyboardShortcut(.defaultAction).buttonStyle(.borderedProminent)
+                    .buttonStyle(.primary).keyboardShortcut(.defaultAction)
                     .disabled(working || key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }.controlSize(.large)
         }
-        .padding(20).frame(width: 460).interactiveDismissDisabled(working)
+        .padding(20).frame(width: 480).interactiveDismissDisabled(working)
     }
 
     private func save() {

@@ -22,7 +22,7 @@ struct WeekReportView: View {
             onToday: { offset = 0 }
         )
 
-        Card("Focus per day") {
+        Card("Focus per day", symbol: "chart.bar.fill") {
             Chart {
                 ForEach(report.days) { day in
                     BarMark(
@@ -50,7 +50,7 @@ struct WeekReportView: View {
             .frame(height: 220)
         }
 
-        Card("Days") {
+        Card("Days", symbol: "list.bullet") {
             VStack(spacing: 0) {
                 ForEach(report.days) { day in
                     HStack(spacing: 10) {

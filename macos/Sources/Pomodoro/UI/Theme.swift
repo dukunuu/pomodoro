@@ -45,6 +45,32 @@ enum Palette {
         })
     }
 
+    /// Text colour for a label sitting on `fill`. The palette is the user's
+    /// own, so whether white or near-black reads better cannot be assumed; it
+    /// is whichever has the higher WCAG contrast in the current appearance.
+    static func contrasting(_ fill: Color) -> Color {
+        let base = NSColor(fill)
+        return Color(nsColor: NSColor(name: nil) { appearance in
+            var resolved = base
+            appearance.performAsCurrentDrawingAppearance {
+                resolved = base.usingColorSpace(.sRGB) ?? base
+            }
+            let luminance = relativeLuminance(resolved)
+            let onWhite = 1.05 / (luminance + 0.05)
+            let onDark = (luminance + 0.05) / 0.06
+            return onDark > onWhite ? NSColor(white: 0.09, alpha: 0.94) : .white
+        })
+    }
+
+    private static func relativeLuminance(_ color: NSColor) -> CGFloat {
+        func linear(_ channel: CGFloat) -> CGFloat {
+            channel <= 0.03928 ? channel / 12.92 : pow((channel + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * linear(color.redComponent)
+            + 0.7152 * linear(color.greenComponent)
+            + 0.0722 * linear(color.blueComponent)
+    }
+
     private static func deepened(_ color: NSColor) -> NSColor {
         guard let srgb = color.usingColorSpace(.sRGB) else { return color }
         var hue: CGFloat = 0, saturation: CGFloat = 0, brightness: CGFloat = 0, alpha: CGFloat = 0
@@ -66,6 +92,11 @@ enum Theme {
     static let urgent = Palette.adaptive(Palette.brightRed)
     static let shortBreak = Palette.adaptive(Palette.blue)
     static let longBreak = Palette.adaptive(Palette.green)
+
+    /// The app's own tint for primary actions, switches and focus rings. It
+    /// is the focus hue rather than the system accent, so the controls belong
+    /// to the same palette as the timer they sit under.
+    static let accent = focus
 
     static func color(for phase: Phase) -> Color {
         switch phase {
@@ -94,6 +125,19 @@ enum Theme {
     })
 
     static let border = Color(nsColor: .separatorColor)
+
+    /// The well a text field, menu or stepper sits in: sunk below the card in
+    /// dark mode, a faint grey on the white card in light mode.
+    static let fieldFill = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            ? NSColor(white: 0, alpha: 0.24)
+            : NSColor(white: 0, alpha: 0.035)
+    })
+
+    static let fieldBorder = Color.primary.opacity(0.12)
+
+    /// Resting fill of a secondary button or a tile inside a card.
+    static let controlFill = Color.primary.opacity(0.07)
 
     /// Unfilled track behind a bar, dot or heat cell. A translucent label tint
     /// rather than a fixed grey, so it sits correctly on any material.
@@ -126,71 +170,113 @@ enum Theme {
         Palette.adaptive(Palette.brightBlue), Palette.adaptive(Palette.red)
     ]
 
-    static let cardCorner: CGFloat = 10
+    static let cardCorner: CGFloat = 12
+    static let controlCorner: CGFloat = 7
 }
 
-/// A titled group of content: a section label in the sidebar's register, then
-/// the content in a standard rounded box. This is the shape System Settings
-/// and the rest of the system use for grouped controls.
+/// A titled group of content. The header sits inside the box — symbol, title,
+/// an optional line of explanation and a trailing accessory — so a card reads
+/// as one object rather than a label floating above a container.
 struct Card<Content: View>: View {
     var title: String?
+    var symbol: String?
+    var subtitle: String?
     var accessory: AnyView?
     @ViewBuilder var content: Content
 
-    init(_ title: String? = nil, accessory: AnyView? = nil, @ViewBuilder content: () -> Content) {
+    init(_ title: String? = nil,
+         symbol: String? = nil,
+         subtitle: String? = nil,
+         accessory: AnyView? = nil,
+         @ViewBuilder content: () -> Content) {
         self.title = title
+        self.symbol = symbol
+        self.subtitle = subtitle
         self.accessory = accessory
         self.content = content()
     }
 
+    private var shape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: Theme.cardCorner, style: .continuous)
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
+        VStack(alignment: .leading, spacing: 12) {
             if title != nil || accessory != nil {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    if let title {
-                        Text(title)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.secondary)
+                    if let symbol {
+                        Image(systemName: symbol)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Theme.accent)
+                            .frame(width: 16)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        if let title {
+                            Text(title)
+                                .font(.system(size: 13, weight: .semibold))
+                        }
+                        if let subtitle {
+                            Text(subtitle)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
                     Spacer(minLength: 8)
                     if let accessory { accessory }
                 }
-                .padding(.horizontal, 3)
             }
-            VStack(alignment: .leading, spacing: 10) {
-                content
-            }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardCorner))
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.cardCorner)
-                    .strokeBorder(Theme.border, lineWidth: 1)
-            )
+            content
         }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.surface, in: shape)
+        .overlay(shape.strokeBorder(Theme.border, lineWidth: 1))
     }
 }
 
-/// A single label / value / detail statistic.
+/// A single label / value / detail statistic. With a symbol it becomes a tile
+/// of its own inside a card; without one it stays bare text, which is what
+/// the menu bar popover has room for.
 struct StatTile: View {
     var label: String
     var value: String
     var detail: String
     var accented = false
+    var symbol: String?
+    var tint: Color = Theme.accent
 
     var body: some View {
+        if let symbol {
+            HStack(alignment: .top, spacing: 10) {
+                IconBadge(systemName: symbol, tint: tint, size: 28)
+                text
+            }
+            .padding(11)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.controlFill.opacity(0.6),
+                        in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        } else {
+            text.frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var text: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
             Text(value)
                 .font(.system(.title2, design: .rounded).weight(.medium).monospacedDigit())
                 .foregroundStyle(accented ? Theme.focus : Color.primary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
             Text(detail)
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
+                .lineLimit(1)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

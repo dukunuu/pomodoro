@@ -24,7 +24,7 @@ struct MonthReportView: View {
             onToday: { offset = 0 }
         )
 
-        Card("Calendar") {
+        Card("Calendar", symbol: "calendar") {
             LazyVGrid(columns: columns, spacing: 6) {
                 ForEach(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], id: \.self) { name in
                     Text(name)
