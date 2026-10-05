@@ -70,6 +70,11 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional shortcuts:"; Flags: unchecked
 Name: "startup"; Description: "Start Pomodoro when I sign in"; GroupDescription: "Startup:"; Flags: unchecked
 
+; Releases before the shared key was sealed left it beside the executable as
+; plain text, and installing over that folder would otherwise keep it there.
+[InstallDelete]
+Type: files; Name: "{app}\openrouter-default-key.txt"
+
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 

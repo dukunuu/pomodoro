@@ -55,7 +55,7 @@ jobs:
           BUILD_NUMBER: ${{ github.run_number }}
           UNIVERSAL: '1'
           GOOGLE_OAUTH_CLIENT_JSON: ${{ secrets.GOOGLE_OAUTH_CLIENT_JSON }}
-          # Distributed defaults are extractable; use a dedicated, capped key.
+          # Distributed defaults are sealed but recoverable; use a dedicated, capped key.
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           if [ -z "${GOOGLE_OAUTH_CLIENT_JSON:-}" ]; then

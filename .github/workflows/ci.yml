@@ -47,7 +47,7 @@ jobs:
           test -f "$APP/Contents/Resources/Pomodoro.icns"
           test -f "$APP/Contents/Resources/scripts/pomodoro_whistler_import.py"
           test -f "$APP/Contents/Resources/scripts/pomodoro_mapping.py"
-          test ! -f "$APP/Contents/Resources/openrouter-default-key.txt"
+          test ! -f "$APP/Contents/Resources/build.dat"
           # A source build must not contain credentials.
           if [ -f "$APP/Contents/Resources/scripts/google-calendar-client.json" ]; then
             echo "unexpected OAuth client in a CI build" >&2
@@ -147,7 +147,7 @@ jobs:
           foreach ($pair in @(@('x64', 'win-x64'), @('ARM64', 'win-arm64'))) {
             $publish = "src/Pomodoro.App/bin/$($pair[0])/Release/net8.0-windows10.0.19041.0/$($pair[1])/publish"
             $missing = @()
-            if (Test-Path (Join-Path $publish 'openrouter-default-key.txt')) { throw 'unexpected inference key in CI artifact' }
+            if (Test-Path (Join-Path $publish 'build.dat')) { throw 'unexpected inference key in CI artifact' }
             foreach ($file in $required) {
               if (-not (Test-Path (Join-Path $publish $file))) { $missing += $file }
             }

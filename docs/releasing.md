@@ -108,16 +108,24 @@ key, and an extracted key can request other models outside this app. Apply a har
 creating the key in OpenRouter's key settings.
 
 The release workflow exposes this secret **only to the packaging steps** on
-macOS and Windows, through the process environment. Packaging writes
-`openrouter-default-key.txt` into the app's resources (macOS) or beside its
-executable (Windows). It is not logged, generated into source, or committed.
+macOS and Windows, through the process environment. Packaging seals it with
+`tools/bundle-openrouter-key.py` and writes the result as `build.dat` into the
+app's resources (macOS) or beside its executable (Windows). It is not logged,
+generated into source, or committed.
 Normal PR/push CI builds do not receive it and assert that their artifacts carry
 no inference key. Missing secrets produce usable builds that ask for a user's
 own key. Republishing without a key removes a stale default.
 
-**The shipped default is intentionally extractable and readable. GitHub Secrets
-protects its pre-build storage, not the distributed application.** Anyone with
-an installer can use the key outside Pomodoro. Rotate/revoke it through
+**The shipped default is hidden, not protected. GitHub Secrets protects its
+pre-build storage, not the distributed application.** Sealing keeps the key out
+of plain sight: there is no text file to open, and `strings` or a secret
+scanner run over the download finds nothing. It is obfuscation, not
+encryption — the app has to open the seal to use the key, so the constants that
+undo it ship in the same download, and the key is also visible in the app's own
+network requests. Anyone determined can still use it outside Pomodoro, which is
+why the spending limit above is the real protection. v0.3.0 shipped the key as
+plain text in `openrouter-default-key.txt`; a key that was in that release
+stays exposed until it is revoked. Rotate/revoke it through
 OpenRouter; setting a replacement CI secret requires a new release and does not
 change already-installed copies. Old builds lose access if their key is revoked.
 

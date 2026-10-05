@@ -13,7 +13,7 @@
 #                               or the artifact will not run on Intel Macs)
 #   GOOGLE_OAUTH_CLIENT_JSON    OAuth client JSON, inline; baked into the app
 #   GOOGLE_OAUTH_CLIENT_FILE    ...or a path to the same JSON
-#   OPENROUTER_API_KEY          optional shared default; extractable from the app
+#   OPENROUTER_API_KEY          optional shared default; sealed, still recoverable
 set -eu
 
 ROOT=$(cd "$(dirname "$0")" && pwd)
@@ -103,8 +103,9 @@ else
 fi
 
 # Optional shared inference key, supplied by the release job through its
-# environment. It is intentionally extractable: use a dedicated capped key.
-python3 "$REPO/tools/bundle-openrouter-key.py" "$APP/Contents/Resources/openrouter-default-key.txt"
+# environment. It is sealed so it is not readable text in the bundle, but the
+# app can open it and so can anyone determined: use a dedicated capped key.
+python3 "$REPO/tools/bundle-openrouter-key.py" "$APP/Contents/Resources/build.dat"
 
 echo "==> Rendering icon"
 ICONSET=$(mktemp -d)/Pomodoro.iconset

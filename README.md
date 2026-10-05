@@ -202,7 +202,8 @@ through the child process environment, not a configuration file.
 
 A release may also bundle a shared OpenRouter default. Personal overrides take
 precedence, then a runtime `OPENROUTER_API_KEY`, then that default. The bundled
-key is extractable—not a confidential desktop credential. Release maintainers
+key is sealed rather than stored as readable text, but it is still
+recoverable—not a confidential desktop credential. Release maintainers
 must use a dedicated capped key; see [releasing](docs/releasing.md#optional-shared-openrouter-key).
 Google's OAuth client and refresh token remain in the files listed above.
 

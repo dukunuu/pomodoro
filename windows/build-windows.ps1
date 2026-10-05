@@ -12,7 +12,7 @@ Environment:
   ARCHS                       comma-separated: x64, arm64 (default both)
   GOOGLE_OAUTH_CLIENT_JSON    OAuth client JSON, inline; baked into the build
   GOOGLE_OAUTH_CLIENT_FILE    ...or a path to the same JSON
-  OPENROUTER_API_KEY          optional shared default; extractable from the app
+  OPENROUTER_API_KEY          optional shared default; sealed, still recoverable
 
 Windows on ARM runs x64 under emulation, so an x64-only release works
 everywhere but runs slowly on ARM devices. Both are published.
@@ -115,17 +115,22 @@ foreach ($arch in $archs) {
 
     # Never pass the key on MSBuild's command line or generate checked-in source.
     # Remove a stale default when republishing without a key into the same folder.
-    $keyDest = Join-Path $publish 'openrouter-default-key.txt'
-    $buildKey = if ($env:OPENROUTER_API_KEY) { $env:OPENROUTER_API_KEY.Trim() } else { '' }
-    if ($buildKey) {
-        if ($buildKey -match '[^\x21-\x7E]') { throw 'OPENROUTER_API_KEY must be a single ASCII token.' }
-        [IO.File]::WriteAllText($keyDest, $buildKey + "`n", [Text.UTF8Encoding]::new($false))
-        Write-Host '    shared OpenRouter build key included (extractable from the app)'
+    $keyDest = Join-Path $publish 'build.dat'
+    # A publish folder reused from before the key was sealed still holds it as text.
+    Remove-Item (Join-Path $publish 'openrouter-default-key.txt') -Force -ErrorAction SilentlyContinue
+    if ($env:OPENROUTER_API_KEY -and $env:OPENROUTER_API_KEY.Trim()) {
+        # The one sealing implementation is the Python tool the macOS build
+        # uses, which reads the key from the environment. Only a build that
+        # carries a key needs Python.
+        if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
+            throw 'python is required to seal OPENROUTER_API_KEY into the build'
+        }
+        python (Join-Path (Split-Path $root -Parent) 'tools/bundle-openrouter-key.py') $keyDest
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Path $keyDest)) { throw 'sealing the OpenRouter build key failed' }
     } else {
         if (Test-Path $keyDest) { Remove-Item $keyDest -Force }
         Write-Host '    no OpenRouter build key supplied; users provide their own'
     }
-    $buildKey = $null
 
     Invoke-Sign (Join-Path $publish 'Pomodoro.exe')
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Test optional key packaging and native precedence using synthetic keys only."""
 import argparse
+import base64
 import importlib.util
 import json
 import os
@@ -16,23 +17,38 @@ bundle_key = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(bundle_key)
 
 
+# Longer than two SHA-256 blocks, like a real key, so the keystream counter is exercised.
+LONG_KEY = 'synthetic-' + 'k' * 70
+# Empty, a pre-seal plain-text file, an unknown version, a bare header, and a tampered body.
+UNSEALABLE = [b'', b'synthetic-build-key\n', b'\x02' + bytes(40), b'\x01' + bytes(16), b'\x01' + bytes(40)]
+
+
 class PackagingTests(unittest.TestCase):
     def test_no_key_creates_no_file(self):
         with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / 'openrouter-default-key.txt'
+            path = Path(tmp) / 'build.dat'
             self.assertFalse(bundle_key.bundle(path, None))
             self.assertFalse(path.exists())
 
-    def test_key_is_trimmed_and_readable_for_installed_users(self):
+    def test_key_is_trimmed_sealed_and_readable_for_installed_users(self):
         with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / 'openrouter-default-key.txt'
+            path = Path(tmp) / 'build.dat'
             self.assertTrue(bundle_key.bundle(path, '  synthetic-build-key\n'))
-            self.assertEqual(path.read_text(), 'synthetic-build-key\n')
+            self.assertNotIn(b'synthetic', path.read_bytes())
+            self.assertEqual(bundle_key.unseal(path.read_bytes()), 'synthetic-build-key')
             if os.name != 'nt': self.assertEqual(path.stat().st_mode & 0o777, 0o644)
+
+    def test_seal_differs_per_build_and_spans_keystream_blocks(self):
+        self.assertNotEqual(bundle_key.seal(LONG_KEY), bundle_key.seal(LONG_KEY))
+        self.assertEqual(bundle_key.unseal(bundle_key.seal(LONG_KEY)), LONG_KEY)
+
+    def test_unseal_rejects_what_was_not_sealed(self):
+        for blob in UNSEALABLE:
+            with self.subTest(blob=blob): self.assertIsNone(bundle_key.unseal(blob))
 
     def test_rebuild_without_key_removes_stale_file(self):
         with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / 'openrouter-default-key.txt'
+            path = Path(tmp) / 'build.dat'
             bundle_key.bundle(path, 'synthetic-build-key')
             self.assertFalse(bundle_key.bundle(path, '   '))
             self.assertFalse(path.exists())
@@ -73,6 +89,10 @@ def native_tests(dotnet, swift):
         directory = Path(tmp)
         fixture = directory / 'cases.json'
         fixture.write_text(json.dumps(CASES))
+        # Blobs sealed by the packaging tool must open in each app, and nothing else may.
+        sealed = [[bundle_key.seal(key), key] for key in ['synthetic-build-key', LONG_KEY]] + [[blob, None] for blob in UNSEALABLE]
+        seals = directory / 'seals.json'
+        seals.write_text(json.dumps([[base64.b64encode(blob).decode(), key] for blob, key in sealed]))
         if swift:
             main = directory / 'main.swift'
             main.write_text('''import Foundation
@@ -82,12 +102,17 @@ for row in cases {
     let got = OpenRouterCredentials.select(stored: row[0] as? String, environment: row[1] as? String, bundled: row[2] as? String)
     precondition(got == row[3] as? String, "Credential precedence differs")
 }
-print("12 Swift credential cases pass")
+let seals = try JSONSerialization.jsonObject(with: Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[2]))) as! [[Any]]
+for row in seals {
+    let got = OpenRouterCredentials.unseal(Data(base64Encoded: row[0] as! String)!)
+    precondition(got == row[1] as? String, "Sealed key differs")
+}
+print("12 Swift credential cases and \\(seals.count) seal cases pass")
 ''')
             binary = directory / 'credentials-test'
             subprocess.run(['swiftc', str(ROOT / 'macos/Sources/Pomodoro/Core/SecretStore.swift'),
                             str(ROOT / 'macos/Sources/Pomodoro/Core/OpenRouterCredentials.swift'), str(main), '-o', str(binary)], check=True)
-            subprocess.run([str(binary), str(fixture)], check=True)
+            subprocess.run([str(binary), str(fixture), str(seals)], check=True)
         if dotnet:
             project = directory / 'Credentials.csproj'
             core = ROOT / 'windows/src/Pomodoro.Core/Pomodoro.Core.csproj'
@@ -100,12 +125,16 @@ var cases = JsonSerializer.Deserialize<List<string?[]>>(File.ReadAllText(args[0]
 foreach (var row in cases)
     if (OpenRouterCredentials.Select(row[0], row[1], row[2]) != row[3])
         throw new Exception("Credential precedence differs");
-Console.WriteLine("12 C# credential cases pass");
+var seals = JsonSerializer.Deserialize<List<string?[]>>(File.ReadAllText(args[1]))!;
+foreach (var row in seals)
+    if (OpenRouterCredentials.Unseal(Convert.FromBase64String(row[0]!)) != row[1])
+        throw new Exception("Sealed key differs");
+Console.WriteLine($"12 C# credential cases and {seals.Count} seal cases pass");
 ''')
             env = {**os.environ, 'DOTNET_CLI_TELEMETRY_OPTOUT': '1', 'DOTNET_GENERATE_ASPNET_CERTIFICATE': 'false'}
             subprocess.run([dotnet, 'build', str(project), '-c', 'Release', '--nologo', '-v', 'quiet',
                             '--disable-build-servers', '-m:1'], check=True, env=env)
-            subprocess.run([dotnet, str(directory / 'bin/Release/net8.0/Credentials.dll'), str(fixture)], check=True, env=env)
+            subprocess.run([dotnet, str(directory / 'bin/Release/net8.0/Credentials.dll'), str(fixture), str(seals)], check=True, env=env)
 
 
 if __name__ == '__main__':
