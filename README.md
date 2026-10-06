@@ -156,9 +156,14 @@ never invents category names or worklog text. Offline tests cover request
 routing, legacy settings, custom categories, exclusions, aliases, focus
 restoration, and event accounting—not live accuracy or performance.
 
-**Focus project picker** on Today loads active Whistler projects, so you can pick
-what you’re working on without typing. It saves a visible Calendar tag (for
-example `[quotomy] Focus time`) backed by an account-scoped project-ID alias.
+**Focus project picker** on Today and in the menu-bar/tray popup loads active
+Whistler projects, so you can pick what you’re working on without typing.
+On macOS, open the menu-bar popover; on Windows, left-click the tray icon (or
+right-click → **Edit focus project / note…**). Both offer a project picker and
+an always-visible custom note field. Press Enter or Save to keep the note;
+the popup and dashboard edit the same focus session. Picking a project saves a
+visible Calendar tag (for example `[quotomy] Focus time`) backed by an
+account-scoped project-ID alias.
 Project renames preserve previous labels; duplicate names are disambiguated
 instead of retargeting another project’s alias. The selected label is used when
 the in-progress Calendar event is created and when the session finishes. You can

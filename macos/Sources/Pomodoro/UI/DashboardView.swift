@@ -140,6 +140,17 @@ struct DashboardView: View {
 
 /// Pick a project without typing; optional notes remain available.
 struct NoteCard: View {
+    var body: some View {
+        Card("Focus", symbol: "scope",
+             subtitle: "Pick a project to save its Calendar label automatically, or continue previous work with unnamed focus. The choice applies to this whole focus session; a note is optional.") {
+            FocusEditor()
+        }
+    }
+}
+
+/// Shared by Today and the menu-bar popover so both edit the same session.
+struct FocusEditor: View {
+    var compact = false
     @EnvironmentObject private var service: PomodoroService
     @EnvironmentObject private var whistler: WhistlerService
     @State private var draft = ""
@@ -172,8 +183,7 @@ struct NoteCard: View {
     }
 
     var body: some View {
-        Card("Focus", symbol: "scope",
-             subtitle: "Pick a project to save its Calendar label automatically, or continue previous work with unnamed focus. The choice applies to this whole focus session; a note is optional.") {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 MenuField(label: "Project", value: selectionTitle, icon: selectionIcon) {
                     Picker("Project", selection: Binding(get: { selection }, set: { choose($0) })) {
@@ -206,18 +216,17 @@ struct NoteCard: View {
             if !whistler.mappingProjectsMessage.isEmpty && !whistler.mappingProjectsLoading {
                 Notice(.info, whistler.mappingProjectsMessage)
             }
-            Disclosure("Focus note", detail: "Optional", isExpanded: $noteExpanded) {
-                HStack(spacing: 8) {
-                    FieldChrome(icon: "text.alignleft", focused: focused) {
-                        TextField("Focus note", text: $draft, prompt: Text("What are you working on?"))
-                            .focused($focused)
-                            .onSubmit { service.saveActiveNote(draft) }
-                    }
-                    .disabled(service.phase != .focus)
-                    Button("Save") { service.saveActiveNote(draft) }
-                        .buttonStyle(.secondary)
-                        .disabled(service.phase != .focus || !dirty)
+            if compact {
+                noteField
+            } else {
+                Disclosure("Focus note", detail: "Optional", isExpanded: $noteExpanded) {
+                    noteField
                 }
+            }
+            if compact && !WhistlerConfig.isSignedIn {
+                Text("Sign in to Whistler to pick a project. Custom notes are still available.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
         .onAppear {
@@ -232,9 +241,34 @@ struct NoteCard: View {
         }
         .onChange(of: whistler.mappingProjects) { _, _ in syncSelection() }
         .onChange(of: service.activeNote) { _, value in
-            if !focused { draft = value }
+            draft = value
             syncSelection()
         }
+        .onChange(of: service.phase) { _, _ in
+            focused = false
+            draft = service.activeNote
+            syncSelection()
+        }
+    }
+
+    private var noteField: some View {
+        HStack(spacing: 8) {
+            FieldChrome(icon: "text.alignleft", focused: focused) {
+                TextField("Focus note", text: $draft, prompt: Text("What are you working on?"))
+                    .focused($focused)
+                    .onSubmit { saveNote() }
+            }
+            .disabled(service.phase != .focus)
+            Button("Save", action: saveNote)
+                .buttonStyle(.secondary)
+                .disabled(service.phase != .focus || !dirty)
+        }
+    }
+
+    private func saveNote() {
+        guard service.phase == .focus else { return }
+        service.saveActiveNote(draft)
+        draft = service.activeNote
     }
 
     private func syncSelection() {

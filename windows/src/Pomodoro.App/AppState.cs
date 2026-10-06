@@ -21,6 +21,7 @@ public sealed class AppState
     private DispatcherQueueTimer? _minute;
     private MainWindow? _dashboard;
     private FloatingTimerWindow? _floating;
+    private TrayPanelWindow? _trayPanel;
     private TrayIcon? _tray;
     private string _lastTooltip = string.Empty;
 
@@ -80,6 +81,7 @@ public sealed class AppState
         // to the UI thread before touching the service or any window.
         void OnUi(Action action) => _dispatcher.TryEnqueue(() => action());
         _tray.OpenRequested += () => OnUi(ShowDashboard);
+        _tray.FocusRequested += () => OnUi(ShowTrayPanel);
         _tray.ToggleRequested += () => OnUi(Service.Toggle);
         _tray.SkipRequested += () => OnUi(Service.Skip);
         _tray.ResetRequested += () => OnUi(Service.Reset);
@@ -168,6 +170,8 @@ public sealed class AppState
         _tray = null;
         _floating?.Close();
         _floating = null;
+        _trayPanel?.Close();
+        _trayPanel = null;
         Notifier.Unregister();
     }
 
@@ -176,8 +180,20 @@ public sealed class AppState
         _quitting = true;
         _tray?.Dispose();
         _tray = null;
+        _trayPanel?.Close();
+        _trayPanel = null;
         Notifier.Unregister();
         Microsoft.UI.Xaml.Application.Current.Exit();
+    }
+
+    private void ShowTrayPanel()
+    {
+        if (_trayPanel is null)
+        {
+            _trayPanel = new TrayPanelWindow();
+            _trayPanel.Closed += (_, _) => _trayPanel = null;
+        }
+        _trayPanel.ShowNearTray();
     }
 
     public void ShowDashboard()

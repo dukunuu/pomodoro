@@ -34,6 +34,7 @@ public sealed class TrayIcon : IDisposable
     private const int IdReset = 4;
     private const int IdFloating = 5;
     private const int IdQuit = 6;
+    private const int IdFocus = 7;
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     private struct NotifyIconData
@@ -136,6 +137,7 @@ public sealed class TrayIcon : IDisposable
 
     /// <summary>Raised on the UI thread's behalf; handlers must marshal.</summary>
     public event Action? OpenRequested;
+    public event Action? FocusRequested;
     public event Action? ToggleRequested;
     public event Action? SkipRequested;
     public event Action? ResetRequested;
@@ -210,7 +212,7 @@ public sealed class TrayIcon : IDisposable
         {
             case TrayCallback:
                 var mouse = lParam.ToInt32();
-                if (mouse == WmLButtonUp) OpenRequested?.Invoke();
+                if (mouse == WmLButtonUp) FocusRequested?.Invoke();
                 else if (mouse == WmRButtonUp) ShowMenu();
                 return IntPtr.Zero;
 
@@ -231,6 +233,7 @@ public sealed class TrayIcon : IDisposable
         if (menu == IntPtr.Zero) return;
         try
         {
+            AppendMenu(menu, MfString, IdFocus, "Edit focus project / note…");
             AppendMenu(menu, MfString, IdOpen, "Open dashboard");
             AppendMenu(menu, MfString, IdToggle, "Start / pause");
             AppendMenu(menu, MfString, IdSkip, "Skip phase");
@@ -259,6 +262,7 @@ public sealed class TrayIcon : IDisposable
     {
         switch (command)
         {
+            case IdFocus: FocusRequested?.Invoke(); break;
             case IdOpen: OpenRequested?.Invoke(); break;
             case IdToggle: ToggleRequested?.Invoke(); break;
             case IdSkip: SkipRequested?.Invoke(); break;

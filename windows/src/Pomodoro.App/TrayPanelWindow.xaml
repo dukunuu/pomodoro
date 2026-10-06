@@ -1,0 +1,32 @@
+<Window
+    x:Class="Pomodoro.App.TrayPanelWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer x:Name="Root" RequestedTheme="Dark" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="12" Padding="16">
+            <TextBlock x:Name="PhaseLabel" FontWeight="SemiBold" />
+            <TextBlock x:Name="Clock" FontSize="36" FontWeight="SemiBold" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button x:Name="ToggleButton" Content="Start" Click="OnToggle" />
+                <Button Content="Skip" Click="OnSkip" />
+                <Button Content="Reset" Click="OnReset" />
+            </StackPanel>
+            <Grid ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <ComboBox x:Name="ProjectPicker" Header="Focus project" HorizontalAlignment="Stretch"
+                          SelectionChanged="OnProjectChanged" />
+                <Button x:Name="ReloadButton" Grid.Column="1" Content="↻" VerticalAlignment="Bottom"
+                        Click="OnReload" AutomationProperties.Name="Reload projects"
+                        ToolTipService.ToolTip="Reload projects from Whistler" />
+            </Grid>
+            <TextBox x:Name="NoteBox" Header="Focus note (optional)" PlaceholderText="What are you working on?"
+                     KeyDown="OnNoteKeyDown" TextChanged="OnNoteChanged" />
+            <Button x:Name="SaveButton" Content="Save note" Click="OnSave" />
+            <TextBlock x:Name="ProjectStatus" FontSize="12" TextWrapping="Wrap" />
+            <Button Content="Open dashboard" Click="OnOpenDashboard" HorizontalAlignment="Stretch" />
+        </StackPanel>
+    </ScrollViewer>
+</Window>

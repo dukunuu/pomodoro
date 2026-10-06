@@ -68,12 +68,15 @@ struct MenuBarPanel: View {
                 .padding(.top, 10)
             transport
             Divider().padding(.horizontal, 14).padding(.vertical, 12)
+            FocusEditor(compact: true)
+                .padding(.horizontal, 14)
+            Divider().padding(.horizontal, 14).padding(.vertical, 12)
             stats
             Divider().padding(.horizontal, 14).padding(.vertical, 12)
             actions
         }
         .padding(.vertical, 12)
-        .frame(width: 280)
+        .frame(width: 320)
         // No background of its own: the menu bar window already carries the
         // system's popover vibrancy, and painting over it is what made this
         // read as a custom panel rather than a menu.

@@ -69,7 +69,7 @@ enum Snapshot {
         capture("settings", size: CGSize(width: 800, height: 1260), SnapshotTab(tab: .settings))
         capture("floating", size: CGSize(width: 260, height: 120),
                 FloatingTimerView(service: state.service, onOpenDashboard: {}).padding(12))
-        capture("menubar", size: CGSize(width: 300, height: 430), MenuBarPanel())
+        capture("menubar", size: CGSize(width: 340, height: 590), MenuBarPanel())
         capture("sheet-sign-in", size: CGSize(width: 460, height: 460), WhistlerCredentialsSheet())
         capture("sheet-api-key", size: CGSize(width: 480, height: 300), AIKeySheet(replacing: false) {})
         capture("sheet-google-client", size: CGSize(width: 480, height: 440),
