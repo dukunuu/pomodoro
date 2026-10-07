@@ -86,7 +86,11 @@ struct WhistlerAccountSection: View {
 struct ProjectMappingSection: View {
     @EnvironmentObject private var integrations: IntegrationStatus
     @State private var keySource: OpenRouterCredentials.Source = .missing
+    @State private var fallbackSource: OpenRouterCredentials.Source = .missing
     @State private var showingKey = false
+    @State private var confirmingKeyRemoval = false
+    @State private var keyMessage: String?
+    @State private var keyRemovalFailed = false
     private var hasStoredKey: Bool { keySource == .stored }
     private var hasKey: Bool { keySource != .missing }
     private var keyDescription: String {
@@ -98,6 +102,23 @@ struct ProjectMappingSection: View {
         }
     }
 
+    private var removeKeyAction: String {
+        switch fallbackSource {
+        case .bundled: "Use Built-in Key…"
+        case .environment: "Use Environment Key…"
+        default: "Remove Key…"
+        }
+    }
+
+    private var removalMessage: String {
+        let fallback = switch fallbackSource {
+        case .bundled: "Pomodoro will use the built-in shared key."
+        case .environment: "Pomodoro will use OPENROUTER_API_KEY from the environment."
+        default: "This build has no default key. Sending will be unavailable until you add another key."
+        }
+        return "Your personal key will be removed from Keychain. \(fallback) Your Whistler sign-in and mapping settings are kept. This does not revoke the key on OpenRouter."
+    }
+
     var body: some View {
         Card("Project mapping", symbol: "arrow.triangle.branch",
              subtitle: "Jev maps Calendar events to your Whistler projects using your aliases and skip rules. Configure those in Whistler. Hours and worklog text are assembled locally; there is no model to choose.") {
@@ -105,17 +126,23 @@ struct ProjectMappingSection: View {
                        icon: "cpu", tint: Theme.longBreak) {
                 StatusPill(text: "Jev", tint: Theme.accent)
             }
-            if hasKey {
+            if hasKey && !hasStoredKey {
                 Disclosure("Advanced") { apiKeyConfiguration }
             } else {
                 RowDivider()
                 apiKeyConfiguration
             }
+            if let keyMessage { Notice(keyRemovalFailed ? .error : .success, keyMessage) }
         }
         .onAppear(perform: load)
         .onChange(of: integrations.whistler) { _, _ in load() }
+        .confirmationDialog("Remove personal API key?", isPresented: $confirmingKeyRemoval, titleVisibility: .visible) {
+            Button("Remove Personal Key", role: .destructive, action: removeKey)
+        } message: {
+            Text(removalMessage)
+        }
         .sheet(isPresented: $showingKey) {
-            AIKeySheet(replacing: hasStoredKey) { integrations.refresh(); load() }
+            AIKeySheet(replacing: hasStoredKey) { keyMessage = nil; integrations.refresh(); load() }
         }
     }
 
@@ -124,12 +151,34 @@ struct ProjectMappingSection: View {
                    subtitle: keyDescription,
                    icon: hasKey ? "key.fill" : "key.slash",
                    tint: hasKey ? .secondary : Theme.urgent) {
+            if hasStoredKey {
+                Button(removeKeyAction) { confirmingKeyRemoval = true }
+                    .buttonStyle(.secondary)
+            }
             Button(hasStoredKey ? "Replace Key…" : hasKey ? "Use Own Key…" : "Add Key…") { showingKey = true }
                 .buttonStyle(AppButtonStyle(kind: hasKey ? .secondary : .primary))
         }
     }
 
-    private func load() { keySource = OpenRouterCredentials.source }
+    private func load() {
+        keySource = OpenRouterCredentials.source
+        fallbackSource = OpenRouterCredentials.fallbackSource
+    }
+
+    private func removeKey() {
+        keyRemovalFailed = !OpenRouterCredentials.removeStoredKey()
+        integrations.refresh()
+        load()
+        if keyRemovalFailed {
+            keyMessage = "Could not remove the personal key from Keychain. Unlock your login Keychain and try again."
+        } else {
+            keyMessage = switch keySource {
+            case .bundled: "Personal API key removed. Using the built-in shared key."
+            case .environment: "Personal API key removed. Using the environment key."
+            default: "Personal API key removed. Add a key to send worklogs."
+            }
+        }
+    }
 }
 
 /// Optional personal override; never changes the fixed mapping engine or Whistler session.

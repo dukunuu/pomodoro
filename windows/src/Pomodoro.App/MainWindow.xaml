@@ -558,8 +558,13 @@
                                             <TextBlock x:Name="KeyRowTitle" Text="Personal API key override" Style="{StaticResource RowTitle}" />
                                             <TextBlock x:Name="KeyStatusText" Style="{StaticResource RowDescription}" />
                                         </StackPanel>
-                                        <Button Grid.Column="2" x:Name="KeyButton" Content="Replace key…"
-                                                Click="OnReplaceKey" VerticalAlignment="Center" />
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8"
+                                                    VerticalAlignment="Center">
+                                            <Button x:Name="RemoveKeyButton" Content="Use built-in key…"
+                                                    Click="OnRemoveKey" Visibility="Collapsed" />
+                                            <Button x:Name="KeyButton" Content="Replace key…"
+                                                    Click="OnReplaceKey" />
+                                        </StackPanel>
                                     </Grid>
                                 </Border>
                             </Expander>

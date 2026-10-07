@@ -87,10 +87,15 @@ public static class SecretStore
         }
     }
 
-    public static void Delete(string key)
+    /// <summary>A missing credential is already removed; other failures are reported.</summary>
+    public static bool Delete(string key)
     {
-        try { CredDelete(Prefix + key, GenericCredential, 0); }
-        catch (Exception) { /* nothing stored under that name */ }
+        try
+        {
+            return CredDelete(Prefix + key, GenericCredential, 0)
+                || Marshal.GetLastWin32Error() == 1168; // ERROR_NOT_FOUND
+        }
+        catch (Exception) { return false; }
     }
 
     private const uint GenericCredential = 1;

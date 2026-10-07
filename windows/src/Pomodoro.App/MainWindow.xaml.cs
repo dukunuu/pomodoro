@@ -21,7 +21,7 @@ public sealed partial class MainWindow : Window
     private int _monthOffset;
     private bool _loadingPreferences;
     private bool _sending;
-    private bool? _keySetupWasMissing;
+    private bool? _keyControlsWereExpanded;
     private int _monthGeneration;
     private List<WhistlerProject> _focusProjects = [];
     private string _focusScope = string.Empty;
@@ -588,10 +588,12 @@ public sealed partial class MainWindow : Window
 
         var keySource = OpenRouterCredentials.Source;
         var missingKey = keySource == OpenRouterCredentials.KeySource.Missing;
-        ApiKeyAdvanced.Header = missingKey ? "OpenRouter setup" : "Advanced";
+        var storedKey = keySource == OpenRouterCredentials.KeySource.Stored;
+        ApiKeyAdvanced.Header = missingKey ? "OpenRouter setup" : storedKey ? "Personal API key" : "Advanced";
         KeyRowTitle.Text = missingKey ? "OpenRouter API key" : "Personal API key override";
-        if (_keySetupWasMissing != missingKey) ApiKeyAdvanced.IsExpanded = missingKey;
-        _keySetupWasMissing = missingKey;
+        var expandKeyControls = missingKey || storedKey;
+        if (_keyControlsWereExpanded != expandKeyControls) ApiKeyAdvanced.IsExpanded = expandKeyControls;
+        _keyControlsWereExpanded = expandKeyControls;
         KeyStatusText.Text = keySource switch
         {
             OpenRouterCredentials.KeySource.Stored => "Stored in Windows Credential Manager",
@@ -599,8 +601,14 @@ public sealed partial class MainWindow : Window
             OpenRouterCredentials.KeySource.Bundled => "Provided by this build — shared key",
             _ => "Not set — sending is unavailable"
         };
-        KeyButton.Content = keySource == OpenRouterCredentials.KeySource.Stored ? "Replace key…"
-            : keySource == OpenRouterCredentials.KeySource.Missing ? "Add key…" : "Use own key…";
+        KeyButton.Content = storedKey ? "Replace key…" : missingKey ? "Add key…" : "Use own key…";
+        RemoveKeyButton.Visibility = storedKey ? Visibility.Visible : Visibility.Collapsed;
+        RemoveKeyButton.Content = OpenRouterCredentials.FallbackSource switch
+        {
+            OpenRouterCredentials.KeySource.Bundled => "Use built-in key…",
+            OpenRouterCredentials.KeySource.Environment => "Use environment key…",
+            _ => "Remove key…"
+        };
 
         // Leave a half-typed calendar ID alone.
         if (CalendarBox.FocusState == FocusState.Unfocused) CalendarBox.Text = settings.CalendarId;
@@ -655,6 +663,42 @@ public sealed partial class MainWindow : Window
 
         ReportAccount(replacing ? "API key replaced." : "API key saved.", InfoBarSeverity.Success);
         Integrations.Refresh();
+    }
+
+    private async void OnRemoveKey(object sender, RoutedEventArgs e)
+    {
+        var fallback = OpenRouterCredentials.FallbackSource switch
+        {
+            OpenRouterCredentials.KeySource.Bundled => "Pomodoro will use the built-in shared key.",
+            OpenRouterCredentials.KeySource.Environment => "Pomodoro will use OPENROUTER_API_KEY from the environment.",
+            _ => "This build has no default key. Sending will be unavailable until you add another key."
+        };
+        var confirm = new ContentDialog
+        {
+            XamlRoot = Content.XamlRoot,
+            Title = "Remove personal API key?",
+            Content = "Your personal key will be removed from Windows Credential Manager. " + fallback
+                    + " Your Whistler sign-in and mapping settings are kept. This does not revoke the key on OpenRouter.",
+            PrimaryButtonText = "Remove personal key",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close
+        };
+        if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
+
+        var removed = OpenRouterCredentials.RemoveStoredKey();
+        Integrations.Refresh();
+        if (!removed)
+        {
+            ReportAccount("Could not remove the personal key from Windows Credential Manager. Try again.",
+                InfoBarSeverity.Error);
+            return;
+        }
+        ReportAccount(OpenRouterCredentials.Source switch
+        {
+            OpenRouterCredentials.KeySource.Bundled => "Personal API key removed. Using the built-in shared key.",
+            OpenRouterCredentials.KeySource.Environment => "Personal API key removed. Using the environment key.",
+            _ => "Personal API key removed. Add a key to send worklogs."
+        }, InfoBarSeverity.Success);
     }
 
     private void OnSaveCalendar(object sender, RoutedEventArgs e) => SaveCalendar();

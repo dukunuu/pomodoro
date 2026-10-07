@@ -105,9 +105,15 @@ After setup, each piece changes on its own in **Settings**, on both platforms:
 - **Project mapping** — Jev is the fixed decision engine; there is no model
   picker. Configure project aliases, skip rules, and additional mapping instructions.
 - **OpenRouter API key** — a release can provide a shared default, so no key
-  entry is needed. The optional personal-key override lives under *Advanced*;
-  *Use Own Key…* stores it after validation. The key source is shown there. Source builds without a
-  default still ask for a key. A failed check leaves the old key intact.
+  entry is needed. *Advanced → Use Own Key…* stores a personal override after
+  validation. When a personal key is saved, its controls are shown directly;
+  *Use Built-in Key…* removes it from the OS keystore and switches back to the
+  shared default, without changing your Whistler sign-in or mapping settings.
+  A runtime environment key still takes precedence over the built-in default.
+  Without a fallback, *Remove Key…* warns that sending will be unavailable until
+  you add another key. Removing a saved key does not revoke it on OpenRouter;
+  use [OpenRouter’s key settings](https://openrouter.ai/settings/keys) for that.
+  The active key source is shown in Settings. A failed check leaves the old key intact.
 
 **Mapping instructions** is the primary editor: describe aliases, exclusions,
 and category preferences in plain language. Jev receives these instructions
@@ -201,8 +207,9 @@ builder enforces.
 `POMODORO_DATA_DIR` overrides the location on both platforms.
 
 The Whistler session token and personal OpenRouter overrides are held in the
-login Keychain on macOS and Credential Manager on Windows, where they can be
-inspected and revoked outside the app. macOS hands them to the Python bridges
+login Keychain on macOS and Credential Manager on Windows. Personal keys can be
+removed in Settings; both credentials can also be inspected and removed from
+the OS keystore outside the app. macOS hands them to the Python bridges
 through the child process environment, not a configuration file.
 
 A release may also bundle a shared OpenRouter default. Personal overrides take

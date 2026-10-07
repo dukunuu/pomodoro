@@ -20,10 +20,17 @@ public static class OpenRouterCredentials
         get
         {
             if (Clean(SecretStore.Read(SecretStore.OpenRouterKey)) is not null) return KeySource.Stored;
-            if (Clean(System.Environment.GetEnvironmentVariable("OPENROUTER_API_KEY")) is not null) return KeySource.Environment;
-            return BundledKey() is null ? KeySource.Missing : KeySource.Bundled;
+            return FallbackSource;
         }
     }
+
+    /// <summary>The source after removing the personal override, preserving runtime precedence.</summary>
+    public static KeySource FallbackSource =>
+        Clean(System.Environment.GetEnvironmentVariable("OPENROUTER_API_KEY")) is not null
+            ? KeySource.Environment : BundledKey() is null ? KeySource.Missing : KeySource.Bundled;
+
+    /// <summary>Removes only the personal override, never the Whistler session or mapping settings.</summary>
+    public static bool RemoveStoredKey() => SecretStore.Delete(SecretStore.OpenRouterKey);
 
     public static bool Has => Source != KeySource.Missing;
 

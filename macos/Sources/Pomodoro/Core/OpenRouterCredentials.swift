@@ -17,9 +17,17 @@ enum OpenRouterCredentials {
 
     static var source: Source {
         if clean(SecretStore.read(SecretStore.openRouterKey)) != nil { return .stored }
+        return fallbackSource
+    }
+
+    /// What will be used once the personal override is removed, preserving runtime precedence.
+    static var fallbackSource: Source {
         if clean(ProcessInfo.processInfo.environment["OPENROUTER_API_KEY"]) != nil { return .environment }
         return bundledKey == nil ? .missing : .bundled
     }
+
+    /// Removes only the personal override, never the Whistler session or mapping settings.
+    static func removeStoredKey() -> Bool { SecretStore.delete(SecretStore.openRouterKey) }
 
     static var has: Bool { source != .missing }
 

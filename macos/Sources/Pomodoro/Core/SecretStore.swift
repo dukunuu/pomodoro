@@ -33,7 +33,7 @@ enum SecretStore {
     /// Storing an empty value removes the item.
     @discardableResult
     static func write(_ key: String, _ value: String) -> Bool {
-        guard !value.isEmpty else { delete(key); return true }
+        guard !value.isEmpty else { return delete(key) }
 
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -53,11 +53,14 @@ enum SecretStore {
         return SecItemAdd(insert as CFDictionary, nil) == errSecSuccess
     }
 
-    static func delete(_ key: String) {
-        SecItemDelete([
+    /// A missing item is already removed; other Keychain failures must be reported.
+    @discardableResult
+    static func delete(_ key: String) -> Bool {
+        let status = SecItemDelete([
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: key
         ] as CFDictionary)
+        return status == errSecSuccess || status == errSecItemNotFound
     }
 }

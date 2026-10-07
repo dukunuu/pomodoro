@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Test optional key packaging and native precedence using synthetic keys only."""
+"""Test key packaging, precedence, and personal-override removal using synthetic keys only."""
 import argparse
 import base64
 import importlib.util
@@ -84,6 +84,19 @@ CASES = [
 ]
 
 
+# Fallbacks after removal, including source builds and invalid environment/build defaults.
+REMOVALS = [
+    [None, 'synthetic-build-key', 'bundled', 'synthetic-build-key'],
+    ['synthetic-env-key', 'synthetic-build-key', 'environment', 'synthetic-env-key'],
+    ['synthetic-env-key', None, 'environment', 'synthetic-env-key'],
+    [None, None, 'missing', None],
+    ['bad key', 'synthetic-build-key', 'bundled', 'synthetic-build-key'],
+    [None, 'bad key', 'missing', None],
+    [' \n', None, 'missing', None],
+    ['bad\nkey', None, 'missing', None]
+]
+
+
 def native_tests(dotnet, swift):
     with tempfile.TemporaryDirectory() as tmp:
         directory = Path(tmp)
@@ -93,6 +106,10 @@ def native_tests(dotnet, swift):
         sealed = [[bundle_key.seal(key), key] for key in ['synthetic-build-key', LONG_KEY]] + [[blob, None] for blob in UNSEALABLE]
         seals = directory / 'seals.json'
         seals.write_text(json.dumps([[base64.b64encode(blob).decode(), key] for blob, key in sealed]))
+        removals = directory / 'removals.json'
+        removals.write_text(json.dumps([
+            [environment, base64.b64encode(bundle_key.seal(bundled)).decode() if bundled is not None else None, source, key]
+            for environment, bundled, source, key in REMOVALS]))
         if swift:
             main = directory / 'main.swift'
             main.write_text('''import Foundation
@@ -107,18 +124,60 @@ for row in seals {
     let got = OpenRouterCredentials.unseal(Data(base64Encoded: row[0] as! String)!)
     precondition(got == row[1] as? String, "Sealed key differs")
 }
-print("12 Swift credential cases and \\(seals.count) seal cases pass")
+let removals = try JSONSerialization.jsonObject(with: Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[3]))) as! [[Any]]
+let sources: [String: OpenRouterCredentials.Source] = ["bundled": .bundled, "environment": .environment, "missing": .missing]
+let bundledURL = Bundle.main.resourceURL!.appendingPathComponent(OpenRouterCredentials.bundledFilename)
+for row in removals {
+    if let environment = row[0] as? String { setenv("OPENROUTER_API_KEY", environment, 1) }
+    else { unsetenv("OPENROUTER_API_KEY") }
+    if let blob = row[1] as? String { try Data(base64Encoded: blob)!.write(to: bundledURL) }
+    else { try? FileManager.default.removeItem(at: bundledURL) }
+    let fallback = sources[row[2] as! String]!
+    for failDeletion in [false, true] {
+        let original = [SecretStore.openRouterKey: "synthetic-personal-key", "whistler-session": "synthetic-session", "whistler-password": "synthetic-password"]
+        SecretStore.values = original
+        SecretStore.failDeletion = failDeletion
+        SecretStore.deleted = []
+        precondition(OpenRouterCredentials.source == .stored && OpenRouterCredentials.read == "synthetic-personal-key")
+        precondition(OpenRouterCredentials.fallbackSource == fallback, "Wrong removal fallback")
+        precondition(OpenRouterCredentials.removeStoredKey() == !failDeletion, "Deletion failure was ignored")
+        precondition(SecretStore.deleted == [SecretStore.openRouterKey], "Removal touched other credentials")
+        var expected = original
+        if !failDeletion { expected.removeValue(forKey: SecretStore.openRouterKey) }
+        precondition(SecretStore.values == expected, "Removal changed unrelated secrets or discarded a failed key")
+        precondition(OpenRouterCredentials.source == (failDeletion ? .stored : fallback))
+        precondition(OpenRouterCredentials.read == (failDeletion ? "synthetic-personal-key" : row[3] as? String))
+        precondition(OpenRouterCredentials.has == (failDeletion || fallback != .missing))
+        if !failDeletion { precondition(OpenRouterCredentials.removeStoredKey(), "Removal must be idempotent") }
+    }
+}
+print("12 Swift credential cases, \\(seals.count) seal cases and \\(removals.count * 2) override-removal cases pass")
+
+// Keep the removal tests away from the user's real Keychain.
+enum SecretStore {
+    static let openRouterKey = "openrouter-key"
+    static var values: [String: String] = [:]
+    static var failDeletion = false
+    static var deleted: [String] = []
+    static func read(_ key: String) -> String? { values[key] }
+    static func delete(_ key: String) -> Bool {
+        deleted.append(key)
+        guard !failDeletion else { return false }
+        values.removeValue(forKey: key)
+        return true
+    }
+}
 ''')
             binary = directory / 'credentials-test'
-            subprocess.run(['swiftc', str(ROOT / 'macos/Sources/Pomodoro/Core/SecretStore.swift'),
-                            str(ROOT / 'macos/Sources/Pomodoro/Core/OpenRouterCredentials.swift'), str(main), '-o', str(binary)], check=True)
-            subprocess.run([str(binary), str(fixture), str(seals)], check=True)
+            subprocess.run(['swiftc', str(ROOT / 'macos/Sources/Pomodoro/Core/OpenRouterCredentials.swift'),
+                            str(main), '-o', str(binary)], check=True)
+            subprocess.run([str(binary), str(fixture), str(seals), str(removals)], check=True)
         if dotnet:
             project = directory / 'Credentials.csproj'
-            core = ROOT / 'windows/src/Pomodoro.Core/Pomodoro.Core.csproj'
+            credentials = ROOT / 'windows/src/Pomodoro.Core/OpenRouterCredentials.cs'
             project.write_text(f'''<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType>
 <TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup>
-<ItemGroup><ProjectReference Include="{core}" /></ItemGroup></Project>''')
+<ItemGroup><Compile Include="{credentials}" /></ItemGroup></Project>''')
             (directory / 'Program.cs').write_text('''using System.Text.Json;
 using Pomodoro.Core;
 var cases = JsonSerializer.Deserialize<List<string?[]>>(File.ReadAllText(args[0]))!;
@@ -129,12 +188,62 @@ var seals = JsonSerializer.Deserialize<List<string?[]>>(File.ReadAllText(args[1]
 foreach (var row in seals)
     if (OpenRouterCredentials.Unseal(Convert.FromBase64String(row[0]!)) != row[1])
         throw new Exception("Sealed key differs");
-Console.WriteLine($"12 C# credential cases and {seals.Count} seal cases pass");
+var removals = JsonSerializer.Deserialize<List<string?[]>>(File.ReadAllText(args[2]))!;
+var bundledPath = Path.Combine(AppContext.BaseDirectory, OpenRouterCredentials.BundledFilename);
+foreach (var row in removals)
+{
+    Environment.SetEnvironmentVariable("OPENROUTER_API_KEY", row[0]);
+    if (row[1] is not null) File.WriteAllBytes(bundledPath, Convert.FromBase64String(row[1]!));
+    else File.Delete(bundledPath);
+    var fallback = Enum.Parse<OpenRouterCredentials.KeySource>(row[2]!, ignoreCase: true);
+    foreach (var failDeletion in new[] { false, true })
+    {
+        var original = new Dictionary<string, string> { [SecretStore.OpenRouterKey] = "synthetic-personal-key",
+            ["whistler-session"] = "synthetic-session", ["whistler-password"] = "synthetic-password" };
+        SecretStore.Values = new(original);
+        SecretStore.FailDeletion = failDeletion;
+        SecretStore.Deleted.Clear();
+        if (OpenRouterCredentials.Source != OpenRouterCredentials.KeySource.Stored || OpenRouterCredentials.Read() != "synthetic-personal-key")
+            throw new Exception("Stored key must take precedence");
+        if (OpenRouterCredentials.FallbackSource != fallback) throw new Exception("Wrong removal fallback");
+        if (OpenRouterCredentials.RemoveStoredKey() == failDeletion) throw new Exception("Deletion failure was ignored");
+        if (!SecretStore.Deleted.SequenceEqual(new[] { SecretStore.OpenRouterKey })) throw new Exception("Removal touched other credentials");
+        if (!failDeletion) original.Remove(SecretStore.OpenRouterKey);
+        if (SecretStore.Values.Count != original.Count || original.Any(v => !SecretStore.Values.TryGetValue(v.Key, out var value) || value != v.Value))
+            throw new Exception("Removal changed unrelated secrets or discarded a failed key");
+        if (OpenRouterCredentials.Source != (failDeletion ? OpenRouterCredentials.KeySource.Stored : fallback)
+            || OpenRouterCredentials.Read() != (failDeletion ? "synthetic-personal-key" : row[3])
+            || OpenRouterCredentials.Has != (failDeletion || fallback != OpenRouterCredentials.KeySource.Missing))
+            throw new Exception("Removal did not update credential resolution");
+        if (!failDeletion && !OpenRouterCredentials.RemoveStoredKey()) throw new Exception("Removal must be idempotent");
+    }
+}
+Console.WriteLine($"12 C# credential cases, {seals.Count} seal cases and {removals.Count * 2} override-removal cases pass");
+
+// Keep the removal tests away from the user's real Credential Manager.
+namespace Pomodoro.Core
+{
+    public static class SecretStore
+    {
+        public const string OpenRouterKey = "openrouter-key";
+        public static Dictionary<string, string> Values = new();
+        public static bool FailDeletion;
+        public static List<string> Deleted = new();
+        public static string? Read(string key) => Values.GetValueOrDefault(key);
+        public static bool Delete(string key)
+        {
+            Deleted.Add(key);
+            if (FailDeletion) return false;
+            Values.Remove(key);
+            return true;
+        }
+    }
+}
 ''')
             env = {**os.environ, 'DOTNET_CLI_TELEMETRY_OPTOUT': '1', 'DOTNET_GENERATE_ASPNET_CERTIFICATE': 'false'}
             subprocess.run([dotnet, 'build', str(project), '-c', 'Release', '--nologo', '-v', 'quiet',
                             '--disable-build-servers', '-m:1'], check=True, env=env)
-            subprocess.run([dotnet, str(directory / 'bin/Release/net8.0/Credentials.dll'), str(fixture), str(seals)], check=True, env=env)
+            subprocess.run([dotnet, str(directory / 'bin/Release/net8.0/Credentials.dll'), str(fixture), str(seals), str(removals)], check=True, env=env)
 
 
 if __name__ == '__main__':
