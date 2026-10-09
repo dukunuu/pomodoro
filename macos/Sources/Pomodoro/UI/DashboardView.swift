@@ -309,7 +309,11 @@ struct FocusEditor: View {
         if value == "custom" { selection = value; focused = true; return }
         do {
             var note = ""
-            if value != "continue" {
+            if value == "continue" {
+                note = service.sessions
+                    .filter { $0.phase == .focus && !$0.isLive && !$0.note.isEmpty }
+                    .max { $0.startedAt < $1.startedAt }?.note ?? ""
+            } else {
                 guard whistler.mappingProjectsScope == scope,
                       let project = whistler.mappingProjects.first(where: { "project:" + $0.id == value }) else {
                     throw WhistlerMappingSettings.Failure.invalid("Reload projects for the current account.")

@@ -1268,7 +1268,14 @@ public sealed partial class MainWindow : Window
         try
         {
             var note = string.Empty;
-            if (selected != "continue")
+            if (selected == "continue")
+            {
+                note = Service.Sessions
+                    .Where(session => session.Phase == Phase.Focus && !session.IsLive && !string.IsNullOrWhiteSpace(session.Note))
+                    .OrderByDescending(session => session.StartedAt)
+                    .FirstOrDefault()?.Note ?? string.Empty;
+            }
+            else
             {
                 if (_focusScope != WhistlerMappingSettings.Scope(WhistlerConfig.ReadSettings()))
                     throw new InvalidOperationException("Account changed. Reload projects.");

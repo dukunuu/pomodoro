@@ -197,7 +197,14 @@ public sealed partial class TrayPanelWindow : Window
         try
         {
             var note = string.Empty;
-            if (selected != "continue")
+            if (selected == "continue")
+            {
+                note = Service.Sessions
+                    .Where(session => session.Phase == Phase.Focus && !session.IsLive && !string.IsNullOrWhiteSpace(session.Note))
+                    .OrderByDescending(session => session.StartedAt)
+                    .FirstOrDefault()?.Note ?? string.Empty;
+            }
+            else
             {
                 if (_scope != WhistlerMappingSettings.Scope(WhistlerConfig.ReadSettings()) || !WhistlerConfig.IsSignedIn)
                     throw new InvalidOperationException("Account changed. Reopen the tray popup.");
