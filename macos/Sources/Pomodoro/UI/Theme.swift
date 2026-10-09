@@ -114,17 +114,21 @@ enum Theme {
     /// The content area behind the cards.
     static let background = Color(nsColor: .windowBackgroundColor)
 
-    /// A raised box on that background. `controlBackgroundColor` is the right
-    /// answer in light mode — white on grey — but in dark mode it is *darker*
-    /// than the window, which sinks a card instead of raising it. System
-    /// Settings lifts its boxes with a white wash instead, so do the same.
+    /// A panel on that background, in the floating timer's register: a faint
+    /// lift and a hairline rather than a drawn box. `controlBackgroundColor`
+    /// is the right answer in light mode — white on grey — but in dark mode it
+    /// is *darker* than the window, which sinks a panel instead of raising it.
     static let surface = Color(nsColor: NSColor(name: nil) { appearance in
         appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-            ? NSColor(white: 1, alpha: 0.06)
+            ? NSColor(white: 1, alpha: 0.045)
             : .controlBackgroundColor
     })
 
     static let border = Color(nsColor: .separatorColor)
+
+    /// The edge of a panel. Quieter than a separator: it only has to stop the
+    /// panel dissolving into the window, not outline it.
+    static let hairline = Color.primary.opacity(0.07)
 
     /// The well a text field, menu or stepper sits in: sunk below the card in
     /// dark mode, a faint grey on the white card in light mode.
@@ -170,27 +174,40 @@ enum Theme {
         Palette.adaptive(Palette.brightBlue), Palette.adaptive(Palette.red)
     ]
 
-    static let cardCorner: CGFloat = 12
+    static let cardCorner: CGFloat = 14
     static let controlCorner: CGFloat = 7
 }
 
-/// A titled group of content. The header sits inside the box — symbol, title,
-/// an optional line of explanation and a trailing accessory — so a card reads
-/// as one object rather than a label floating above a container.
+/// The small capitalised label a panel is named by — the floating timer's
+/// phase label, reused so every panel in the window reads as the same object.
+struct SectionLabel: View {
+    var text: String
+
+    init(_ text: String) { self.text = text }
+
+    var body: some View {
+        Text(text.uppercased())
+            .font(.system(size: 11, weight: .semibold))
+            .kerning(0.7)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+    }
+}
+
+/// A named group of content. The name is a quiet label rather than a heading
+/// with a symbol, so the content — the numbers, the chart, the rows — is what
+/// the eye lands on.
 struct Card<Content: View>: View {
     var title: String?
-    var symbol: String?
     var subtitle: String?
     var accessory: AnyView?
     @ViewBuilder var content: Content
 
     init(_ title: String? = nil,
-         symbol: String? = nil,
          subtitle: String? = nil,
          accessory: AnyView? = nil,
          @ViewBuilder content: () -> Content) {
         self.title = title
-        self.symbol = symbol
         self.subtitle = subtitle
         self.accessory = accessory
         self.content = content()
@@ -201,25 +218,19 @@ struct Card<Content: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             if title != nil || accessory != nil {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    if let symbol {
-                        Image(systemName: symbol)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Theme.accent)
-                            .frame(width: 16)
-                    }
-                    VStack(alignment: .leading, spacing: 2) {
-                        if let title {
-                            Text(title)
-                                .font(.system(size: 13, weight: .semibold))
-                        }
+                HStack(alignment: subtitle == nil ? .center : .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        if let title { SectionLabel(title) }
                         if let subtitle {
+                            // Capped so an explanation wraps as a paragraph
+                            // instead of running the full width of the panel.
                             Text(subtitle)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
+                                .frame(maxWidth: 520, alignment: .leading)
                         }
                     }
                     Spacer(minLength: 8)
@@ -228,48 +239,37 @@ struct Card<Content: View>: View {
             }
             content
         }
-        .padding(16)
+        .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.surface, in: shape)
-        .overlay(shape.strokeBorder(Theme.border, lineWidth: 1))
+        .overlay(shape.strokeBorder(Theme.hairline, lineWidth: 1))
     }
 }
 
-/// A single label / value / detail statistic. With a symbol it becomes a tile
-/// of its own inside a card; without one it stays bare text, which is what
-/// the menu bar popover has room for.
+/// A single label / value / detail statistic, as bare text. `.controlSize(.large)`
+/// gives the numerals the weight a page leads with; the menu bar popover keeps
+/// the regular size.
 struct StatTile: View {
     var label: String
     var value: String
     var detail: String
-    var accented = false
-    var symbol: String?
-    var tint: Color = Theme.accent
+    var tint: Color = .primary
+
+    @Environment(\.controlSize) private var controlSize
+
+    private var large: Bool { controlSize == .large || controlSize == .extraLarge }
 
     var body: some View {
-        if let symbol {
-            HStack(alignment: .top, spacing: 10) {
-                IconBadge(systemName: symbol, tint: tint, size: 28)
-                text
-            }
-            .padding(11)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.controlFill.opacity(0.6),
-                        in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-        } else {
-            text.frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    private var text: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: large ? 3 : 2) {
             Text(label)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             Text(value)
-                .font(.system(.title2, design: .rounded).weight(.medium).monospacedDigit())
-                .foregroundStyle(accented ? Theme.focus : Color.primary)
+                .font(large
+                      ? Theme.clockFont(26)
+                      : .system(.title2, design: .rounded).weight(.medium).monospacedDigit())
+                .foregroundStyle(tint)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             Text(detail)
@@ -277,6 +277,7 @@ struct StatTile: View {
                 .foregroundStyle(.tertiary)
                 .lineLimit(1)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

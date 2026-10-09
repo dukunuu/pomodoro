@@ -14,16 +14,14 @@ struct WhistlerAccountSection: View {
     private var host: String { URL(string: settings.apiUrl)?.host ?? settings.apiUrl }
 
     var body: some View {
-        Card("Whistler account", symbol: "person.crop.circle.fill",
+        Card("Whistler account",
              subtitle: "Signing out removes only the Whistler session from Keychain. Your API key and mapping instructions are kept.",
              accessory: AnyView(StatusPill(text: signedIn ? "Signed in" : "Signed out",
                                            tint: signedIn ? Theme.longBreak : .secondary,
                                            systemImage: signedIn ? "checkmark" : nil))) {
             VStack(spacing: 9) {
                 SettingRow(signedIn ? (settings.email.isEmpty ? "Signed in" : settings.email) : "Not signed in",
-                           subtitle: signedIn ? host : "Sign in to send worklogs to Whistler.",
-                           icon: signedIn ? "person.fill" : "person.fill.questionmark",
-                           tint: signedIn ? Theme.accent : .secondary) {
+                           subtitle: signedIn ? host : "Sign in to send worklogs to Whistler.") {
                     if signedIn {
                         Button("Sign Out…") { confirmingSignOut = true }.buttonStyle(.destructive)
                         Button("Switch Account…") { showingSignIn = true }.buttonStyle(.secondary)
@@ -32,9 +30,20 @@ struct WhistlerAccountSection: View {
                     }
                 }
                 RowDivider()
+                SettingRow("Google account",
+                           subtitle: integrations.googleToken.isReady
+                               ? "Authorized to read and write Calendar events."
+                               : integrations.googleToken.detail) {
+                    Button(integrations.googleToken.isReady ? "Re-authorize" : "Authorize") {
+                        whistler.authorizeGoogle()
+                    }
+                    .buttonStyle(AppButtonStyle(kind: integrations.googleToken.isReady ? .secondary : .primary))
+                    .disabled(!integrations.googleClient.isReady)
+                }
+                GoogleAuthorizationStatus(auth: whistler.googleAuth)
+                RowDivider()
                 SettingRow("Google calendar",
-                           subtitle: "“primary”, or a calendar ID from Google Calendar settings.",
-                           icon: "calendar", tint: Theme.shortBreak) {
+                           subtitle: "“primary”, or a calendar ID from Google Calendar settings.") {
                     FieldChrome(focused: calendarFocused) {
                         TextField("Google calendar", text: $calendar, prompt: Text(WhistlerConfig.defaultCalendar))
                             .font(.system(size: 13))
@@ -120,10 +129,9 @@ struct ProjectMappingSection: View {
     }
 
     var body: some View {
-        Card("Project mapping", symbol: "arrow.triangle.branch",
+        Card("Project mapping",
              subtitle: "Jev maps Calendar events to your Whistler projects using your aliases and skip rules. Configure those in Whistler. Hours and worklog text are assembled locally; there is no model to choose.") {
-            SettingRow("Mapping engine", subtitle: "Fixed for every send.",
-                       icon: "cpu", tint: Theme.longBreak) {
+            SettingRow("Mapping engine", subtitle: "Fixed for every send.") {
                 StatusPill(text: "Jev", tint: Theme.accent)
             }
             if hasKey && !hasStoredKey {
@@ -149,8 +157,7 @@ struct ProjectMappingSection: View {
     private var apiKeyConfiguration: some View {
         SettingRow(hasKey ? "Personal API key override" : "OpenRouter API key",
                    subtitle: keyDescription,
-                   icon: hasKey ? "key.fill" : "key.slash",
-                   tint: hasKey ? .secondary : Theme.urgent) {
+                   dot: hasKey ? nil : Theme.urgent) {
             if hasStoredKey {
                 Button(removeKeyAction) { confirmingKeyRemoval = true }
                     .buttonStyle(.secondary)

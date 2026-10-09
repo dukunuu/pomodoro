@@ -183,7 +183,15 @@ public sealed partial class PomodoroService
     public void Skip()
     {
         if (!StateLoaded) return;
-        if (PhaseStartedAt > 0) RecordPhase(Fmt.NowMillis(), EntryStatus.Skipped);
+        if (PhaseStartedAt > 0)
+        {
+            // The timer rings and keeps counting rather than ending a phase
+            // itself, so this is how every phase ends. One that has run its
+            // planned time was finished, not skipped; only moving on early is
+            // a skip.
+            var finished = _phaseRang || SecondsRemaining() <= 0;
+            RecordPhase(Fmt.NowMillis(), finished ? EntryStatus.Completed : EntryStatus.Skipped);
+        }
         else ClearActivePhase();
         Running = false;
         _endAt = 0;

@@ -16,13 +16,18 @@ command -v node >/dev/null || { echo "node is required for the reference run"; e
 
 echo "==> Offline mapping tests"
 python3 "$REPO/tools/test_mapping.py"
+python3 "$REPO/tools/test_worklog_format.py"
+python3 "$REPO/tools/test_standup.py" --swift
+python3 "$REPO/tools/test_sync_safety.py"
 python3 "$REPO/tools/test_build_key.py" --swift
 python3 "$REPO/tools/test_mapping_preferences.py" --swift
+python3 "$REPO/tools/test_google_auth.py" --swift
 
 echo "==> Building"
 cd "$ROOT"
 swift build -c release >/dev/null
 BIN=$(swift build -c release --show-bin-path)/Pomodoro
+python3 "$REPO/tools/test_app_launch.py" --binary "$BIN"
 
 IDLE_STATE='{"version":4,"phase":"focus","running":false,"endAt":0,
 "remainingSeconds":1500,"completedFocus":0,"cycleDateKey":"","activeNote":"",

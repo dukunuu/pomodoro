@@ -47,7 +47,7 @@ public static class HttpJson
                 var body = await response.Content.ReadAsStringAsync(cancellation).ConfigureAwait(false);
                 if (!response.IsSuccessStatusCode)
                 {
-                    throw new ImportFailure(
+                    throw new HttpFailure((int)response.StatusCode,
                         $"{url} returned HTTP {(int)response.StatusCode}. {Truncate(body)}");
                 }
                 return body.Trim().Length == 0 ? null : JsonNode.Parse(body);
@@ -74,7 +74,7 @@ public static class HttpJson
         var body = await response.Content.ReadAsStringAsync(cancellation).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
         {
-            throw new ImportFailure($"{url} returned HTTP {(int)response.StatusCode}. {Truncate(body)}");
+            throw new HttpFailure((int)response.StatusCode, $"{url} returned HTTP {(int)response.StatusCode}. {Truncate(body)}");
         }
         return JsonNode.Parse(body);
     }

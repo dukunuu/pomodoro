@@ -226,10 +226,10 @@ public static class WorklogBuilder
                 var sourceTitles = task.SourceTitles
                     .Where(title => !string.Equals(title, task.Text, StringComparison.OrdinalIgnoreCase))
                     .ToList();
-                var detail = sourceTitles.Count > 0 ? " — " + string.Join("; ", sourceTitles) : string.Empty;
-                lines.Add($"{index + 1}. {task.Text}{detail} ({FormatMinutes(task.Minutes)})");
+                var heading = $"{index + 1}. {task.Text} ({FormatMinutes(task.Minutes)})";
+                lines.Add(string.Join("\n", new[] { heading }.Concat(sourceTitles.Select(title => "\t- " + title))));
             }
-            var log = string.Join("\n", lines);
+            var log = string.Join("\n\n", lines);
 
             entries.Add(new WorklogEntry
             {

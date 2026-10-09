@@ -164,6 +164,8 @@ final class AppState: ObservableObject {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private var activationObserver: NSObjectProtocol?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         MainActor.assumeIsolated {
             if let directory = Snapshot.requestedDirectory() {
@@ -182,6 +184,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 ReportDump.run(into: file)
                 return
             }
+            activationObserver = DistributedNotificationCenter.default().addObserver(
+                forName: Launcher.activateNotification, object: DataPaths.directory.path, queue: .main
+            ) { _ in MainActor.assumeIsolated { AppState.shared.showDashboard() } }
             AppState.shared.start()
         }
     }

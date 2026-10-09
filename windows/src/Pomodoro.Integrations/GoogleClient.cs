@@ -33,9 +33,12 @@ public static class GoogleClient
 
     /// <summary>
     /// Runs the browser consent flow and stores the refresh token. Returns the
-    /// message to show the user.
+    /// message to show the user. <paramref name="openBrowser"/> is how the
+    /// consent page is shown: the app hands it to the default browser, the
+    /// tests follow it themselves.
     /// </summary>
-    public static async Task<string> AuthorizeAsync(CancellationToken cancellation = default)
+    public static async Task<string> AuthorizeAsync(
+        CancellationToken cancellation = default, Func<string, bool>? openBrowser = null)
     {
         // Logged before anything that can throw: an empty log used to be the
         // only symptom of a failure in the very first step, which reads as the
@@ -43,7 +46,7 @@ public static class GoogleClient
         Log($"authorization started; data directory {DataPaths.Directory}");
         try
         {
-            return await RunAuthorizationAsync(cancellation).ConfigureAwait(false);
+            return await RunAuthorizationAsync(cancellation, openBrowser ?? OpenInBrowser).ConfigureAwait(false);
         }
         catch (Exception error)
         {
@@ -52,7 +55,23 @@ public static class GoogleClient
         }
     }
 
-    private static async Task<string> RunAuthorizationAsync(CancellationToken cancellation)
+    private static bool OpenInBrowser(string url)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+            return true;
+        }
+        catch (Exception browserError)
+        {
+            Log($"could not open a browser: {browserError.Message}; " +
+                "open the authorization url above by hand");
+            return false;
+        }
+    }
+
+    private static async Task<string> RunAuthorizationAsync(
+        CancellationToken cancellation, Func<string, bool> openBrowser)
     {
         Log($"oauth client file: {DataPaths.ExistingGoogleClient() ?? "(none found)"}");
         var client = ReadClient();
@@ -96,25 +115,18 @@ public static class GoogleClient
         // browser that never comes back diagnosable.
         Log($"listening on {redirect}");
         Log($"authorization url: {url}");
-        try
-        {
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-        }
-        catch (Exception browserError)
-        {
-            Log($"could not open a browser: {browserError.Message}; " +
-                "open the authorization url above by hand");
-        }
+        openBrowser(url);
 
         string? code = null;
         string? error = null;
+        HttpListenerContext? redirected = null;
         using (var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(5)))
         using (var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellation, timeout.Token))
         using (linked.Token.Register(listener.Abort))
         {
             // Browsers ask for /favicon.ico and sometimes probe the origin, so
             // keep reading until a request actually carries the redirect.
-            while (code is null && error is null)
+            while (redirected is null && error is null)
             {
                 HttpListenerContext context;
                 try
@@ -126,7 +138,7 @@ public static class GoogleClient
                 {
                     Log($"listener ended: {listenerError.Message}");
                     error = timeout.IsCancellationRequested
-                        ? "Timed out waiting for Google to redirect back."
+                        ? "Google did not send the browser back within five minutes. Try again."
                         : "The local callback server stopped before Google redirected back.";
                     break;
                 }
@@ -135,45 +147,87 @@ public static class GoogleClient
                 var keys = string.Join(",", received.AllKeys.Where(k => k is not null));
                 Log($"request {context.Request.Url?.AbsolutePath} query=[{keys}]");
 
-                var hasResponse = received["code"] is not null || received["error"] is not null;
-                if (!hasResponse)
+                // Anything that does not carry this attempt's state is not the
+                // redirect — a favicon, a probe, or a request that is not ours.
+                // It is refused and the wait goes on, so it cannot end the flow.
+                if (string.IsNullOrEmpty(received["state"]) || received["state"] != state)
                 {
-                    // Not the redirect; answer briefly and keep waiting.
-                    context.Response.StatusCode = 204;
+                    context.Response.StatusCode = 404;
                     context.Response.Close();
                     continue;
                 }
 
-                if (received["state"] != state)
+                redirected = context;
+                code = received["code"];
+                if (string.IsNullOrEmpty(code))
                 {
-                    error = "Authorization state did not match; the response was ignored.";
-                    Log("state mismatch");
+                    code = null;
+                    var reported = received["error"];
+                    error = reported == "access_denied"
+                        ? "Access was not granted in the browser."
+                        : string.IsNullOrEmpty(reported)
+                            ? "Google sent the browser back without an authorization code."
+                            : $"Google reported: {reported}.";
                 }
-                else
-                {
-                    code = received["code"];
-                    error = received["error"];
-                    Log(code is not null ? "authorization code received" : $"google returned error: {error}");
-                }
-
-                var message = code is not null
-                    ? "Pomodoro is authorized. You can close this tab."
-                    : $"Authorization failed: {error ?? "no code returned"}";
-                var bytes = Encoding.UTF8.GetBytes(
-                    $"<html><body style=\"font-family:sans-serif\">{message}</body></html>");
-                context.Response.ContentType = "text/html; charset=utf-8";
-                context.Response.ContentLength64 = bytes.Length;
-                await context.Response.OutputStream.WriteAsync(bytes, CancellationToken.None)
-                    .ConfigureAwait(false);
-                context.Response.Close();
+                Log(code is not null ? "authorization code received" : $"redirect without a code: {error}");
             }
         }
-        // Abort() (registered on the cancellation token above) already
-        // disposes the listener, so an unguarded Stop() replaced the real
-        // timeout message with "Cannot access a disposed object".
-        try { listener.Close(); }
-        catch (ObjectDisposedException) { }
 
+        // The tab is answered only once the token is saved, so the page it
+        // shows is the real outcome rather than "authorized" ahead of an
+        // exchange that may still fail.
+        try
+        {
+            var message = await FinishAuthorizationAsync(
+                code, error, clientId, clientSecret, tokenUri, redirect, verifier, cancellation)
+                .ConfigureAwait(false);
+            await AnswerAsync(redirected, GoogleAuthorizationPage.Success).ConfigureAwait(false);
+            return message;
+        }
+        catch (Exception failure)
+        {
+            // An HTTP failure's text names the endpoint and quotes its body:
+            // right for the app and the log, not for the page.
+            var detail = failure is ImportFailure and not HttpFailure
+                ? failure.Message
+                : "Google could not finish the authorization.";
+            await AnswerAsync(redirected, GoogleAuthorizationPage.Failure(detail)).ConfigureAwait(false);
+            throw;
+        }
+        finally
+        {
+            // Abort() (registered on the cancellation token above) already
+            // disposes the listener, so an unguarded Close() replaced the real
+            // timeout message with "Cannot access a disposed object".
+            try { listener.Close(); }
+            catch (ObjectDisposedException) { }
+        }
+    }
+
+    /// <summary>Shows the outcome in the tab Google redirected. The browser may be gone by now.</summary>
+    private static async Task AnswerAsync(HttpListenerContext? context, string page)
+    {
+        if (context is null) return;
+        try
+        {
+            var bytes = Encoding.UTF8.GetBytes(page);
+            context.Response.ContentType = "text/html; charset=utf-8";
+            context.Response.Headers["Cache-Control"] = "no-store";
+            context.Response.ContentLength64 = bytes.Length;
+            await context.Response.OutputStream.WriteAsync(bytes, CancellationToken.None)
+                .ConfigureAwait(false);
+            context.Response.Close();
+        }
+        catch (Exception answerError)
+        {
+            Log($"could not answer the browser: {answerError.Message}");
+        }
+    }
+
+    private static async Task<string> FinishAuthorizationAsync(
+        string? code, string? error, string clientId, string clientSecret, string tokenUri,
+        string redirect, string verifier, CancellationToken cancellation)
+    {
         if (code is null) throw new ImportFailure(error ?? "Google returned no authorization code.");
 
         var form = new Dictionary<string, string>
@@ -268,10 +322,9 @@ public static class GoogleClient
     }
 
     /// <summary>
-    /// Timed events overlapping the range, clipped to it. All-day events carry
-    /// no usable duration for a worklog and are counted as skipped.
+    /// Complete raw Calendar input, retaining RSVP metadata for standup review.
     /// </summary>
-    public static async Task<(List<CalendarEvent> Events, int Skipped)> ReadEventsAsync(
+    public static async Task<JsonArray> ReadCalendarItemsAsync(
         IReadOnlyDictionary<string, string> config,
         DateTime start,
         DateTime end,
@@ -286,19 +339,32 @@ public static class GoogleClient
         query["singleEvents"] = "true";
         query["orderBy"] = "startTime";
         query["maxResults"] = "2500";
-        var url = "https://www.googleapis.com/calendar/v3/calendars/"
-            + Uri.EscapeDataString(calendarId) + "/events?" + query;
-
-        var response = await HttpJson.SendAsync(url, headers: new Dictionary<string, string>
+        var raw = new JsonArray();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        while (true)
         {
-            ["Authorization"] = "Bearer " + accessToken
-        }, cancellation: cancellation).ConfigureAwait(false);
-
-        if (response is not JsonObject obj || obj["items"] is not JsonArray items)
-        {
-            throw new ImportFailure("Google Calendar returned an invalid event list.");
+            var url = "https://www.googleapis.com/calendar/v3/calendars/" + Uri.EscapeDataString(calendarId) + "/events?" + query;
+            var response = await HttpJson.SendAsync(url, headers: new Dictionary<string, string>
+            {
+                ["Authorization"] = "Bearer " + accessToken
+            }, cancellation: cancellation).ConfigureAwait(false) as JsonObject;
+            var items = response?["items"] as JsonArray;
+            if (items is null && response?["kind"]?.ToString() == "calendar#events" && !response.ContainsKey("items")) items = new JsonArray();
+            if (response is null || items is null) throw new ImportFailure("Google Calendar returned an invalid event list.");
+            foreach (var item in items) raw.Add(item?.DeepClone());
+            var page = response["nextPageToken"]?.GetValue<string>() ?? string.Empty;
+            if (page.Length == 0) return raw;
+            if (!seen.Add(page)) throw new ImportFailure("Calendar pagination did not advance; no partial notes were generated.");
+            query["pageToken"] = page;
         }
+    }
 
+    public static async Task<(List<CalendarEvent> Events, int Skipped)> ReadEventsAsync(
+        IReadOnlyDictionary<string, string> config, DateTime start, DateTime end, CancellationToken cancellation = default) =>
+        NormalizeEvents(await ReadCalendarItemsAsync(config, start, end, cancellation).ConfigureAwait(false), start, end);
+
+    public static (List<CalendarEvent> Events, int Skipped) NormalizeEvents(JsonArray items, DateTime start, DateTime end)
+    {
         var startMs = Fmt.ToMillis(start);
         var endMs = Fmt.ToMillis(end);
         var result = new List<CalendarEvent>();

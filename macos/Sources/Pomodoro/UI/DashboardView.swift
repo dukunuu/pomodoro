@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum DashboardSection: String, CaseIterable, Identifiable, Hashable {
-    case today, week, month, allTime, whistler, settings
+    case today, week, month, allTime, whistler, standup, settings
     var id: String { rawValue }
 
     var title: String {
@@ -11,6 +11,7 @@ enum DashboardSection: String, CaseIterable, Identifiable, Hashable {
         case .month: return "Month"
         case .allTime: return "All time"
         case .whistler: return "Whistler"
+        case .standup: return "Daily standup"
         case .settings: return "Settings"
         }
     }
@@ -22,8 +23,22 @@ enum DashboardSection: String, CaseIterable, Identifiable, Hashable {
         case .month: return "calendar"
         case .allTime: return "chart.bar.xaxis"
         case .whistler: return "arrow.up.forward.app"
+        case .standup: return "text.bubble"
         case .settings: return "gearshape"
         }
+    }
+}
+
+/// Lets a page send the user to another one — to where a missing piece of
+/// setup lives — without owning the sidebar's selection.
+private struct OpenSectionKey: EnvironmentKey {
+    static let defaultValue: (DashboardSection) -> Void = { _ in }
+}
+
+extension EnvironmentValues {
+    var openSection: (DashboardSection) -> Void {
+        get { self[OpenSectionKey.self] }
+        set { self[OpenSectionKey.self] = newValue }
     }
 }
 
@@ -36,6 +51,7 @@ struct DashboardView: View {
     @EnvironmentObject private var integrations: IntegrationStatus
     @EnvironmentObject private var updates: UpdateChecker
 
+    @StateObject private var standup = StandupDraft()
     @State private var section: DashboardSection? = .today
     @State private var dayOffset = 0
     @State private var weekOffset = 0
@@ -52,6 +68,7 @@ struct DashboardView: View {
                 }
                 Section("Integrations") {
                     row(.whistler, warning: !integrations.whistlerReady)
+                    row(.standup)
                 }
                 Section {
                     row(.settings)
@@ -65,10 +82,11 @@ struct DashboardView: View {
             // much room is already taken, so a grouped Form starts below the
             // header instead of under it.
             page
+                .environment(\.openSection) { section = $0 }
                 .safeAreaInset(edge: .top, spacing: 0) {
+                    // The header draws its own bottom edge: the progress line.
                     VStack(spacing: 0) {
                         TimerHeader()
-                        Divider()
                         if let update = updates.available {
                             UpdateBanner(update: update)
                             Divider()
@@ -80,6 +98,11 @@ struct DashboardView: View {
                     state.setDashboardTitle(value?.title ?? "Pomodoro")
                 }
                 .toolbar {
+                    ToolbarItem {
+                        Button { section = .standup } label: {
+                            Label("Prepare daily standup", systemImage: "text.bubble")
+                        }
+                    }
                     ToolbarItem {
                         Button {
                             section = .whistler
@@ -107,12 +130,12 @@ struct DashboardView: View {
         ScrollView {
             // One column width for every page, settings included, so the
             // cards line up as the sidebar selection changes.
-            VStack(spacing: 14) {
+            VStack(spacing: 16) {
                 reports
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 18)
-            .frame(maxWidth: 880)
+            .padding(.horizontal, 28)
+            .padding(.vertical, 24)
+            .frame(maxWidth: 800)
             .frame(maxWidth: .infinity, alignment: .center)
         }
         .background(Theme.background)
@@ -122,7 +145,6 @@ struct DashboardView: View {
         switch section ?? .today {
         case .today:
             NoteCard()
-            QuickStatsRow()
             DayReportView(offset: $dayOffset)
         case .week:
             WeekReportView(offset: $weekOffset)
@@ -132,6 +154,8 @@ struct DashboardView: View {
             AllTimeReportView()
         case .whistler:
             WhistlerView()
+        case .standup:
+            StandupView(draft: standup, today: service.todayKey)
         case .settings:
             SettingsPanel()
         }
@@ -141,7 +165,7 @@ struct DashboardView: View {
 /// Pick a project without typing; optional notes remain available.
 struct NoteCard: View {
     var body: some View {
-        Card("Focus", symbol: "scope",
+        Card("Working on",
              subtitle: "Pick a project to save its Calendar label automatically, or continue previous work with unnamed focus. The choice applies to this whole focus session; a note is optional.") {
             FocusEditor()
         }
@@ -155,7 +179,6 @@ struct FocusEditor: View {
     @EnvironmentObject private var whistler: WhistlerService
     @State private var draft = ""
     @State private var selection = "continue"
-    @State private var noteExpanded = false
     @State private var message = ""
     @FocusState private var focused: Bool
 
@@ -211,18 +234,16 @@ struct FocusEditor: View {
                 .buttonStyle(.iconFilled)
                 .help("Reload projects from Whistler")
                 .disabled(!WhistlerConfig.isSignedIn || whistler.mappingProjectsLoading)
+
+                // The dashboard has the width to keep the note on the same
+                // line as the project; the popover stacks it below.
+                if !compact { noteField }
             }
             if !message.isEmpty { Notice(.error, message) }
             if !whistler.mappingProjectsMessage.isEmpty && !whistler.mappingProjectsLoading {
                 Notice(.info, whistler.mappingProjectsMessage)
             }
-            if compact {
-                noteField
-            } else {
-                Disclosure("Focus note", detail: "Optional", isExpanded: $noteExpanded) {
-                    noteField
-                }
-            }
+            if compact { noteField }
             if compact && !WhistlerConfig.isSignedIn {
                 Text("Sign in to Whistler to pick a project. Custom notes are still available.")
                     .font(.caption)
@@ -285,7 +306,7 @@ struct FocusEditor: View {
 
     private func choose(_ value: String) {
         guard service.phase == .focus, !whistler.importRunning else { return }
-        if value == "custom" { selection = value; noteExpanded = true; focused = true; return }
+        if value == "custom" { selection = value; focused = true; return }
         do {
             var note = ""
             if value != "continue" {
@@ -307,41 +328,26 @@ struct FocusEditor: View {
     }
 }
 
-/// Today at a glance, as one card rather than three competing ones.
-struct QuickStatsRow: View {
-    @EnvironmentObject private var service: PomodoroService
-
-    var body: some View {
-        let stats = service.statsForDay(service.todayKey)
-        Card("Today", symbol: "sun.max.fill") {
-            HStack(spacing: 10) {
-                StatTile(label: "Focus", value: stats.focusText, detail: "active time",
-                         symbol: "brain.head.profile", tint: Theme.focus)
-                StatTile(label: "Breaks", value: stats.breakText, detail: "\(stats.breaks) taken",
-                         symbol: "cup.and.saucer.fill", tint: Theme.shortBreak)
-                StatTile(label: "Sessions", value: String(stats.sessions), detail: "completed",
-                         symbol: "checkmark.circle.fill", tint: Theme.longBreak)
-                StatTile(label: "Phases", value: String(stats.phases), detail: "recorded",
-                         symbol: "square.stack.3d.up.fill", tint: .secondary)
-            }
-        }
-    }
-}
-
-/// The heading a page leads with. Sits above the cards rather than inside the
-/// first one, so every card on every page carries the same section label and
-/// nothing competes with it.
-struct PageHeading: View {
+/// The heading a page leads with: its name, and for a dated page the
+/// controls that move it. The figures follow in a `StatStrip`, so the heading
+/// itself stays one line.
+struct PageHeading<Trailing: View>: View {
     var title: String
-    var subtitle: String
+    @ViewBuilder var trailing: Trailing
+
+    init(title: String, @ViewBuilder trailing: () -> Trailing = { EmptyView() }) {
+        self.title = title
+        self.trailing = trailing()
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        HStack(alignment: .center, spacing: 8) {
             Text(title)
-                .font(.title2.weight(.semibold))
-            Text(subtitle)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .font(.system(size: 22, weight: .semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            Spacer(minLength: 8)
+            trailing
         }
         // Cards fill the column, so a heading that only hugs its text would
         // sit centred between them.
@@ -349,21 +355,35 @@ struct PageHeading: View {
     }
 }
 
+/// A page's headline figures, bare on the window the way the menu bar popover
+/// sets its own: the numbers are the page, so they are not put in a box.
+struct StatStrip<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            content
+        }
+        .controlSize(.large)
+        .padding(.top, 2)
+        .padding(.bottom, 8)
+    }
+}
+
 /// Shared previous / label / next header used by the day, week and month tabs.
 struct PeriodStepper: View {
     var title: String
-    var subtitle: String
     var canGoForward: Bool
     var onBack: () -> Void
     var onForward: () -> Void
     var onToday: () -> Void
 
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            PageHeading(title: title, subtitle: subtitle)
-            Spacer(minLength: 8)
-            Button("Today", action: onToday)
-                .buttonStyle(.secondary)
+        PageHeading(title: title) {
+            if canGoForward {
+                Button("Today", action: onToday)
+                    .buttonStyle(.secondary)
+            }
             // Back and forward share one well, so they read as a pair.
             HStack(spacing: 0) {
                 Button(action: onBack) {
@@ -420,7 +440,7 @@ struct UpdateBanner: View {
                 .buttonStyle(.primary)
             }
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 28)
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
         // A notification bar below the toolbar, in the system's own register

@@ -35,7 +35,7 @@ public static class CalendarSync
             var map = ReadMap();
             if (EventId(map, session).Length > 0) return;
 
-            var id = await InsertAsync(config, sessionMs, endMs, Summary(note),
+            var id = await InsertAsync(config, session, sessionMs, endMs, Summary(note),
                 Description(note, 0, "in progress")).ConfigureAwait(false);
             Remember(map, session, Key(sessionMs), Key(endMs), id);
         }).ConfigureAwait(false);
@@ -56,7 +56,7 @@ public static class CalendarSync
                 if (stale.Length > 0)
                 {
                     try { await DeleteAsync(config, stale).ConfigureAwait(false); }
-                    catch (ImportFailure) { /* already gone from the calendar */ }
+                    catch (HttpFailure error) when (error.StatusCode is 404 or 410) { /* already removed */ }
                 }
                 Forget(map, session);
                 return;
@@ -74,14 +74,14 @@ public static class CalendarSync
                     Remember(map, session, Key(startMs), Key(endMs), existing);
                     return;
                 }
-                catch (ImportFailure)
+                catch (HttpFailure error) when (error.StatusCode == 404)
                 {
-                    // The event was removed in Calendar; insert a fresh one.
+                    // Only a confirmed missing event permits recovery, never a timeout/500.
                     Forget(map, session);
                 }
             }
 
-            var id = await InsertAsync(config, startMs, endMs, summary, description)
+            var id = await InsertAsync(config, session, startMs, endMs, summary, description, updateExisting: true)
                 .ConfigureAwait(false);
             Remember(map, session, Key(startMs), Key(endMs), id);
         }).ConfigureAwait(false);
@@ -110,8 +110,8 @@ public static class CalendarSync
     // ---- Calendar calls -------------------------------------------------
 
     private static async Task<string> InsertAsync(
-        IReadOnlyDictionary<string, string> config,
-        double startMs, double endMs, string summary, string description)
+        IReadOnlyDictionary<string, string> config, string session,
+        double startMs, double endMs, string summary, string description, bool updateExisting = false)
     {
         var payload = new JsonObject
         {
@@ -127,12 +127,8 @@ public static class CalendarSync
             }
         };
 
-        var response = await SendAsync(config, HttpMethod.Post, string.Empty, payload)
-            .ConfigureAwait(false);
-        var id = (response as JsonObject)?["id"]?.GetValue<string>();
-        return string.IsNullOrEmpty(id)
-            ? throw new ImportFailure("Calendar response did not contain an event ID.")
-            : id;
+        return await CalendarEventWriter.CreateAsync(session, payload, updateExisting,
+            (method, id, body) => SendAsync(config, method, id, body)).ConfigureAwait(false);
     }
 
     private static Task PatchAsync(

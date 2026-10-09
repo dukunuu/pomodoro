@@ -62,20 +62,53 @@ enum Snapshot {
         }
 
         capture("today", size: CGSize(width: 800, height: 1260), SnapshotTab(tab: .today))
-        capture("week", size: CGSize(width: 800, height: 760), SnapshotTab(tab: .week))
-        capture("month", size: CGSize(width: 800, height: 700), SnapshotTab(tab: .month))
-        capture("all-time", size: CGSize(width: 800, height: 820), SnapshotTab(tab: .allTime))
-        capture("whistler", size: CGSize(width: 800, height: 1400), SnapshotTab(tab: .whistler))
-        capture("settings", size: CGSize(width: 800, height: 1260), SnapshotTab(tab: .settings))
+        capture("week", size: CGSize(width: 800, height: 900), SnapshotTab(tab: .week))
+        capture("month", size: CGSize(width: 800, height: 760), SnapshotTab(tab: .month))
+        capture("all-time", size: CGSize(width: 800, height: 860), SnapshotTab(tab: .allTime))
+        capture("whistler", size: CGSize(width: 800, height: 860), SnapshotTab(tab: .whistler))
+        capture("standup", size: CGSize(width: 800, height: 560), SnapshotTab(tab: .standup))
+        capture("standup-replies", size: CGSize(width: 800, height: 720), SnapshotStandupReplies().padding(16))
+        capture("settings", size: CGSize(width: 800, height: 980), SnapshotTab(tab: .settings))
         capture("floating", size: CGSize(width: 260, height: 120),
                 FloatingTimerView(service: state.service, onOpenDashboard: {}).padding(12))
         capture("menubar", size: CGSize(width: 340, height: 590), MenuBarPanel())
+        capture("sheet-whistler-config", size: CGSize(width: 640, height: 640), WhistlerConfigSheet())
+        capture("sheet-whistler-account", size: CGSize(width: 640, height: 640), WhistlerConfigSheet(tab: .account))
+        capture("sheet-whistler-reminder", size: CGSize(width: 640, height: 640), WhistlerConfigSheet(tab: .reminder))
+        capture("sheet-standup-config", size: CGSize(width: 540, height: 380),
+                StandupConfigSheet(draft: StandupDraft(), todayDate: Date()))
         capture("sheet-sign-in", size: CGSize(width: 460, height: 460), WhistlerCredentialsSheet())
         capture("sheet-api-key", size: CGSize(width: 480, height: 300), AIKeySheet(replacing: false) {})
         capture("sheet-google-client", size: CGSize(width: 480, height: 440),
                 GoogleClientSheet(installError: .constant(nil)))
 
         exit(0)
+    }
+}
+
+/// Exercises the real reply editors with credential-free, in-memory example text.
+private struct SnapshotStandupReplies: View {
+    @State private var yesterday = "TT-Ligla (3h 4m)\n1. Meetings (15m)\n\t- NT dev team daily standup\n\n2. Implementation (2h 49m)\n\t- Release feedback fixes\n\t- Improve cold-starts on virus scan results"
+    @State private var today = "TT-Ligla\n- client meeting - meeting preparation, post meeting discussion\n- backlog refinement meeting\n\nInternal\n- ET-4 team meeting"
+    @State private var yesterdayCopied = false
+    @State private var todayCopied = false
+
+    var body: some View {
+        VStack(spacing: 16) {
+            PageHeading(title: "Daily standup") {
+                Text("0 / 2 copied").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                Button { } label: { Label("Refresh sources", systemImage: "arrow.clockwise") }
+                    .buttonStyle(.secondary)
+            }
+            StandupReplyCard(title: "Yesterday", question: "What did you do yesterday?",
+                             source: "Whistler · 2026-03-09 · original logged durations",
+                             text: $yesterday, copied: $yesterdayCopied)
+            StandupReplyCard(title: "Today", question: "What will you do today?",
+                             source: "Calendar + Jira · 2026-03-10 · selected work only",
+                             text: $today, copied: $todayCopied)
+            Disclosure("Review today's sources and project assignments", indented: false) { EmptyView() }
+            Spacer(minLength: 0)
+        }
     }
 }
 
@@ -90,22 +123,22 @@ private struct SnapshotTab: View {
     var body: some View {
         VStack(spacing: 0) {
             TimerHeader()
-            Divider()
-            VStack(spacing: 14) {
+            VStack(spacing: 16) {
                 switch tab {
                 case .today:
                     NoteCard()
-                    QuickStatsRow()
                     DayReportView(offset: $offset)
                 case .week: WeekReportView(offset: $offset)
                 case .month: MonthReportView(offset: $offset)
                 case .allTime: AllTimeReportView()
                 case .whistler: WhistlerView()
+                case .standup: StandupView(draft: StandupDraft(), today: Fmt.dateKey(Date()))
                 case .settings: SettingsPanel()
                 }
                 Spacer(minLength: 0)
             }
-            .padding(16)
+            .padding(.horizontal, 28)
+            .padding(.vertical, 24)
         }
     }
 }

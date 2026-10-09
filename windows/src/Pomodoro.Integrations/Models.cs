@@ -1,7 +1,13 @@
 namespace Pomodoro.Integrations;
 
 /// <summary>An expected failure, surfaced to the user rather than logged.</summary>
-public sealed class ImportFailure(string message) : Exception(message);
+public class ImportFailure(string message) : Exception(message);
+
+/// <summary>Preserves status so a transient failure is never mistaken for a missing event.</summary>
+public sealed class HttpFailure(int statusCode, string message) : ImportFailure(message)
+{
+    public int StatusCode { get; } = statusCode;
+}
 
 /// <summary>A timed Google Calendar event, clipped to the requested day.</summary>
 public sealed record CalendarEvent

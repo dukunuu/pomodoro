@@ -514,30 +514,41 @@ def parse_google_datetime(value: str) -> datetime:
     return parsed
 
 
-def read_calendar_events(
-    config: dict[str, str], start: datetime, end: datetime
-) -> tuple[list[dict[str, Any]], int]:
-    token = google_access_token(config)
+def read_calendar_items(config: dict[str, str], start: datetime, end: datetime, request=None,
+                        *, access_token: str | None = None) -> list[dict[str, Any]]:
+    request = request or http_json
+    token = google_access_token(config) if access_token is None else access_token
     calendar_id = config.get("GOOGLE_CALENDAR_ID", "primary")
     encoded_calendar_id = urllib.parse.quote(calendar_id, safe="")
-    query = urllib.parse.urlencode(
-        {
-            "timeMin": utc_iso(start),
-            "timeMax": utc_iso(end),
-            "singleEvents": "true",
-            "orderBy": "startTime",
-            "maxResults": "2500",
-        }
-    )
-    url = (
-        "https://www.googleapis.com/calendar/v3/calendars/"
-        f"{encoded_calendar_id}/events?{query}"
-    )
-    response = http_json(url, headers={"Authorization": f"Bearer {token}"})
-    raw_events = response.get("items", []) if isinstance(response, dict) else []
-    if not isinstance(raw_events, list):
-        raise ImportFailure("Google Calendar returned an invalid event list.")
+    query = {"timeMin": utc_iso(start), "timeMax": utc_iso(end), "singleEvents": "true",
+             "orderBy": "startTime", "maxResults": "2500"}
+    raw_events = []
+    seen = set()
+    while True:
+        url = ("https://www.googleapis.com/calendar/v3/calendars/"
+               f"{encoded_calendar_id}/events?" + urllib.parse.urlencode(query))
+        response = request(url, headers={"Authorization": f"Bearer {token}"})
+        if not isinstance(response, dict):
+            raise ImportFailure("Google Calendar returned an invalid event list.")
+        items = response.get("items", [] if response.get("kind") == "calendar#events" else None)
+        if not isinstance(items, list):
+            raise ImportFailure("Google Calendar returned an invalid event list.")
+        raw_events.extend(items)
+        page = response.get("nextPageToken") or ""
+        if not page:
+            return raw_events
+        if not isinstance(page, str) or page in seen:
+            raise ImportFailure("Calendar pagination did not advance; no partial notes were generated.")
+        seen.add(page)
+        query["pageToken"] = page
 
+
+def read_calendar_events(config: dict[str, str], start: datetime, end: datetime) -> tuple[list[dict[str, Any]], int]:
+    return normalise_calendar_events(read_calendar_items(config, start, end), start, end)
+
+
+def normalise_calendar_events(raw_events: list[dict[str, Any]], start: datetime, end: datetime) -> tuple[list[dict[str, Any]], int]:
+    """The same timed-event input for Whistler imports and standup decisions."""
     result: list[dict[str, Any]] = []
     skipped_count = 0
     for event in raw_events:
@@ -937,12 +948,9 @@ def build_worklog(
                 for title in task["sourceTitles"]
                 if title.casefold() != task["text"].casefold()
             ]
-            details = f" — {'; '.join(source_titles)}" if source_titles else ""
-            log_lines.append(
-                f"{index}. {task['text']}{details} "
-                f"({format_minutes(int(task['minutes']))})"
-            )
-        log = "\n".join(log_lines)
+            heading = f"{index}. {task['text']} ({format_minutes(int(task['minutes']))})"
+            log_lines.append("\n".join([heading, *("\t- " + title for title in source_titles)]))
+        log = "\n\n".join(log_lines)
         entries.append(
             {
                 "projectId": project["id"],

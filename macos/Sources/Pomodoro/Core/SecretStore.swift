@@ -11,6 +11,7 @@ import Security
 enum SecretStore {
     static let whistlerSession = "whistler-session"
     static let openRouterKey = "openrouter-key"
+    static let jiraToken = "jira-api-token"
 
     private static let service = "com.dukunuu.pomodoro"
 

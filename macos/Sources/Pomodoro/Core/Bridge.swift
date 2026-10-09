@@ -66,6 +66,7 @@ enum Bridge {
     static func run(_ script: URL,
                     _ arguments: [String],
                     onLine: ((String) -> Void)? = nil,
+                    environment: [String: String] = [:],
                     completion: @escaping (Int32, String, String) -> Void) -> Process? {
         guard FileManager.default.fileExists(atPath: script.path) else {
             DispatchQueue.main.async {
@@ -74,6 +75,7 @@ enum Bridge {
             return nil
         }
         let process = make(script, arguments)
+        process.environment?.merge(environment) { _, replacement in replacement }
         let outPipe = Pipe()
         let errPipe = Pipe()
         process.standardOutput = outPipe
@@ -120,34 +122,6 @@ enum Bridge {
             DispatchQueue.main.async { completion(-1, "", "\(error)") }
             return nil
         }
-    }
-
-    /// The Google and Whistler setup flows are interactive — they print a URL
-    /// and read answers from a console. Windows opens a cmd window for this;
-    /// the macOS equivalent is handing Terminal a throwaway shell script.
-    @discardableResult
-    static func runInTerminal(_ script: URL, _ arguments: [String], title: String) -> Bool {
-        guard FileManager.default.fileExists(atPath: script.path) else { return false }
-        let quoted = ([pythonPath, script.path] + arguments)
-            .map { "'" + $0.replacingOccurrences(of: "'", with: "'\\''") + "'" }
-            .joined(separator: " ")
-        let body = """
-        #!/bin/sh
-        export POMODORO_DATA_DIR='\(DataPaths.directory.path)'
-        cd '\(DataPaths.scriptsDirectory.path)'
-        echo '=== \(title) ==='
-        \(quoted)
-        status=$?
-        echo
-        echo '=== Finished (exit '"$status"'). You can close this window. ==='
-        exec /bin/sh -c 'read _ 2>/dev/null || true'
-        """
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("pomodoro-\(UUID().uuidString).command")
-        guard (try? body.write(to: url, atomically: true, encoding: .utf8)) != nil else { return false }
-        try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
-        NSWorkspace.shared.open(url)
-        return true
     }
 }
 

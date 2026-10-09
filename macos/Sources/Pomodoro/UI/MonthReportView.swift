@@ -17,14 +17,20 @@ struct MonthReportView: View {
 
         PeriodStepper(
             title: report.label,
-            subtitle: "\(report.focusText) focus · \(report.sessions) sessions · \(report.activeDays) active days",
             canGoForward: offset < 0,
             onBack: { offset -= 1 },
             onForward: { offset += 1 },
             onToday: { offset = 0 }
         )
 
-        Card("Calendar", symbol: "calendar") {
+        StatStrip {
+            StatTile(label: "Focus", value: report.focusText, detail: "active time", tint: Theme.focus)
+            StatTile(label: "Breaks", value: report.breakText, detail: "active time")
+            StatTile(label: "Sessions", value: String(report.sessions), detail: "completed")
+            StatTile(label: "Active days", value: String(report.activeDays), detail: "with focus time")
+        }
+
+        Card("Calendar") {
             LazyVGrid(columns: columns, spacing: 6) {
                 ForEach(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], id: \.self) { name in
                     Text(name)
@@ -67,14 +73,14 @@ struct MonthDayCell: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: 6)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(cell.inMonth ? Theme.focus.opacity(intensity) : .clear)
                 .background(
-                    RoundedRectangle(cornerRadius: 6)
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .fill(cell.inMonth ? Theme.trackFill : .clear)
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 6)
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .strokeBorder(cell.isToday ? Theme.focus : .clear, lineWidth: 1.5)
                 )
 
@@ -88,10 +94,11 @@ struct MonthDayCell: View {
                             .foregroundStyle(Theme.textMuted)
                     }
                 }
-                .padding(5)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 6)
             }
         }
-        .frame(height: 46)
+        .frame(height: 48)
         .help(cell.inMonth ? "\(cell.key)\n\(cell.focusText) focus · \(cell.sessions) sessions" : "")
     }
 }

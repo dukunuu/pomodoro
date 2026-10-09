@@ -2,11 +2,10 @@ import SwiftUI
 import Charts
 import AppKit
 
-/// Everything about getting the day into Whistler: what setup is still
-/// outstanding, the send control itself, and how the month is tracking.
+/// Getting the day into Whistler and seeing how the month is tracking: what
+/// setup is still outstanding, the send control, then the month. How events
+/// are mapped is configuration, and opens in a sheet from the send card.
 struct WhistlerView: View {
-    @EnvironmentObject private var service: PomodoroService
-    @EnvironmentObject private var whistler: WhistlerService
     @EnvironmentObject private var integrations: IntegrationStatus
 
     var body: some View {
@@ -14,10 +13,7 @@ struct WhistlerView: View {
             SetupChecklistCard()
         }
         SendCard()
-        ReminderCard()
-        WhistlerMonthCard()
-        InstructionsCard()
-        WorkCategoriesCard()
+        WhistlerMonthSection()
     }
 }
 
@@ -29,6 +25,7 @@ struct SendCard: View {
     @EnvironmentObject private var integrations: IntegrationStatus
 
     @State private var day = Date()
+    @State private var configuring = false
 
     private var key: String { Fmt.dateKey(day) }
     private var isToday: Bool { key == service.todayKey }
@@ -37,21 +34,31 @@ struct SendCard: View {
 
     private var log: URL { DataPaths.directory.appendingPathComponent("pomodoro-whistler.log") }
 
-    private var logButton: AnyView? {
-        guard FileManager.default.fileExists(atPath: log.path) else { return nil }
-        return AnyView(
-            Button { NSWorkspace.shared.open(log) } label: {
-                Label("Open log", systemImage: "doc.text")
+    /// The two places to look when a send did not do what was expected: what
+    /// it did, and the rules it followed.
+    private var links: AnyView {
+        AnyView(
+            HStack(spacing: 6) {
+                if FileManager.default.fileExists(atPath: log.path) {
+                    Button { NSWorkspace.shared.open(log) } label: {
+                        Label("Open log", systemImage: "doc.text")
+                    }
+                    .buttonStyle(.ghost)
+                }
+                Button { configuring = true } label: {
+                    Label("Configure…", systemImage: "slider.horizontal.3")
+                }
+                .buttonStyle(.secondary)
+                .help("Mapping rules, work categories, account and reminder")
             }
-            .buttonStyle(.ghost)
             .controlSize(.small)
         )
     }
 
     var body: some View {
-        Card("Send to Whistler", symbol: "arrow.up.forward.app",
+        Card("Send to Whistler",
              subtitle: "Reads that day's Google Calendar events, classifies them, and writes the worklog.",
-             accessory: logButton) {
+             accessory: links) {
             HStack(alignment: .center, spacing: 8) {
                 DayField(day: $day)
 
@@ -106,6 +113,77 @@ struct SendCard: View {
                 Notice(.info, "\(key) has already been sent. Sending again updates it.")
             }
         }
+        .sheet(isPresented: $configuring) { WhistlerConfigSheet() }
+    }
+}
+
+/// Everything that shapes a send — how events are mapped, which account they
+/// go to, and the end-of-day reminder — in one sheet beside the control it
+/// affects, rather than on a page of its own.
+struct WhistlerConfigSheet: View {
+    enum Tab: Hashable { case mapping, account, reminder }
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var tab: Tab
+    @State private var unsaved = false
+    @State private var confirmingDiscard = false
+
+    init(tab: Tab = .mapping) { _tab = State(initialValue: tab) }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top, spacing: 12) {
+                    SheetHeader(symbol: "slider.horizontal.3",
+                                title: "Whistler configuration",
+                                subtitle: "How Calendar events become worklogs, which account sends them, and when you are reminded.")
+                    Spacer(minLength: 8)
+                    Button("Done") { if unsaved { confirmingDiscard = true } else { dismiss() } }
+                        .buttonStyle(.primary)
+                        .keyboardShortcut(.cancelAction)
+                }
+                SegmentedTabs(options: [(.mapping, "Mapping"), (.account, "Account"), (.reminder, "Reminder")],
+                              selection: $tab)
+            }
+            .padding(20)
+
+            Divider()
+
+            // Every tab stays alive behind the one showing, so an unsaved
+            // draft survives a look at another tab.
+            ZStack {
+                page(.mapping) {
+                    InstructionsCard()
+                    WorkCategoriesCard()
+                }
+                page(.account) {
+                    WhistlerAccountSection()
+                    ProjectMappingSection()
+                }
+                page(.reminder) {
+                    ReminderCard()
+                }
+            }
+        }
+        .frame(width: 640, height: 640)
+        .background(Theme.background)
+        .onPreferenceChange(UnsavedChangesKey.self) { unsaved = $0 }
+        .interactiveDismissDisabled(unsaved)
+        .confirmationDialog("Discard unsaved changes?", isPresented: $confirmingDiscard, titleVisibility: .visible) {
+            Button("Discard Changes", role: .destructive) { dismiss() }
+        } message: {
+            Text("Mapping instructions or work categories have edits that were not saved.")
+        }
+    }
+
+    private func page<Content: View>(_ value: Tab, @ViewBuilder content: () -> Content) -> some View {
+        ScrollView {
+            VStack(spacing: 16) { content() }
+                .padding(20)
+        }
+        .opacity(tab == value ? 1 : 0)
+        .allowsHitTesting(tab == value)
+        .accessibilityHidden(tab != value)
     }
 }
 
@@ -136,7 +214,7 @@ struct SetupChecklistCard: View {
 
     private var card: some View {
         let done = states.filter(\.isReady).count
-        return Card("Setup", symbol: "checklist",
+        return Card("Setup",
                     subtitle: "Whistler needs a Google Calendar client, an authorized Google account, and your Whistler credentials.",
                     accessory: AnyView(StatusPill(text: "\(done) of \(states.count) done",
                                                   tint: done == states.count ? Theme.longBreak : .secondary))) {
@@ -168,6 +246,8 @@ struct SetupChecklistCard: View {
                 ) { showingCredentials = true }
             }
 
+            GoogleAuthorizationStatus(auth: whistler.googleAuth)
+
             if !integrations.python.isReady {
                 Notice(.error, integrations.python.detail)
             }
@@ -194,6 +274,48 @@ struct SetupChecklistCard: View {
     }
 }
 
+/// Where the Google consent flow stands, shown under whichever control
+/// started it: the browser has the next step, so the app says it is waiting
+/// and then says how it ended.
+struct GoogleAuthorizationStatus: View {
+    @ObservedObject var auth: GoogleAuthorizer
+
+    var body: some View {
+        switch auth.stage {
+        case .idle:
+            EmptyView()
+        case .waiting, .finishing:
+            let waiting = auth.stage == .waiting
+            HStack(spacing: 10) {
+                ProgressView().controlSize(.small)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(waiting ? "Waiting for Google in your browser" : "Finishing authorization…")
+                        .font(.system(size: 13, weight: .medium))
+                    Text(waiting ? "Approve access there. This updates on its own when you are done."
+                                 : "Saving the authorization.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 8)
+                if waiting {
+                    Button("Open Browser Again") { auth.reopenBrowser() }
+                        .buttonStyle(.ghost)
+                    Button("Cancel") { auth.cancel() }
+                        .buttonStyle(.secondary)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .background(Theme.controlFill, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        case .authorized:
+            Notice(.success, "Google Calendar is authorized.")
+        case .failed(let message):
+            Notice(.error, message)
+        }
+    }
+}
+
 struct SetupRow: View {
     var number: Int
     var title: String
@@ -212,20 +334,19 @@ struct SetupRow: View {
     }
 
     /// The step number until the step is done or blocked, then its state.
-    @ViewBuilder private var marker: some View {
-        switch state {
-        case .ready:
-            IconBadge(systemName: "checkmark", tint: tint)
-        case .blocked:
-            IconBadge(systemName: "exclamationmark", tint: tint)
-        case .missing:
-            Text("\(number)")
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundStyle(prominent ? AnyShapeStyle(Theme.accent) : AnyShapeStyle(.secondary))
-                .frame(width: 28, height: 28)
-                .background((prominent ? Theme.accent : Color.secondary).opacity(0.16),
-                            in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    private var marker: some View {
+        var markerTint = tint
+        if case .missing = state { markerTint = prominent ? Theme.accent : .secondary }
+        return Group {
+            switch state {
+            case .ready: Image(systemName: "checkmark").font(.system(size: 10, weight: .bold))
+            case .blocked: Image(systemName: "exclamationmark").font(.system(size: 11, weight: .bold))
+            case .missing: Text("\(number)").font(.system(size: 12, weight: .semibold, design: .rounded))
+            }
         }
+        .foregroundStyle(markerTint)
+        .frame(width: 22, height: 22)
+        .background(markerTint.opacity(0.16), in: Circle())
     }
 
     var body: some View {
@@ -333,23 +454,16 @@ struct GoogleClientSheet: View {
 /// missing from Whistler.
 struct ReminderCard: View {
     @EnvironmentObject private var whistler: WhistlerService
-    @State private var time = ""
-    @FocusState private var timeFocused: Bool
 
     var body: some View {
-        Card("Daily reminder", symbol: "bell.fill") {
+        Card("Daily reminder") {
             SettingRow("Remind me if the day is not logged",
                        subtitle: "Checked every minute after the given time. It only fires when Calendar shows work that Whistler has not recorded.") {
-                FieldChrome(icon: "clock", focused: timeFocused) {
-                    TextField("Reminder time", text: $time, prompt: Text("18:00"))
-                        .font(.system(size: 13, weight: .medium).monospacedDigit())
-                        .focused($timeFocused)
-                        .onSubmit { commit() }
-                        .onChange(of: whistler.reminderTime) { _, value in time = value }
-                }
-                .frame(width: 92)
+                TimeField(time: Binding(
+                    get: { whistler.reminderTime },
+                    set: { whistler.saveSettings(reminderEnabled: whistler.reminderEnabled, reminderTime: $0) }
+                ))
                 .disabled(!whistler.reminderEnabled)
-                .help("24-hour time, for example 18:00")
 
                 Switch(label: "Remind me if the day is not logged", isOn: Binding(
                     get: { whistler.reminderEnabled },
@@ -357,116 +471,75 @@ struct ReminderCard: View {
                 ))
             }
         }
-        .onAppear { time = whistler.reminderTime }
-        .onChange(of: timeFocused) { _, focused in if !focused { commit() } }
-    }
-
-    private func commit() {
-        if WhistlerService.normalizeReminderTime(time) != nil {
-            guard time != whistler.reminderTime else { return }
-            whistler.saveSettings(reminderEnabled: whistler.reminderEnabled, reminderTime: time)
-        } else {
-            time = whistler.reminderTime
-        }
     }
 }
 
-/// Month coverage: how the month is tracking against target, where the time
-/// went, and which days Calendar says are still missing from Whistler.
-struct WhistlerMonthCard: View {
+/// The month in Whistler, laid out like the report pages: the month and its
+/// headline figures, then which days are covered and where the time went.
+struct WhistlerMonthSection: View {
     @EnvironmentObject private var service: PomodoroService
     @EnvironmentObject private var whistler: WhistlerService
     @EnvironmentObject private var integrations: IntegrationStatus
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 5), count: 7)
     private var monthKey: String { String(service.todayKey.prefix(7)) }
+    private var loaded: Bool { whistler.monthStatusLoaded && whistler.monthStatusKey == monthKey }
+
+    private var title: String {
+        Fmt.monthParts(monthKey).map { Fmt.monthLabel(year: $0.year, month: $0.month) } ?? "This month"
+    }
 
     var body: some View {
-        Card("Month coverage", symbol: "calendar", accessory: AnyView(
-            HStack(spacing: 8) {
-                if whistler.monthStatusLoading { ProgressView().controlSize(.small) }
-                Button { whistler.refreshMonthStatus(monthKey) } label: {
-                    Label("Refresh", systemImage: "arrow.clockwise")
-                }
-                .buttonStyle(.secondary)
-                .controlSize(.small)
-                .disabled(whistler.monthStatusLoading || !integrations.whistlerReady)
+        PageHeading(title: title) {
+            if whistler.monthStatusLoading { ProgressView().controlSize(.small) }
+            Button { whistler.refreshMonthStatus(monthKey) } label: {
+                Label("Refresh", systemImage: "arrow.clockwise")
             }
-        )) {
+            .buttonStyle(.secondary)
+            .disabled(whistler.monthStatusLoading || !integrations.whistlerReady)
+        }
+        .padding(.top, 6)
+        // Compared once on arrival rather than left blank behind a button. A
+        // failed attempt leaves its message and is not retried on its own.
+        .onAppear {
+            if integrations.whistlerReady && !loaded && !whistler.monthStatusLoading
+                && whistler.monthStatusMessage.isEmpty {
+                whistler.refreshMonthStatus(monthKey)
+            }
+        }
+
+        if loaded {
+            let stats = whistler.monthlyStats
+            VStack(spacing: 4) {
+                StatStrip {
+                    StatTile(label: "Target",
+                             value: Fmt.whistlerMinutes(stats.expectedMinutes),
+                             detail: "\(stats.workdayCount) workdays")
+                    StatTile(label: "Logged",
+                             value: Fmt.whistlerMinutes(stats.loggedMinutes),
+                             detail: "\(stats.loggedDays) days",
+                             tint: Theme.focus)
+                    StatTile(label: "To date",
+                             value: Fmt.whistlerMinutes(stats.loggedToDateMinutes),
+                             detail: "of \(Fmt.whistlerMinutes(stats.expectedToDateMinutes))")
+                    StatTile(label: "Balance",
+                             value: Fmt.whistlerSignedMinutes(stats.balanceMinutes),
+                             detail: stats.balanceMinutes >= 0 ? "ahead" : "behind",
+                             tint: stats.balanceMinutes >= 0 ? Theme.longBreak : Theme.urgent)
+                }
+                ProgressBar(value: stats.expectedMinutes > 0
+                            ? min(1, stats.loggedMinutes / stats.expectedMinutes) : 0,
+                            color: Theme.focus, height: 5)
+            }
+
             if !whistler.monthStatusMessage.isEmpty {
                 Notice(whistler.incompleteDays.isEmpty ? .success : .error, whistler.monthStatusMessage)
             }
 
-            if whistler.monthStatusLoaded {
-                let stats = whistler.monthlyStats
-                HStack(spacing: 10) {
-                    StatTile(label: "Target",
-                             value: Fmt.whistlerMinutes(stats.expectedMinutes),
-                             detail: "\(stats.workdayCount) workdays",
-                             symbol: "target", tint: .secondary)
-                    StatTile(label: "Logged",
-                             value: Fmt.whistlerMinutes(stats.loggedMinutes),
-                             detail: "\(stats.loggedDays) days",
-                             symbol: "checkmark.circle.fill", tint: Theme.focus)
-                    StatTile(label: "To date",
-                             value: Fmt.whistlerMinutes(stats.loggedToDateMinutes),
-                             detail: "of \(Fmt.whistlerMinutes(stats.expectedToDateMinutes))",
-                             symbol: "clock.fill", tint: Theme.shortBreak)
-                    StatTile(label: "Balance",
-                             value: Fmt.whistlerSignedMinutes(stats.balanceMinutes),
-                             detail: stats.balanceMinutes >= 0 ? "ahead" : "behind",
-                             symbol: stats.balanceMinutes >= 0 ? "arrow.up.right" : "arrow.down.right",
-                             tint: stats.balanceMinutes >= 0 ? Theme.longBreak : Theme.urgent)
-                }
-
-                ProgressBar(value: stats.expectedMinutes > 0
-                            ? min(1, stats.loggedMinutes / stats.expectedMinutes) : 0,
-                            color: Theme.focus, height: 6)
-
-                if !whistler.projectTotals.isEmpty {
-                    Divider().padding(.vertical, 2)
-                    HStack(alignment: .center, spacing: 20) {
-                        Chart(whistler.projectTotals) { project in
-                            SectorMark(
-                                angle: .value("Minutes", project.minutes),
-                                innerRadius: .ratio(0.6),
-                                angularInset: 1.5
-                            )
-                            .foregroundStyle(by: .value("Project", project.name))
-                            .cornerRadius(3)
-                        }
-                        .frame(width: 132, height: 132)
-                        .chartLegend(.hidden)
-                        .chartForegroundStyleScale(range: Theme.projectColors)
-
-                        VStack(alignment: .leading, spacing: 5) {
-                            ForEach(Array(whistler.projectTotals.prefix(8).enumerated()), id: \.element.id) { index, project in
-                                HStack(spacing: 7) {
-                                    // The chart assigns its range in data order.
-                                    Circle()
-                                        .fill(Theme.projectColors[index % Theme.projectColors.count])
-                                        .frame(width: 7, height: 7)
-                                    Text(project.name).font(.caption).lineLimit(1)
-                                    Spacer(minLength: 8)
-                                    Text(Fmt.whistlerMinutes(project.minutes))
-                                        .font(.caption.monospacedDigit())
-                                        .foregroundStyle(Theme.textMuted)
-                                }
-                            }
-                            if whistler.projectTotals.count > 8 {
-                                Text("+\(whistler.projectTotals.count - 8) more")
-                                    .font(.caption2).foregroundStyle(Theme.textFaint)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                }
-
-                Divider().padding(.vertical, 2)
-
+            Card("Days") {
                 LazyVGrid(columns: columns, spacing: 5) {
                     ForEach(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], id: \.self) { name in
-                        Text(name).font(.caption2).foregroundStyle(Theme.textFaint)
+                        Text(name).font(.caption2.weight(.medium)).foregroundStyle(Theme.textFaint)
                     }
                     ForEach(whistler.monthCells(monthKey, todayKey: service.todayKey)) { cell in
                         WhistlerDayCell(cell: cell, tooltip: whistler.dayTooltip(cell)) {
@@ -482,11 +555,59 @@ struct WhistlerMonthCard: View {
                     Spacer()
                     Text("Right-click a day to send it").font(.caption2).foregroundStyle(Theme.textFaint)
                 }
-            } else if !whistler.monthStatusLoading {
-                EmptyHint(text: integrations.whistlerReady
-                          ? "Refresh to compare Google Calendar against Whistler for this month."
-                          : "Finish the setup above to compare Calendar against Whistler.",
-                          symbol: "calendar.badge.clock")
+            }
+
+            if !whistler.projectTotals.isEmpty {
+                Card("Projects") {
+                    HStack(alignment: .center, spacing: 24) {
+                        Chart(whistler.projectTotals) { project in
+                            SectorMark(
+                                angle: .value("Minutes", project.minutes),
+                                innerRadius: .ratio(0.62),
+                                angularInset: 1.5
+                            )
+                            .foregroundStyle(by: .value("Project", project.name))
+                            .cornerRadius(3)
+                        }
+                        .frame(width: 124, height: 124)
+                        .chartLegend(.hidden)
+                        .chartForegroundStyleScale(range: Theme.projectColors)
+
+                        VStack(alignment: .leading, spacing: 7) {
+                            ForEach(Array(whistler.projectTotals.prefix(8).enumerated()), id: \.element.id) { index, project in
+                                HStack(spacing: 8) {
+                                    // The chart assigns its range in data order.
+                                    Circle()
+                                        .fill(Theme.projectColors[index % Theme.projectColors.count])
+                                        .frame(width: 7, height: 7)
+                                    Text(project.name).font(.system(size: 13)).lineLimit(1)
+                                    Spacer(minLength: 8)
+                                    Text(Fmt.whistlerMinutes(project.minutes))
+                                        .font(.system(size: 13, weight: .medium, design: .rounded).monospacedDigit())
+                                }
+                            }
+                            if whistler.projectTotals.count > 8 {
+                                Text("+\(whistler.projectTotals.count - 8) more")
+                                    .font(.caption2).foregroundStyle(Theme.textFaint)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+            }
+        } else {
+            Card {
+                if whistler.monthStatusLoading {
+                    EmptyHint(text: "Checking Calendar and Whistler…", symbol: "arrow.triangle.2.circlepath")
+                } else {
+                    EmptyHint(text: integrations.whistlerReady
+                              ? "Refresh to compare Google Calendar against Whistler for this month."
+                              : "Finish the setup above to compare Calendar against Whistler.",
+                              symbol: "calendar.badge.clock")
+                    if integrations.whistlerReady && !whistler.monthStatusMessage.isEmpty {
+                        Notice(.error, whistler.monthStatusMessage)
+                    }
+                }
             }
         }
     }
@@ -507,10 +628,10 @@ struct WhistlerDayCell: View {
     }
 
     var body: some View {
-        RoundedRectangle(cornerRadius: 6)
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
             .fill(fill)
             .overlay(
-                RoundedRectangle(cornerRadius: 6)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .strokeBorder(cell.isToday ? Theme.focus : .clear, lineWidth: 1.5)
             )
             .overlay(alignment: .topLeading) {
@@ -524,10 +645,11 @@ struct WhistlerDayCell: View {
                                 .foregroundStyle(Theme.textMuted)
                         }
                     }
-                    .padding(4)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 5)
                 }
             }
-            .frame(height: 40)
+            .frame(height: 44)
             .help(tooltip)
             .contextMenu {
                 if cell.inMonth {
@@ -548,13 +670,14 @@ struct InstructionsCard: View {
     private var dirty: Bool { draft != whistler.instructionsText }
 
     var body: some View {
-        Card("Mapping instructions", symbol: "text.bubble.fill",
+        Card("Mapping instructions",
              subtitle: "Tell Jev how your Calendar relates to projects, what not to log, and when to use your work categories. For example: ‘Opeone to Quotomy belongs to quotomy. Don’t log Japanese club meetings.’ Unnamed focus continues previous work automatically. Calendar-type defaults apply unless overridden under Advanced.",
              accessory: dirty ? AnyView(StatusPill(text: "Unsaved", tint: Theme.accent)) : nil) {
             FieldChrome(focused: editing, padding: EdgeInsets(top: 8, leading: 6, bottom: 8, trailing: 6)) {
                 TextEditor(text: $draft)
-                    .font(Theme.mono(12))
-                    .frame(minHeight: 130, idealHeight: 170, maxHeight: 320)
+                    .font(.system(size: 13))
+                    .lineSpacing(3)
+                    .frame(minHeight: 110, idealHeight: 150, maxHeight: 320)
                     .scrollContentBackground(.hidden)
                     .focused($editing)
             }
@@ -583,6 +706,7 @@ struct InstructionsCard: View {
                 .buttonStyle(.ghost)
             }
         }
+        .preference(key: UnsavedChangesKey.self, value: dirty)
         .onAppear { draft = whistler.instructionsText }
         .onChange(of: whistler.instructionsText) { _, value in
             if draft.isEmpty || saved { draft = value }

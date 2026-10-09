@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Combine
 
@@ -560,8 +561,17 @@ final class WhistlerService: ObservableObject {
 
     // MARK: - Setup flows
 
+    /// Google's consent flow, run in the app: see `GoogleAuthorizer`.
+    let googleAuth = GoogleAuthorizer()
+
     func authorizeGoogle() {
-        Bridge.runInTerminal(DataPaths.googleAuthScript, [], title: "Authorize Google Calendar")
+        // Back to the app once Google has handed over: the browser tab says
+        // it can be closed, and this is where the next step is.
+        googleAuth.onAuthorized = { [weak self] in
+            self?.integrations?.refresh()
+            NSApplication.shared.activate(ignoringOtherApps: true)
+        }
+        googleAuth.start()
     }
 
 }

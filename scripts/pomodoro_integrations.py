@@ -8,6 +8,7 @@ Pomodoro directory, while all Calendar requests go directly to Google.
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import json
 import os
 import socket
@@ -35,6 +36,17 @@ STATE_DIR = data_directory()
 MAP_PATH = STATE_DIR / "pomodoro-integrations.json"
 LOCK_PATH = STATE_DIR / ".pomodoro-integrations.lock"
 LOG_PATH = STATE_DIR / "pomodoro-integrations.log"
+
+
+class CalendarRequestError(RuntimeError):
+    def __init__(self, status: int):
+        self.status = status
+        super().__init__(f"HTTP {status}")
+
+
+def session_event_id(session: str) -> str:
+    # Google IDs permit lowercase base32hex characters; lowercase hex is a subset.
+    return "pomodoro" + hashlib.sha256(("pomodoro-focus-v1:" + session).encode("utf-8")).hexdigest()
 
 
 def load_env(path: Path) -> dict[str, str]:
@@ -199,7 +211,7 @@ def json_request(
         except (OSError, UnicodeDecodeError, json.JSONDecodeError):
             pass
         log(f"Google Calendar request failed: HTTP {error.code}{': ' + detail if detail else ''}")
-        raise RuntimeError(f"HTTP {error.code}") from error
+        raise CalendarRequestError(error.code) from error
     except (urllib.error.URLError, TimeoutError, socket.timeout) as error:
         log(f"Google Calendar request failed: network error ({error})")
         raise RuntimeError("network error") from error
@@ -323,7 +335,8 @@ def google_request(
     return json_request(url, method=method, payload=payload, headers=headers)
 
 
-def insert_event(config: dict[str, str], token: str, start_ms: str, end_ms: str, summary: str, description: str) -> str:
+def insert_event(config: dict[str, str], token: str, start_ms: str, end_ms: str, summary: str, description: str,
+                 *, session: str, update_existing: bool = False) -> str:
     payload = {
         "summary": summary,
         "description": description,
@@ -332,7 +345,24 @@ def insert_event(config: dict[str, str], token: str, start_ms: str, end_ms: str,
         "end": {"dateTime": to_iso(safe_end_ms(start_ms, end_ms))},
         "focusTimeProperties": {"autoDeclineMode": "declineNone", "chatStatus": "available"},
     }
-    response = google_request(config, token, "POST", calendar_url(config), payload)
+    identity = session_event_id(session)
+    payload["id"] = identity
+    payload["extendedProperties"] = {"private": {"pomodoroSession": session}}
+    try:
+        response = google_request(config, token, "POST", calendar_url(config), payload)
+    except CalendarRequestError as error:
+        if error.status != 409:
+            raise
+        existing = google_request(config, token, "GET", calendar_url(config, identity))
+        properties = existing.get("extendedProperties") if isinstance(existing, dict) else None
+        marker = properties.get("private") if isinstance(properties, dict) else None
+        if not isinstance(marker, dict) or marker.get("pomodoroSession") != session:
+            raise RuntimeError("Calendar event ID belongs to a different event; not overwriting it.") from error
+        if existing.get("status") == "cancelled":
+            raise CalendarRequestError(410) from error
+        if update_existing:
+            patch_event(config, token, identity, start_ms, end_ms, summary, description)
+        return identity
     event_id = response.get("id") if isinstance(response, dict) else None
     if not isinstance(event_id, str) or not event_id:
         raise RuntimeError("Calendar response did not contain an event ID")
@@ -358,7 +388,7 @@ def delete_event(config: dict[str, str], token: str, event_id: str) -> None:
 def start_event(config: dict[str, str], token: str, mapping: dict[str, Any], session: str, end_ms: str, note: str = "") -> None:
     if map_event_id(mapping, session):
         return
-    event_id = insert_event(config, token, session, end_ms, calendar_summary(note), focus_description(note, "0", "in progress"))
+    event_id = insert_event(config, token, session, end_ms, calendar_summary(note), focus_description(note, "0", "in progress"), session=session)
     map_add_event(mapping, session, "session", session, end_ms, event_id)
 
 
@@ -367,8 +397,9 @@ def discard_event(config: dict[str, str], token: str, mapping: dict[str, Any], s
     if event_id:
         try:
             delete_event(config, token, event_id)
-        except RuntimeError:
-            return
+        except CalendarRequestError as error:
+            if error.status not in (404, 410):
+                raise
     map_remove_session(mapping, session)
 
 
@@ -394,14 +425,17 @@ def finish_event(
             patch_event(config, token, event_id, start_ms, end_ms, summary, description)
             map_add_event(mapping, session, "session", start_ms, end_ms, event_id)
             return
-        except RuntimeError:
+        except CalendarRequestError as error:
+            if error.status != 404:
+                raise
             mapping["events"] = [
                 event
                 for event in mapping.get("events", [])
                 if not isinstance(event, dict) or str(event.get("session", "")) != session
             ]
             save_map(mapping)
-    event_id = insert_event(config, token, start_ms, end_ms, summary, description)
+    event_id = insert_event(config, token, start_ms, end_ms, summary, description,
+                            session=session, update_existing=True)
     map_add_event(mapping, session, "session", start_ms, end_ms, event_id)
 
 

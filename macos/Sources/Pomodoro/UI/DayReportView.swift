@@ -16,14 +16,20 @@ struct DayReportView: View {
 
         PeriodStepper(
             title: Fmt.dayLabel(date),
-            subtitle: "\(stats.focusText) focus · \(stats.breakText) break · \(stats.phases) phases",
             canGoForward: offset < 0,
             onBack: { offset -= 1 },
             onForward: { offset += 1 },
             onToday: { offset = 0 }
         )
 
-        Card("Timeline", symbol: "calendar.day.timeline.left") {
+        StatStrip {
+            StatTile(label: "Focus", value: stats.focusText, detail: "active time", tint: Theme.focus)
+            StatTile(label: "Breaks", value: stats.breakText, detail: "\(stats.breaks) taken")
+            StatTile(label: "Sessions", value: String(stats.sessions), detail: "completed")
+            StatTile(label: "Phases", value: String(stats.phases), detail: "recorded")
+        }
+
+        Card("Timeline") {
             DayTimeline(entries: entries, key: key, service: service)
                 .frame(height: 62)
                 .padding(.top, 2)
@@ -39,8 +45,11 @@ struct DayReportView: View {
             }
         }
 
-        Card("Phases", symbol: "list.bullet",
-             accessory: entries.isEmpty ? nil : AnyView(StatusPill(text: "\(entries.count)"))) {
+        Card("Phases",
+             accessory: entries.isEmpty ? nil : AnyView(
+                Text("\(entries.count)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(Theme.textFaint))) {
             if entries.isEmpty {
                 EmptyHint(text: "No phases recorded for this day yet.", symbol: "moon.zzz")
             } else {
@@ -108,12 +117,12 @@ struct DayTimeline: View {
             GeometryReader { geo in
                 let width = geo.size.width
                 ZStack(alignment: .topLeading) {
-                    RoundedRectangle(cornerRadius: 5)
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
                         .fill(Theme.trackFill)
 
                     ForEach(window.hours.dropFirst().dropLast(), id: \.self) { hour in
                         Rectangle()
-                            .fill(Theme.border)
+                            .fill(Theme.hairline)
                             .frame(width: 1)
                             .offset(x: width * CGFloat((hour - window.start) / window.span))
                     }
@@ -122,8 +131,9 @@ struct DayTimeline: View {
                         ForEach(Array(entry.segments.enumerated()), id: \.offset) { _, segment in
                             let start = place(service.timelineRatio(segment.startedAt, key: key))
                             let end = place(service.timelineRatio(segment.endedAt, key: key))
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(Theme.color(for: entry.phase).opacity(entry.isLive ? 0.95 : 0.75))
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill(Theme.color(for: entry.phase).opacity(entry.isLive ? 1 : 0.85))
+                                .padding(.vertical, 5)
                                 .frame(width: max(3, width * (end - start)))
                                 .offset(x: width * start)
                                 .help(tooltip(entry))
@@ -171,20 +181,23 @@ struct EntryRow: View {
 
     private var counted: Bool { entry.status == .completed || entry.isLive }
 
-    private var status: (text: String, tint: Color, symbol: String?) {
-        if entry.isLive { return ("In progress", Theme.color(for: entry.phase), "circle.fill") }
+    /// Completed is the expected outcome, so it stays quiet; only a phase
+    /// that is still running or was cut short is given a colour.
+    private var status: (text: String, tint: Color) {
+        if entry.isLive { return ("In progress", Theme.color(for: entry.phase)) }
         switch entry.status {
-        case .completed: return ("Completed", Theme.longBreak, "checkmark")
-        case .interrupted: return ("Interrupted", Theme.urgent, nil)
-        default: return (entry.status.label, .secondary, nil)
+        case .completed: return ("Completed", Theme.textFaint)
+        case .interrupted: return ("Interrupted", Theme.urgent)
+        default: return (entry.status.label, .secondary)
         }
     }
 
     var body: some View {
         HStack(spacing: 11) {
-            IconBadge(systemName: entry.phase == .focus ? "brain.head.profile" : "cup.and.saucer.fill",
-                      tint: Theme.color(for: entry.phase))
-                .opacity(counted ? 1 : 0.5)
+            Circle()
+                .fill(Theme.color(for: entry.phase))
+                .frame(width: 7, height: 7)
+                .opacity(counted ? 1 : 0.4)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(entry.note.isEmpty ? entry.phase.label : entry.note)
@@ -200,13 +213,15 @@ struct EntryRow: View {
 
             Spacer(minLength: 8)
 
-            StatusPill(text: status.text, tint: status.tint, systemImage: status.symbol)
+            Text(status.text)
+                .font(.caption)
+                .foregroundStyle(status.tint)
 
             Text(Fmt.reportDuration(entry.activeSeconds))
-                .font(.system(size: 13, weight: .medium).monospacedDigit())
+                .font(.system(size: 13, weight: .medium, design: .rounded).monospacedDigit())
                 .frame(width: 58, alignment: .trailing)
         }
-        .padding(.vertical, 7)
+        .padding(.vertical, 8)
     }
 }
 

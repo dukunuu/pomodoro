@@ -47,6 +47,7 @@ jobs:
           test -f "$APP/Contents/Resources/Pomodoro.icns"
           test -f "$APP/Contents/Resources/scripts/pomodoro_whistler_import.py"
           test -f "$APP/Contents/Resources/scripts/pomodoro_mapping.py"
+          test -f "$APP/Contents/Resources/scripts/pomodoro_standup.py"
           test ! -f "$APP/Contents/Resources/build.dat"
           # A source build must not contain credentials.
           if [ -f "$APP/Contents/Resources/scripts/google-calendar-client.json" ]; then

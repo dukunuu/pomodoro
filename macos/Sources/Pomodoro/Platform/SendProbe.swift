@@ -12,7 +12,7 @@ enum StatusProbe {
     }
 
     static func run() {
-        let integrations = AppState.shared.integrations
+        let integrations = IntegrationStatus()
         integrations.refresh()
         func line(_ label: String, _ state: SetupState) {
             let mark = state.isReady ? "ok  " : "need"

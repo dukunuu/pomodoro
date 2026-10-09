@@ -47,6 +47,7 @@ public static class DataPaths
         return File.Exists(bundled) ? bundled : null;
     }
     public static string GoogleToken => Path.Combine(Directory, "pomodoro-google-token.json");
+    public static string JiraAccount => Path.Combine(Directory, "pomodoro-jira-account.json");
     public static string WhistlerLog => Path.Combine(Directory, "pomodoro-whistler.log");
 
     /// <summary>Session-to-Calendar-event map, in the shape the bridges use.</summary>

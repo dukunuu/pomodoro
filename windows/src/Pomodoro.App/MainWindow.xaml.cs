@@ -16,6 +16,10 @@ public sealed partial class MainWindow : Window
     private IntegrationStatus Integrations => App.State.Integrations;
     private UpdateChecker Updates => App.State.Updates;
 
+    private StandupView? _standup;
+    private enum ConfigSheet { None, Whistler, Standup }
+    private ConfigSheet _sheet = ConfigSheet.None;
+    private bool _closingSheet;
     private string _section = "today";
     private int _weekOffset;
     private int _monthOffset;
@@ -48,6 +52,14 @@ public sealed partial class MainWindow : Window
             WindowChrome.ApplyBorder(WinRT.Interop.WindowNative.GetWindowHandle(this));
         });
 
+        _standup = new StandupView();
+        StandupPanel.Children.Add(_standup);
+        // The standup's dates and Jira account live in the same sheet as
+        // Whistler's configuration; the view owns the controls.
+        StandupConfigTab.Children.Add(_standup.ConfigContent);
+        _standup.ConfigureRequested += () => ShowSheet(ConfigSheet.Standup);
+        ConfigTabs.SelectionChanged += (_, _) => ShowSelectedTab();
+        ModalLayer.KeyDown += OnModalKeyDown;
         SendDate.Date = DateTimeOffset.Now;
         LoadPreferences();
         RefreshAccount();
@@ -479,12 +491,15 @@ public sealed partial class MainWindow : Window
 
     private async void OnAuthorizeGoogle(object sender, RoutedEventArgs e)
     {
-        ReportSetup("Waiting for Google in your browser… approve access, then return here. "
-            + "This gives up after five minutes.", InfoBarSeverity.Informational);
+        ReportSetup("Waiting for Google in your browser. Approve access there; this updates on its own "
+            + "when you are done, and gives up after five minutes.", InfoBarSeverity.Informational);
         try
         {
             var message = await GoogleClient.AuthorizeAsync();
             ReportSetup(message, InfoBarSeverity.Success);
+            // Back to the app once Google has handed over: the browser tab
+            // says it can be closed, and this is where the next step is.
+            Activate();
         }
         catch (Exception error)
         {
@@ -545,22 +560,134 @@ public sealed partial class MainWindow : Window
 
     private async void OnConfigureWorkCategories(object sender, RoutedEventArgs e)
     {
-        if (_sending) { Report("Wait for the current send to finish before changing work categories.", InfoBarSeverity.Informational); return; }
+        if (_sending) { ReportMapping("Wait for the current send to finish before changing work categories.", InfoBarSeverity.Informational); return; }
         try
         {
             if (await WorkCategoriesDialog.ShowAsync(Content.XamlRoot))
             {
                 ResetMonthStatus();
-                Report("Work preferences saved. They apply to the next send.", InfoBarSeverity.Success);
+                ReportMapping("Work preferences saved. They apply to the next send.", InfoBarSeverity.Success);
             }
         }
-        catch (Exception error) { Report(error.Message, InfoBarSeverity.Error); }
+        catch (Exception error) { ReportMapping(error.Message, InfoBarSeverity.Error); }
+    }
+
+    /// <summary>Shown under the Save button the mapping tab already has.</summary>
+    private void ReportMapping(string message, InfoBarSeverity severity)
+    {
+        InstructionsSaved.Text = message;
+        InstructionsSaved.Foreground = Brush(severity == InfoBarSeverity.Error ? "UrgentBrush"
+            : severity == InfoBarSeverity.Success ? "LongBreakBrush" : "TextMutedBrush");
+    }
+
+    // ---- Configuration sheets ---------------------------------------------
+
+    private bool InstructionsUnsaved => InstructionsBox.Text != OpenRouterClient.ReadInstructions();
+
+    private void OnConfigureWhistlerSettings(object sender, RoutedEventArgs e) => ShowSheet(ConfigSheet.Whistler);
+
+    private void ShowSheet(ConfigSheet sheet)
+    {
+        _sheet = sheet;
+        var whistler = sheet == ConfigSheet.Whistler;
+        ModalTitle.Text = whistler ? "Whistler configuration" : "Dates and Jira account";
+        ModalSubtitle.Text = whistler
+            ? "How Calendar events become worklogs, and which account sends them."
+            : "Which days the standup covers and which Jira account it reads. Changing a date clears both replies.";
+        ConfigTabs.Visibility = whistler ? Visibility.Visible : Visibility.Collapsed;
+        if (whistler)
+        {
+            AccountResultBar.IsOpen = false;
+            InstructionsSaved.Text = string.Empty;
+            RefreshAccount();
+            ConfigTabs.SelectedItem = MappingTabItem;
+        }
+        else
+        {
+            _standup?.RefreshAccount();
+        }
+        ShowSelectedTab();
+        ModalLayer.Visibility = Visibility.Visible;
+        ModalDone.Focus(FocusState.Programmatic);
+    }
+
+    private void ShowSelectedTab()
+    {
+        var whistler = _sheet == ConfigSheet.Whistler;
+        var account = ReferenceEquals(ConfigTabs.SelectedItem, AccountTabItem);
+        MappingTab.Visibility = whistler && !account ? Visibility.Visible : Visibility.Collapsed;
+        AccountTab.Visibility = whistler && account ? Visibility.Visible : Visibility.Collapsed;
+        StandupConfigTab.Visibility = _sheet == ConfigSheet.Standup ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private async void OnModalDone(object sender, RoutedEventArgs e) => await CloseSheetAsync();
+
+    private async void OnModalKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+    {
+        if (e.Key != Windows.System.VirtualKey.Escape) return;
+        e.Handled = true;
+        await CloseSheetAsync();
+    }
+
+    /// <summary>
+    /// Closing with an unsaved instructions draft asks first, as the macOS
+    /// sheet does, instead of leaving the edit behind where nobody sees it.
+    /// </summary>
+    private async Task CloseSheetAsync()
+    {
+        // A second Escape while the question below is open must not ask again:
+        // only one ContentDialog can be shown at a time.
+        if (_sheet == ConfigSheet.None || _closingSheet) return;
+        if (_sheet == ConfigSheet.Whistler && InstructionsUnsaved)
+        {
+            _closingSheet = true;
+            var confirm = new ContentDialog
+            {
+                XamlRoot = Content.XamlRoot,
+                Title = "Discard unsaved changes?",
+                Content = "The mapping instructions have edits that were not saved.",
+                PrimaryButtonText = "Discard changes",
+                CloseButtonText = "Keep editing",
+                DefaultButton = ContentDialogButton.Close
+            };
+            ContentDialogResult answer;
+            try { answer = await confirm.ShowAsync(); }
+            finally { _closingSheet = false; }
+            if (answer != ContentDialogResult.Primary) return;
+            InstructionsBox.Text = OpenRouterClient.ReadInstructions();
+        }
+        _sheet = ConfigSheet.None;
+        ModalLayer.Visibility = Visibility.Collapsed;
+        if (_section == "standup") _standup?.RefreshAccount();
+    }
+
+    /// <summary>
+    /// Authorizing again once setup is complete. The setup checklist is hidden
+    /// by then, so its button is not reachable; the result is reported here.
+    /// </summary>
+    private async void OnAuthorizeGoogleFromConfig(object sender, RoutedEventArgs e)
+    {
+        GoogleAuthorizeButton.IsEnabled = false;
+        ReportAccount("Waiting for Google in your browser. Approve access there; this updates on its own "
+            + "when you are done, and gives up after five minutes.", InfoBarSeverity.Informational);
+        try
+        {
+            var message = await GoogleClient.AuthorizeAsync();
+            ReportAccount(message, InfoBarSeverity.Success);
+            Activate();
+        }
+        catch (Exception error)
+        {
+            ReportAccount($"{error.Message}  (details in {System.IO.Path.Combine(DataPaths.Directory, "pomodoro-auth.log")})",
+                InfoBarSeverity.Error);
+        }
+        Integrations.Refresh();
     }
 
     private void OnSaveInstructions(object sender, RoutedEventArgs e)
     {
         AtomicFile.Write(DataPaths.WhistlerInstructions, InstructionsBox.Text);
-        InstructionsSaved.Text = "Saved";
+        ReportMapping("Saved", InfoBarSeverity.Success);
     }
 
     private void OnRevertInstructions(object sender, RoutedEventArgs e)
@@ -569,7 +696,7 @@ public sealed partial class MainWindow : Window
         InstructionsSaved.Text = string.Empty;
     }
 
-    // ---- Whistler account & AI (Settings) ---------------------------------
+    // ---- Whistler account & AI (configuration sheet) ----------------------
 
     /// <summary>Render only, like RefreshWhistler, which calls it.</summary>
     private void RefreshAccount()
@@ -609,6 +736,13 @@ public sealed partial class MainWindow : Window
             OpenRouterCredentials.KeySource.Environment => "Use environment key…",
             _ => "Remove key…"
         };
+
+        var authorized = Integrations.GoogleToken.IsReady;
+        GoogleAccountDetail.Text = authorized
+            ? "Authorized to read and write Calendar events."
+            : Integrations.GoogleToken.Detail;
+        GoogleAuthorizeButton.Content = authorized ? "Re-authorize" : "Authorize";
+        GoogleAuthorizeButton.IsEnabled = Integrations.GoogleClient.IsReady;
 
         // Leave a half-typed calendar ID alone.
         if (CalendarBox.FocusState == FocusState.Unfocused) CalendarBox.Text = settings.CalendarId;
@@ -1019,6 +1153,8 @@ public sealed partial class MainWindow : Window
             ? Visibility.Visible : Visibility.Collapsed;
         WhistlerPanel.Visibility = _section == "whistler" ? Visibility.Visible : Visibility.Collapsed;
         SettingsPanel.Visibility = _section == "settings" ? Visibility.Visible : Visibility.Collapsed;
+        StandupPanel.Visibility = _section == "standup" ? Visibility.Visible : Visibility.Collapsed;
+        if (_section == "standup") _standup?.RefreshAccount();
 
         // Re-read the credential files on arrival; Changed re-renders.
         if (_section == "whistler") Integrations.Refresh();

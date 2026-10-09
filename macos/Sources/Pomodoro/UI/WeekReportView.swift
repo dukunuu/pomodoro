@@ -15,14 +15,20 @@ struct WeekReportView: View {
 
         PeriodStepper(
             title: "\(report.startLabel) – \(report.endLabel)",
-            subtitle: "\(report.focusText) focus · \(report.sessions) sessions · \(report.averageDayText)/day average",
             canGoForward: offset < 0,
             onBack: { offset -= 1 },
             onForward: { offset += 1 },
             onToday: { offset = 0 }
         )
 
-        Card("Focus per day", symbol: "chart.bar.fill") {
+        StatStrip {
+            StatTile(label: "Focus", value: report.focusText, detail: "active time", tint: Theme.focus)
+            StatTile(label: "Breaks", value: report.breakText, detail: "active time")
+            StatTile(label: "Sessions", value: String(report.sessions), detail: "completed")
+            StatTile(label: "Daily average", value: report.averageDayText, detail: "focus per day")
+        }
+
+        Card("Focus per day") {
             Chart {
                 ForEach(report.days) { day in
                     BarMark(
@@ -31,7 +37,7 @@ struct WeekReportView: View {
                         width: .fixed(26)
                     )
                     .foregroundStyle(by: .value("Kind", "Focus"))
-                    .cornerRadius(3)
+                    .cornerRadius(4)
 
                     BarMark(
                         x: .value("Day", day.label),
@@ -39,18 +45,23 @@ struct WeekReportView: View {
                         width: .fixed(26)
                     )
                     .foregroundStyle(by: .value("Kind", "Break"))
-                    .cornerRadius(3)
+                    .cornerRadius(4)
                 }
             }
             .chartForegroundStyleScale([
                 "Focus": Theme.focus,
                 "Break": Theme.shortBreak
             ])
-            .chartYAxisLabel("hours")
-            .frame(height: 220)
+            .reportChartStyle()
+            .frame(height: 200)
+
+            HStack(spacing: 14) {
+                LegendDot(color: Theme.focus, label: "Focus")
+                LegendDot(color: Theme.shortBreak, label: "Break")
+            }
         }
 
-        Card("Days", symbol: "list.bullet") {
+        Card("Days") {
             VStack(spacing: 0) {
                 ForEach(report.days) { day in
                     HStack(spacing: 10) {
@@ -85,10 +96,40 @@ struct WeekReportView: View {
                             .foregroundStyle(Theme.textMuted)
                             .frame(width: 26, alignment: .trailing)
                     }
-                    .padding(.vertical, 5)
-                    if day.id != report.days.last?.id { Divider() }
+                    .padding(.vertical, 6)
+                    if day.id != report.days.last?.id { RowDivider() }
                 }
             }
         }
+    }
+}
+
+extension View {
+    /// The axis treatment the bar charts share: hours down the trailing edge,
+    /// hairline rules, no vertical grid, and no legend of the chart's own —
+    /// the card sets one in the same dots the timeline uses.
+    func reportChartStyle() -> some View {
+        self
+            .chartLegend(.hidden)
+            .chartXAxis {
+                AxisMarks { _ in
+                    AxisValueLabel()
+                        .font(.caption2)
+                        .foregroundStyle(Theme.textMuted)
+                }
+            }
+            .chartYAxis {
+                AxisMarks(position: .trailing, values: .automatic(desiredCount: 4)) { value in
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 1))
+                        .foregroundStyle(Theme.hairline)
+                    AxisValueLabel {
+                        if let hours = value.as(Double.self) {
+                            Text("\(hours.formatted(.number.precision(.fractionLength(0...1))))h")
+                        }
+                    }
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(Theme.textFaint)
+                }
+            }
     }
 }

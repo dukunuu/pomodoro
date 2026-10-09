@@ -66,8 +66,8 @@ install flow.
 ## Features
 
 Shared: the timer with its wall-clock deadline and pause-aware accounting,
-session notes, day/week/month/all-time reports, the Whistler flow, and a daily
-check for new releases on GitHub.
+session notes, day/week/month/all-time reports, the Whistler flow, Jira-backed
+daily standup notes, and a daily check for new releases on GitHub.
 
 | macOS | Windows |
 | --- | --- |
@@ -86,7 +86,9 @@ a step before its prerequisite is met:
    APIs & Services → Credentials → OAuth client ID → **Desktop app**, with the
    Google Calendar API enabled, and install the downloaded JSON.
 2. **Authorize Google account.** Opens the browser consent flow over a loopback
-   redirect with PKCE. Writes `pomodoro-google-token.json`.
+   redirect with PKCE. The app catches the redirect itself — no terminal opens
+   and nothing is pasted back — and the browser tab says how it ended. Writes
+   `pomodoro-google-token.json`.
 3. **Whistler sign-in.** A form in the app: server, email and password, plus
    the OpenRouter key if none is stored yet. It validates the key and signs in
    to Whistler while you wait, then stores the **session token and the API key
@@ -184,6 +186,104 @@ Jev only chooses projects, permitted exclusions, and configured work categories.
 locally from the Calendar events, which the decision policy states and the worklog
 builder enforces.
 
+Whistler task notes use numbered work-category headings with their measured
+subtotal, followed by one tab-indented bullet per distinct Calendar task. A blank
+line separates categories, for example:
+
+```text
+1. Meetings (1h)
+	- Client planning
+	- Workshop
+
+2. Implementation (2h)
+	- Fix permissions
+	- Login improvements
+```
+
+Repeated task titles appear once; their time still counts. Focus continuations
+add time to their work category without an extra task bullet. Skipped events are
+absent from both task notes and logged durations. This layout applies to future
+sends only; existing Whistler worklogs are not rewritten. Offline payload tests
+verify the actual serialized POST, including tab/newline preservation and timing
+protections.
+
+## Jira and daily standup notes
+
+Open **Daily standup** (or the macOS toolbar's standup button), then **Connect
+Jira…**. Enter your Jira Cloud site (`https://your-team.atlassian.net`),
+Atlassian email, and an [API token without scopes](https://id.atlassian.com/manage-profile/security/api-tokens).
+The connection is checked before saving; the token lives in the login Keychain
+on macOS or Credential Manager on Windows. Jira Data Center and scoped tokens
+that require Atlassian's API gateway are not supported by this first version.
+
+**Prepare daily standup** prepares two editable replies, **Yesterday** and
+**Today**, each with its own **Copy reply** button. These are the only answers
+the app derives; personal questions stay in Slack. The replies use three
+read-only sources:
+
+- **Yesterday:** that date's actual Whistler worklogs, grouped by project with
+  their existing task notes and logged time. Missing logs are shown explicitly,
+  not guessed from Calendar or timer history. Change *Yesterday worklog* to
+  Friday after a weekend, or to another date after a holiday.
+- **Today — Calendar:** only timed invitations where your own RSVP is **Yes**
+  and Jev assigns the event to Whistler work. Personal/organized events without
+  that explicit RSVP, all-day events, and Jev's skipped events are not selectable.
+  Uses your configured Google calendar and local day, and the same Jev mapping
+  instructions, exclusions, aliases and work categories as Whistler imports.
+  Original Calendar titles are preserved. Today's reply groups task bullets by
+  Jev's project, without agenda times or work-category labels; repeated titles
+  within a project appear once.
+- **Today — Jira:** issues assigned to the authenticated Jira user in **all
+  active sprints** (`assignee = currentUser() AND sprint in openSprints()`).
+  Choose the statuses to include, defaulting to **In Progress**. Status choices
+  come from the fetched tasks and are saved for this Jira account; switching to
+  a different account resets them. Individual tasks and Calendar events can be
+  deselected too. Every result page is fetched before a draft is produced.
+
+Copying includes only the answer, not the question, date, or a report heading.
+Projects are separated by blank lines. Yesterday keeps original task-note
+formatting and logged durations. Today uses individual Calendar title and Jira
+key/summary bullets, without status labels, invented hours, or implying that
+tasks are already complete.
+
+Under **Review today's sources and project assignments**, change the selected
+events, Jira tasks, statuses, or their report projects. Calendar projects come
+from Jev's resolved assignments, never a separate title-prefix guess. Active
+Whistler project names and your account's saved aliases provide explicit Jira
+project matches; Jira projects without a unique match keep their own grouping.
+An unselected project is shown as **Other planned work (project not selected)**.
+Project selections apply only to this draft and never alter saved mapping data.
+
+Review and edit each answer, then use its **Copy reply** button independently.
+Copied indicators reset when you edit. After changing today's selections, use
+**Rebuild Today from selection** under source review. This replaces only today's
+edits; yesterday's edits are preserved. **Refresh sources** asks before replacing
+both replies. Dates and Jira account controls are under **Connections and dates**;
+changing dates clears both replies.
+Edited replies stay in memory and are never sent to an AI provider or
+posted automatically to Slack, Jira, Whistler or Calendar. Preparing Calendar sources
+uses your existing Jev mapping setup (and mapping key when needed); it does not
+post a worklog or mark the day imported. If there are no accepted timed
+invitations, Jev is not called. A failed source or mapping decision is an error,
+not an empty list or a partially generated standup.
+
+## Single-instance and Calendar safety
+
+Only one app owns a data directory at a time, including across separate app
+copies. A second launch exits before creating a timer and brings the existing
+app forward. Ownership is held by the OS and released on exit or crash; the
+empty `.pomodoro-app.lock` file is deliberately retained. Explicit development
+profiles using different `POMODORO_DATA_DIR` values are independent. macOS status
+and day-probe commands do not construct a timer; snapshots/report dumps require
+exclusive profile ownership.
+
+New focus events have a deterministic, server-enforced session ID. Replayed
+starts and lost-map retries recover the same Google event rather than insert a
+second one. Temporary update failures retain the mapped event; only a confirmed
+404 permits recovery. Existing unrelated or cancelled events are never
+silently overwritten or recreated. This prevents new duplicates; it does not
+delete existing Calendar entries or legitimate repeated meetings.
+
 ## Data
 
 | Platform | Location |
@@ -196,6 +296,7 @@ builder enforces.
 | `pomodoro.json` | Timer state, version 4 |
 | `pomodoro-history.json` | Session history, version 1 |
 | `pomodoro-whistler-account.json` | Whistler server, account and Calendar — no secrets; legacy model fields are ignored |
+| `pomodoro-jira-account.json` | Jira Cloud site, email and selected standup statuses — no secrets |
 | `google-calendar-client.json` | Google OAuth client |
 | `pomodoro-google-token.json` | Google refresh token |
 | `pomodoro-whistler-instructions.txt` | Additional project-mapping instructions |
@@ -206,10 +307,11 @@ builder enforces.
 
 `POMODORO_DATA_DIR` overrides the location on both platforms.
 
-The Whistler session token and personal OpenRouter overrides are held in the
-login Keychain on macOS and Credential Manager on Windows. Personal keys can be
-removed in Settings; both credentials can also be inspected and removed from
-the OS keystore outside the app. macOS hands them to the Python bridges
+The Whistler session token, Jira API token and personal OpenRouter overrides
+are held in the login Keychain on macOS and Credential Manager on Windows.
+Personal OpenRouter keys can be removed in Settings; **Disconnect** on Daily
+standup removes the Jira token. These credentials can also be inspected and
+removed from the OS keystore outside the app. macOS hands them to the Python bridges
 through the child process environment, not a configuration file.
 
 A release may also bundle a shared OpenRouter default. Personal overrides take
@@ -220,8 +322,8 @@ must use a dedicated capped key; see [releasing](docs/releasing.md#optional-shar
 Google's OAuth client and refresh token remain in the files listed above.
 
 The two apps reach the same services by different routes. macOS runs
-`scripts/*.py` — standard-library-only Python holding the Google and Whistler
-protocol work — so it needs a `python3`; because a bundle launched from Finder
+`scripts/*.py` — standard-library-only Python holding the Google, Whistler and
+Jira protocol work — so it needs a `python3`; because a bundle launched from Finder
 does not inherit a login shell `PATH`, it searches mise, Homebrew,
 `/usr/local` and `/usr/bin`, and `POMODORO_PYTHON` overrides. Windows uses
 `Pomodoro.Integrations`, a C# port of the same protocols, so its installer has
@@ -273,7 +375,7 @@ importer that decides how much time is logged against which project — against
 the Python bridge it was ported from, covering project-tag stripping, task
 consolidation, project ordering and break derivation.
 
-Both suites run the credential-free mapping tests. The Windows suite also
+Both suites run credential-free standup and mapping tests. The Windows suite also
 compares Python and C# mapping settings, native Jev payloads/choices, aliases,
 rule toggles, focus restoration, and rendered worklog hours/text across shared
 fixtures. These can run separately on any machine with Python and .NET 8:
@@ -281,6 +383,10 @@ fixtures. These can run separately on any machine with Python and .NET 8:
 ```sh
 python3 tools/test_mapping.py
 python3 tools/compare-mapping.py
+
+# Standup HTTP/filtering contracts and native draft rendering (no credentials)
+python3 tools/test_standup.py --swift          # macOS
+python3 tools/test_standup.py --dotnet dotnet  # .NET 8, any platform
 ```
 
 Run the relevant suite after changing anything under `Pomodoro/Core` or
@@ -333,7 +439,7 @@ POMODORO_DATA_DIR=C:\fixture dotnet src/Pomodoro.ReportDump/bin/Release/net8.0/P
 | `macos/Sources/Pomodoro/UI` | Dashboard, reports, settings, theme |
 | `macos/Sources/Pomodoro/Platform` | Menu bar, floating panel, Dock, notifications |
 | `windows/src/Pomodoro.Core` | The same timer, history and report logic in C# |
-| `windows/src/Pomodoro.Integrations` | Google, Whistler and OpenRouter, ported from the Python |
+| `windows/src/Pomodoro.Integrations` | Google, Whistler, Jira and OpenRouter, ported from the Python |
 | `windows/src/Pomodoro.App` | WinUI 3 app: tray, floating timer, taskbar progress |
 | `tools` | Shared differential harness, fixtures and QML reference |
 | `scripts` | Python integration bridges, used by macOS |

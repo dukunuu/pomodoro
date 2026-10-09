@@ -1,6 +1,5 @@
 import SwiftUI
 
-@main
 struct PomodoroApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @ObservedObject private var state = AppState.shared
@@ -142,7 +141,7 @@ struct MenuBarPanel: View {
 
     private var stats: some View {
         HStack(spacing: 0) {
-            StatTile(label: "Focus", value: today.focusText, detail: "today", accented: true)
+            StatTile(label: "Focus", value: today.focusText, detail: "today", tint: Theme.focus)
             StatTile(label: "Sessions", value: String(today.sessions), detail: "completed")
             StatTile(label: "Breaks", value: today.breakText, detail: "\(today.breaks) taken")
         }

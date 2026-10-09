@@ -14,7 +14,7 @@ struct WorkCategoriesCard: View {
     private var currentScope: String { WhistlerMappingSettings.scope(WhistlerConfig.readSettings()) }
 
     var body: some View {
-        Card("Work categories", symbol: "tag.fill",
+        Card("Work categories",
              subtitle: "Jev chooses from these names. Optional descriptions explain when to use each one. Changes apply to future sends, not existing worklogs.",
              accessory: draft != original ? AnyView(StatusPill(text: "Unsaved", tint: Theme.accent)) : nil) {
             FlowLayout(spacing: 6) {
@@ -64,14 +64,11 @@ struct WorkCategoriesCard: View {
                 Text("By default, out-of-office events and location markers are excluded, and unnamed focus continues previous work. Override only if needed. These switches take precedence over mapping instructions.")
                     .font(.caption).foregroundStyle(Theme.textMuted).fixedSize(horizontal: false, vertical: true)
                 VStack(spacing: 9) {
-                    ToggleRow(title: "Skip out-of-office events", icon: "airplane",
-                              tint: Theme.shortBreak, isOn: $draft.skipOutOfOffice)
+                    ToggleRow(title: "Skip out-of-office events", isOn: $draft.skipOutOfOffice)
                     RowDivider()
-                    ToggleRow(title: "Skip working-location markers", icon: "mappin.and.ellipse",
-                              tint: Theme.longBreak, isOn: $draft.skipWorkingLocation)
+                    ToggleRow(title: "Skip working-location markers", isOn: $draft.skipWorkingLocation)
                     RowDivider()
-                    ToggleRow(title: "Unnamed focus continues previous work", icon: "arrow.turn.down.right",
-                              tint: Theme.focus, isOn: $draft.inheritUnnamedFocus)
+                    ToggleRow(title: "Unnamed focus continues previous work", isOn: $draft.inheritUnnamedFocus)
                 }
                 Text("Saved exclusion rules and project mappings remain active. Use Mapping instructions for new rules, or the focus picker to choose a project. The data file is available for recovering legacy settings.")
                     .font(.caption).foregroundStyle(Theme.textMuted).fixedSize(horizontal: false, vertical: true)
@@ -91,6 +88,7 @@ struct WorkCategoriesCard: View {
                 Spacer()
             }
         }
+        .preference(key: UnsavedChangesKey.self, value: draft != original)
         .onAppear { load() }
         .onChange(of: currentScope) { _, _ in load() }
     }

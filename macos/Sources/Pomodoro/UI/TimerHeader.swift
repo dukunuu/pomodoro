@@ -1,31 +1,8 @@
 import SwiftUI
 
-/// The countdown ring. A pomodoro is a proportion of a fixed span, which a
-/// ring shows at a glance far better than a bar does.
-struct TimerRing: View {
-    var progress: Double
-    var color: Color
-    var lineWidth: CGFloat = 7
-    var overtime: Bool = false
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .stroke(Theme.trackFill, lineWidth: lineWidth)
-            Circle()
-                .trim(from: 0, to: max(0.001, min(1, progress)))
-                .stroke(
-                    overtime ? Theme.urgent : color,
-                    style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
-                )
-                .rotationEffect(.degrees(-90))
-                .animation(.easeOut(duration: 0.25), value: progress)
-        }
-    }
-}
-
-/// Always-visible timer at the top of the detail pane: phase, clock, ring, and
-/// the controls. Everything else in the window is a report about it.
+/// Always-visible timer at the top of the detail pane, composed the way the
+/// menu bar popover is: phase, a large clock, the transport, and a progress
+/// line. Everything else in the window is a report about it.
 struct TimerHeader: View {
     @EnvironmentObject private var service: PomodoroService
     @EnvironmentObject private var preferences: Preferences
@@ -33,72 +10,84 @@ struct TimerHeader: View {
     private var accent: Color { Theme.color(for: service.phase) }
 
     var body: some View {
-        HStack(spacing: 16) {
-            ZStack {
-                TimerRing(progress: service.phaseProgress,
-                          color: accent,
-                          lineWidth: 5,
-                          overtime: service.isOvertime)
-                Image(systemName: service.phase == .focus ? "brain.head.profile" : "cup.and.saucer.fill")
-                    .font(.system(size: 18))
-                    .foregroundStyle(service.isOvertime ? Theme.urgent : accent)
-            }
-            .frame(width: 54, height: 54)
-
-            VStack(alignment: .leading, spacing: 1) {
-                HStack(spacing: 6) {
-                    Text(service.phaseLabel)
-                        .font(.headline)
-                    Text(service.statusLabel)
-                        .font(.subheadline)
-                        .foregroundStyle(service.isOvertime ? AnyShapeStyle(Theme.urgent) : AnyShapeStyle(.secondary))
+        VStack(spacing: 0) {
+            HStack(alignment: .center, spacing: 16) {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(spacing: 7) {
+                        Circle()
+                            .fill(accent)
+                            .frame(width: 7, height: 7)
+                        Text(service.phaseLabel)
+                            .font(.system(size: 13, weight: .semibold))
+                        Text(service.statusLabel)
+                            .font(.system(size: 12))
+                            .foregroundStyle(service.isOvertime ? AnyShapeStyle(Theme.urgent) : AnyShapeStyle(.secondary))
+                    }
+                    Text(service.remainingText)
+                        .font(Theme.clockFont(46))
+                        .foregroundStyle(service.isOvertime ? AnyShapeStyle(Theme.urgent) : AnyShapeStyle(.primary))
+                        .contentTransition(.numericText())
                 }
-                Text(service.remainingText)
-                    .font(Theme.clockFont(40))
-                    .foregroundStyle(service.isOvertime ? AnyShapeStyle(Theme.urgent) : AnyShapeStyle(.primary))
-                    .contentTransition(.numericText())
-            }
 
-            Spacer(minLength: 12)
+                Spacer(minLength: 12)
 
-            VStack(alignment: .trailing, spacing: 8) {
-                HStack(spacing: 8) {
-                    Button(action: service.toggle) {
-                        Label(service.running ? "Pause" : "Start",
-                              systemImage: service.running ? "pause.fill" : "play.fill")
-                            .frame(width: 66)
+                VStack(alignment: .trailing, spacing: 9) {
+                    HStack(spacing: 6) {
+                        Button(action: service.toggle) {
+                            Label(service.running ? "Pause" : "Start",
+                                  systemImage: service.running ? "pause.fill" : "play.fill")
+                                .frame(width: 72)
+                        }
+                        .buttonStyle(.primary(tint: accent))
+                        .keyboardShortcut(.space, modifiers: [])
+
+                        // Icon-only with tooltips, the way the system's own
+                        // transport controls read; the titles stay for
+                        // VoiceOver.
+                        Button(action: service.skip) {
+                            Label("Skip", systemImage: "forward.end.fill")
+                        }
+                        .help("Record this phase and move to the next")
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.iconFilled)
+
+                        Button(action: service.reset) {
+                            Label("Reset", systemImage: "arrow.counterclockwise")
+                        }
+                        .help("Record this phase and restart it")
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.iconFilled)
                     }
-                    .buttonStyle(.primary(tint: accent))
-                    .keyboardShortcut(.space, modifiers: [])
+                    .controlSize(.large)
 
-                    // Icon-only with tooltips, the way the system's own
-                    // transport controls read; the titles stay for
-                    // VoiceOver.
-                    Button(action: service.skip) {
-                        Label("Skip", systemImage: "forward.end.fill")
-                    }
-                    .help("Record this phase and move to the next")
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.iconFilled)
-
-                    Button(action: service.reset) {
-                        Label("Reset", systemImage: "arrow.counterclockwise")
-                    }
-                    .help("Record this phase and restart it")
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.iconFilled)
+                    cycleDots
                 }
-                .controlSize(.large)
-
-                cycleDots
             }
+            .padding(.horizontal, 28)
+            .padding(.top, 12)
+            .padding(.bottom, 14)
+
+            progressLine
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
         // The toolbar material, so the timer reads as window chrome pinned
         // below the title bar rather than as the first card on the page.
         .background(.bar)
+    }
+
+    /// The phase's progress, drawn as the header's own bottom edge: it is the
+    /// separator from the page, and it fills as the phase runs.
+    private var progressLine: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Rectangle().fill(Theme.trackFill)
+                Rectangle()
+                    .fill(service.isOvertime ? Theme.urgent : accent)
+                    .frame(width: geo.size.width * max(0, min(1, service.phaseProgress)))
+                    .animation(.easeOut(duration: 0.25), value: service.phaseProgress)
+            }
+        }
+        .frame(height: 2)
     }
 
     private var cycleDots: some View {

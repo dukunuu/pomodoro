@@ -2,15 +2,12 @@ import SwiftUI
 import AppKit
 
 /// App settings as cards of rows, in the same column and the same controls as
-/// every other page. Google setup and sending live on the Whistler page; the
-/// account and key are settings, so they can be changed without revisiting
-/// setup.
+/// every other page. Whistler and the standup are configured from their own
+/// pages, in sheets, so this page is only about the app itself.
 struct SettingsPanel: View {
     var body: some View {
         TimerSettingsSection()
         BehaviourSection()
-        WhistlerAccountSection()
-        ProjectMappingSection()
         UpdatesSection()
         DataSection()
     }
@@ -20,20 +17,16 @@ struct TimerSettingsSection: View {
     @EnvironmentObject private var preferences: Preferences
 
     var body: some View {
-        Card("Timer", symbol: "timer",
+        Card("Timer",
              subtitle: "Changing a duration applies to the next phase; a phase already running keeps its deadline.") {
             VStack(spacing: 9) {
-                durationRow("Focus", icon: "brain.head.profile",
-                            value: $preferences.focusMinutes, phase: .focus)
+                durationRow("Focus", value: $preferences.focusMinutes, phase: .focus)
                 RowDivider()
-                durationRow("Short break", icon: "cup.and.saucer.fill",
-                            value: $preferences.shortBreakMinutes, phase: .short)
+                durationRow("Short break", value: $preferences.shortBreakMinutes, phase: .short)
                 RowDivider()
-                durationRow("Long break", icon: "figure.walk",
-                            value: $preferences.longBreakMinutes, phase: .long)
+                durationRow("Long break", value: $preferences.longBreakMinutes, phase: .long)
                 RowDivider()
-                SettingRow("Long break every", subtitle: "Focus sessions before the longer rest.",
-                           icon: "repeat", tint: .secondary) {
+                SettingRow("Long break every", subtitle: "Focus sessions before the longer rest.") {
                     StepperField(label: "Long break every",
                                  value: $preferences.longBreakEvery,
                                  range: 1...12,
@@ -45,8 +38,8 @@ struct TimerSettingsSection: View {
     }
 
     /// The phase colour leads the row, as it does everywhere a phase appears.
-    private func durationRow(_ label: String, icon: String, value: Binding<Int>, phase: Phase) -> some View {
-        SettingRow(label, icon: icon, tint: Theme.color(for: phase)) {
+    private func durationRow(_ label: String, value: Binding<Int>, phase: Phase) -> some View {
+        SettingRow(label, dot: Theme.color(for: phase)) {
             StepperField(label: label, value: value, range: 1...240, unit: "min")
         }
     }
@@ -56,21 +49,18 @@ struct BehaviourSection: View {
     @EnvironmentObject private var preferences: Preferences
 
     var body: some View {
-        Card("Behavior", symbol: "slider.horizontal.3") {
+        Card("Behavior") {
             VStack(spacing: 9) {
                 ToggleRow(title: "Floating timer window",
                           subtitle: "Stays above other windows without taking focus.",
-                          icon: "macwindow.on.rectangle", tint: Theme.shortBreak,
                           isOn: $preferences.showFloatingTimer)
                 RowDivider()
                 ToggleRow(title: "Countdown in the menu bar",
                           subtitle: "Shows the remaining time beside the menu bar icon.",
-                          icon: "menubar.rectangle", tint: Theme.focus,
                           isOn: $preferences.menuBarShowsCountdown)
                 RowDivider()
                 ToggleRow(title: "Sound when a phase ends",
                           subtitle: "Plays alongside the Notification Center alert.",
-                          icon: "speaker.wave.2.fill", tint: Theme.longBreak,
                           isOn: $preferences.playAlarmSound)
             }
         }
@@ -83,30 +73,28 @@ struct UpdatesSection: View {
     @State private var enabled = true
     @State private var checkedNow = false
 
-    private var status: (title: String, subtitle: String?, icon: String, tint: Color) {
+    private var status: (title: String, subtitle: String?, dot: Color?) {
         if let error = updates.lastError {
-            return ("Could not check for updates", error, "exclamationmark.triangle.fill", Theme.urgent)
+            return ("Could not check for updates", error, Theme.urgent)
         }
         if let update = updates.available {
-            return ("Version \(update.version) is available", update.name, "arrow.down", Theme.accent)
+            return ("Version \(update.version) is available", update.name, Theme.accent)
         }
         if checkedNow {
-            return ("You are on the latest release.", nil, "checkmark", Theme.longBreak)
+            return ("You are on the latest release.", nil, Theme.longBreak)
         }
-        return ("Pomodoro \(updates.currentVersion)", "Check whether a newer release exists.",
-                "shippingbox.fill", .secondary)
+        return ("Pomodoro \(updates.currentVersion)", "Check whether a newer release exists.", nil)
     }
 
     var body: some View {
-        Card("Updates", symbol: "arrow.down.circle.fill",
+        Card("Updates",
              accessory: AnyView(StatusPill(text: "v\(updates.currentVersion)"))) {
             VStack(spacing: 9) {
                 ToggleRow(title: "Check GitHub for new releases on launch",
                           subtitle: "Once a day at most. Updates install only when you choose to.",
-                          icon: "clock.arrow.circlepath", tint: Theme.shortBreak,
                           isOn: $enabled)
                 RowDivider()
-                SettingRow(status.title, subtitle: status.subtitle, icon: status.icon, tint: status.tint) {
+                SettingRow(status.title, subtitle: status.subtitle, dot: status.dot) {
                     if let update = updates.available {
                         Button(installer.stage.isBusy ? "Updating…" : "Update to \(update.version)") {
                             Task { await installer.install(update) }
@@ -136,7 +124,7 @@ struct DataSection: View {
     @EnvironmentObject private var integrations: IntegrationStatus
 
     var body: some View {
-        Card("Data", symbol: "externaldrive.fill",
+        Card("Data",
              subtitle: "The Python bridges read and write these same files.",
              accessory: AnyView(
                 Button { state.openDataDirectory() } label: {

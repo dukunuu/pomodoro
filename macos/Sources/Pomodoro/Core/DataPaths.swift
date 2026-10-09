@@ -29,6 +29,7 @@ enum DataPaths {
     static var integrationsConfig: URL { directory.appendingPathComponent("pomodoro-integrations.env") }
     static var googleClient: URL { directory.appendingPathComponent("google-calendar-client.json") }
     static var googleToken: URL { directory.appendingPathComponent("pomodoro-google-token.json") }
+    static var jiraAccount: URL { directory.appendingPathComponent("pomodoro-jira-account.json") }
 
     /// pomodoro_paths.py prefers a per-user client file and falls back to one
     /// bundled beside the scripts; mirror that lookup so the app reports the
@@ -73,6 +74,6 @@ enum DataPaths {
     }
 
     static var integrationsScript: URL { script("pomodoro_integrations.py") }
-    static var googleAuthScript: URL { script("pomodoro_google_auth.py") }
     static var whistlerImportScript: URL { script("pomodoro_whistler_import.py") }
+    static var standupScript: URL { script("pomodoro_standup.py") }
 }

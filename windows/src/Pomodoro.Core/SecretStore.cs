@@ -16,6 +16,7 @@ public static class SecretStore
 {
     public const string WhistlerSession = "whistler-session";
     public const string OpenRouterKey = "openrouter-key";
+    public const string JiraToken = "jira-api-token";
 
     private const string Prefix = "Pomodoro:";
 

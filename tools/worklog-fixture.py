@@ -3,7 +3,7 @@
 
 Exercises the parts of build_worklog that are easy to get wrong: consolidating
 several events into one taskGroup, project-tag prefixes that must be stripped,
-source titles appended to a group line, name-ordered project output, and a
+tab-indented source-title sublists, name-ordered project output, and a
 break derived from the gap between first and last event.
 
   worklog-fixture.py <outFile>

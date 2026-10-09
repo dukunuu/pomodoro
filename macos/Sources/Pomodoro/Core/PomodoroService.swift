@@ -193,7 +193,16 @@ final class PomodoroService: ObservableObject {
 
     func skip() {
         guard stateLoaded else { return }
-        if phaseStartedAt > 0 { recordPhase(nowMillis(), status: .skipped) } else { clearActivePhase() }
+        if phaseStartedAt > 0 {
+            // The timer rings and keeps counting rather than ending a phase
+            // itself, so this is how every phase ends. One that has run its
+            // planned time was finished, not skipped; only moving on early is
+            // a skip.
+            let finished = phaseRang || secondsRemaining() <= 0
+            recordPhase(nowMillis(), status: finished ? .completed : .skipped)
+        } else {
+            clearActivePhase()
+        }
         running = false
         endAt = 0
         advancePhase(countFocus: true)
