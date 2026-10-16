@@ -46,10 +46,14 @@ _Avoid_: Rating, score, grade
 A member's place on their ladder (JE … Staff for engineering; Specialist … System owner for BizOps), derived from their title.
 _Avoid_: Level (reserved for performance level), rank
 
+**Role**:
+One of the form groups a member is listed under, with that group's competencies. Most members have one; an ETM also on the engineer list has two, and each role is its own form response.
+_Avoid_: Group (the form's question), department
+
 **Feedback item**:
 One numbered line in a performance-level field: a competency tag and one SBI sentence reworded from one observation note.
 _Avoid_: Bullet, point
 
 **Clarification**:
-A question the user must answer or dismiss before the form opens: an unclear competency or level, a missing SBI part, or a number or absolute word the note never said.
+A question the user must answer or dismiss before the form opens: an unclear competency or level, a missing SBI part, a missing suggestion for something to improve, or a number or absolute word the note never said.
 _Avoid_: Warning, error

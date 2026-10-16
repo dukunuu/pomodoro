@@ -23,11 +23,15 @@ import pomodoro_feedback as feedback
 from pomodoro_feedback import FeedbackError
 
 
-def form_html(level_type=1, levels=None, extra=None):
-    """A saved Google Form page in the shape FB_PUBLIC_LOAD_DATA_ takes."""
+def form_html(level_type=1, levels=None, extra=None, managers=False):
+    """A saved Google Form page in the shape FB_PUBLIC_LOAD_DATA_ takes. With managers, a group
+    listed first whose people may also be engineers, as ETMs are."""
     levels = levels if levels is not None else [name for _, name, _ in feedback.LEVELS]
     items = [
-        [1, 'Who is this for?', None, 2, [[100, [['Ops', None, 10, None, 0], ['Engineers', None, 20, None, 0]], 1]]],
+        [1, 'Who is this for?', None, 2, [[100, [*([['Managers', None, 50, None, 0]] if managers else []),
+                                                 ['Ops', None, 10, None, 0], ['Engineers', None, 20, None, 0]], 1]]],
+        *([[50, 'Manager feedback', None, 8, None], [51, 'Name:', None, 3, [[510, [['Д.Ганбаатар'], ['Т.Солонго']], 1]]]]
+          if managers else []),
         [10, 'Ops feedback', None, 8, None],
         [11, 'Name:', None, 3, [[110, [['О.Сарантуяа'], ['Б.Тэмүүлэн ']], 1]]],
         [20, 'Engineer feedback', None, 8, None],
@@ -70,6 +74,7 @@ FRAMEWORK = {
         'Engineers': {'ladder': 'eng', 'competencies': ['team', 'craft', 'lead']},
         'Ops': {'ladder': 'ops', 'competencies': ['ops-team'],
                 'roleRules': [{'contains': 'project manager', 'competency': 'delivery'}]},
+        'Managers': {'ladder': 'eng', 'competencies': ['team'], 'roleRules': [{'contains': '', 'competency': 'manage'}]},
     },
     'competencies': {
         'team': {'label': 'A-Team', 'name': 'Teamwork', 'description': '#Collaboration',
@@ -78,12 +83,13 @@ FRAMEWORK = {
         'lead': {'label': 'Lead', 'cells': {'G1': 'N/A', 'G2': 'Mentors one person.', 'G3': 'Mentors a team.'}},
         'ops-team': {'label': 'A-Team', 'cells': {'owner': 'Aligns scope.', 'system': 'Builds rhythm.'}},
         'delivery': {'label': 'PM/AM ops', 'cells': {'owner': 'No-surprises delivery.', 'system': 'Sets PM standards.'}},
+        'manage': {'label': 'Manage', 'cells': {'G1': 'N/A', 'G2': 'Runs a team.', 'G3': 'Runs teams.'}},
     },
 }
 
 
-def setup():
-    form = feedback.parse_form(form_html())
+def setup(managers=False):
+    form = feedback.parse_form(form_html(managers=managers))
     members = {'people': feedback.parse_members(SHEET_HTML, form), 'overrides': {}}
     resolved = {member['key']: member for member in feedback.resolve_members(form, FRAMEWORK, members)}
     return form, members, resolved
@@ -105,7 +111,7 @@ JEV_ANSWERS = {'answers': {'competency_n1': {'choice': 'c2'}, 'level_n1': {'choi
                            'level_n2': {'choice': 'unclear'}, 'competency_n3': {'choice': 'unclear'}}}
 WRITER_CONTENT = ('```json\n{"items":[{"key":"n2","sentence":"PERSON_8-д debugging заасан.","missing":[]},'
                   '{"key":"n1","sentence":"Outage-ийн үед 30 минутад\\nзасаж, үргэлж тусалсан.","missing":["impact"]},'
-                  '{"key":"n3","sentence":"PR review хоцорсон нь release-ийг саатуулсан.","missing":["situation","behavior"]}]}\n```')
+                  '{"key":"n3","sentence":"PR review хоцорсон нь release-ийг саатуулсан.","missing":["situation","action","behavior"]}]}\n```')
 
 
 class FeedbackTests(unittest.TestCase):
@@ -264,8 +270,9 @@ class FeedbackTests(unittest.TestCase):
         member = resolved['Engineers:Д.Ганбаатар']
         payload = feedback.allocation_payload(FRAMEWORK, member, NOTES, feedback.Names(form))
         self.assertEqual(feedback.read_allocation(JEV_ANSWERS, payload, member, NOTES),
-                         [{'competency': 'craft', 'level': 'exceeds'}, {'competency': 'lead', 'level': None},
-                          {'competency': None, 'level': 'minimum'}])
+                         [{'competency': 'craft', 'level': 'exceeds', 'group': None},
+                          {'competency': 'lead', 'level': None, 'group': None},
+                          {'competency': None, 'level': 'minimum', 'group': None}])
         for broken in [{'answers': {}}, None, {'answers': {**JEV_ANSWERS['answers'], 'extra': {'choice': 'c1'}}},
                        {'answers': {**JEV_ANSWERS['answers'], 'level_n1': {'choice': 'l9'}}},
                        {'answers': {**JEV_ANSWERS['answers'], 'level_n1': 'l1'}}]:
@@ -286,7 +293,7 @@ class FeedbackTests(unittest.TestCase):
         self.assertEqual(written, [
             {'sentence': 'Outage-ийн үед 30 минутад засаж, үргэлж тусалсан.', 'missing': ['impact']},
             {'sentence': 'Э.Номин-д debugging заасан.', 'missing': []},
-            {'sentence': 'PR review хоцорсон нь release-ийг саатуулсан.', 'missing': ['behavior']}])
+            {'sentence': 'PR review хоцорсон нь release-ийг саатуулсан.', 'missing': ['behavior', 'action']}])
         for content in ['not json', '{"items":[]}', WRITER_CONTENT.replace('"n3"', '"n2"'),
                         WRITER_CONTENT.replace('"missing":[]', '"missing":["mood"]')]:
             with self.assertRaises(FeedbackError):
@@ -297,6 +304,7 @@ class FeedbackTests(unittest.TestCase):
                          ['number:30', 'word:үргэлж'])
         self.assertEqual(feedback.checks('10-р сарын 3-нд 2026 онд always', note('x', 'always helps')), [])
         self.assertEqual(feedback.checks('007 and 0', note('x', '7 or 00')), [])
+        self.assertEqual(feedback.checks('Дандаа хоцордог.', note('x', 'late twice')), ['word:дандаа'])
 
     def test_improve_end_to_end_without_leaking_names(self):
         form, _, resolved = setup()
@@ -313,7 +321,7 @@ class FeedbackTests(unittest.TestCase):
         self.assertEqual([(d['noteId'], d['competency'], d['level'], d['questions']) for d in drafts], [
             ('a', 'craft', 'exceeds', ['impact', 'number:30', 'word:үргэлж']),
             ('b', 'lead', None, ['level']),
-            ('c', None, 'minimum', ['competency', 'behavior'])])
+            ('c', None, 'minimum', ['competency', 'behavior', 'action'])])
         self.assertEqual(drafts[0]['basis'], feedback.basis(NOTES[0], member, FRAMEWORK))
         dismissed = [{**NOTES[0], 'dismissed': ['number:30', 'word:үргэлж']}]
         self.assertEqual(feedback.improve(FRAMEWORK, member, dismissed, feedback.Names(form), 'k', lambda url, **_:
@@ -344,8 +352,9 @@ class FeedbackTests(unittest.TestCase):
         form, _, resolved = setup()
         member = resolved['Engineers:Д.Ганбаатар']
         drafted = feedback_notes(member)
-        result = feedback.form_answers(form, FRAMEWORK, member, drafted)
-        self.assertEqual(result['blockers'], [])
+        answers = feedback.form_answers(form, FRAMEWORK, member, drafted)
+        self.assertEqual((answers['blockers'], [item['group'] for item in answers['forms']]), ([], ['Engineers']))
+        result = answers['forms'][0]
         self.assertEqual(result['fields'], {
             'exceeds': '1. [A-Team] Багийн sync-ийг удирдсан.\n2. [Craft] Refactor хийж, 40% хурдасгасан & цэвэрлэсэн.',
             'needs': '1. [Lead] Mentoring хийгээгүй.'})
@@ -356,18 +365,55 @@ class FeedbackTests(unittest.TestCase):
         self.assertIn('%0A2.%20%5BCraft%5D', result['url'])
         self.assertNotIn('+', result['url'])
         hinted = [*drafted, {**drafted[1], 'id': 'h', 'draft': {**drafted[1]['draft'], 'questions': ['impact', 'number:7']}}]
-        self.assertEqual(feedback.form_answers(form, FRAMEWORK, member, hinted)['fields']['exceeds'].count('Багийн sync'), 2)
+        self.assertEqual(feedback.form_answers(form, FRAMEWORK, member, hinted)['forms'][0]['fields']['exceeds'].count('Багийн sync'), 2)
         chosen = {**drafted[2], 'id': 'u', 'text': 'changed', 'sentence': ' Гараар\nбичсэн. ', 'competency': 'team', 'level': 'meets'}
-        self.assertEqual(feedback.form_answers(form, FRAMEWORK, member, [*drafted, chosen])['fields']['meets'],
+        self.assertEqual(feedback.form_answers(form, FRAMEWORK, member, [*drafted, chosen])['forms'][0]['fields']['meets'],
                          '1. [A-Team] Гараар бичсэн.')
         blocked = [*drafted, {**drafted[0], 'id': 'q', 'draft': {**drafted[0]['draft'], 'level': None}},
                    {**drafted[0], 'id': 's', 'text': 'edited after drafting'},
                    {**drafted[0], 'id': 'c', 'text': 'edited after drafting', 'competency': 'team', 'level': 'meets'}]
         result = feedback.form_answers(form, FRAMEWORK, member, blocked)
-        self.assertEqual((result['url'], result['blockers']),
-                         (None, [{'noteId': 'q', 'reason': 'needsChoice'}, {'noteId': 's', 'reason': 'notConverted'},
+        self.assertEqual(([item['url'] for item in result['forms']], result['blockers']),
+                         ([None], [{'noteId': 'q', 'reason': 'needsChoice'}, {'noteId': 's', 'reason': 'notConverted'},
                                  {'noteId': 'c', 'reason': 'notConverted'}]))
-        self.assertIsNone(feedback.form_answers(form, FRAMEWORK, member, [])['url'])
+        self.assertEqual(feedback.form_answers(form, FRAMEWORK, member, []), {'forms': [], 'blockers': []})
+
+    def test_someone_in_two_groups_is_one_member_and_jev_picks_the_role(self):
+        form, members, resolved = setup(managers=True)
+        self.assertNotIn('Engineers:Д.Ганбаатар', resolved)
+        member = resolved['Managers:Д.Ганбаатар']
+        self.assertEqual((member['keys'], member['role'], member['competencies']),
+                         (['Managers:Д.Ганбаатар', 'Engineers:Д.Ганбаатар'], 'manage', ['team', 'manage', 'craft', 'lead']))
+        self.assertEqual(member['roles'], [{'group': 'Managers', 'competencies': ['team', 'manage']},
+                                           {'group': 'Engineers', 'competencies': ['team', 'craft', 'lead']}])
+        self.assertEqual(resolved['Engineers:Э.Номин']['roles'], [{'group': 'Engineers', 'competencies': ['team', 'craft']}])
+        self.assertEqual(resolved['Managers:Т.Солонго']['issues'], ['notInSheet', 'noGrade'])
+        # A grade set under either role holds for both.
+        overridden = feedback.resolve_members(form, FRAMEWORK, {**members, 'overrides': {'Engineers:Д.Ганбаатар': {'grade': 'G3'}}})
+        self.assertEqual(overridden[0]['grade'], 'G3')
+
+        payload = feedback.allocation_payload(FRAMEWORK, member, NOTES, feedback.Names(form))
+        self.assertEqual(list(payload['questions']['competency_n1']['criteria'].values())[:5],
+                         ['Managers · A-Team — Teamwork', 'Managers · Manage', 'Engineers · A-Team — Teamwork',
+                          'Engineers · Craft', 'Engineers · Lead'])
+        self.assertEqual(payload['state']['member']['roles'], ['Managers', 'Engineers'])
+        self.assertEqual(payload['state']['competencies'][3]['role'], 'Engineers')
+        answers = {'answers': {**JEV_ANSWERS['answers'], 'competency_n1': {'choice': 'c4'}, 'competency_n3': {'choice': 'c2'}}}
+        self.assertEqual(feedback.read_allocation(answers, payload, member, NOTES), [
+            {'competency': 'craft', 'level': 'exceeds', 'group': 'Engineers'},
+            {'competency': 'lead', 'level': None, 'group': None},
+            {'competency': 'manage', 'level': 'minimum', 'group': 'Managers'}])
+
+        notes = dual_notes()
+        self.assertEqual([n['id'] for n in feedback.stale_notes([*notes, {**notes[0], 'id': 'new', 'sentence': ''}], member, FRAMEWORK)],
+                         ['new'])
+        result = feedback.form_answers(form, FRAMEWORK, member, notes)
+        self.assertEqual([(item['group'], item['fields']) for item in result['forms']], [
+            ('Managers', {'meets': '1. [A-Team] Standup-ийг удирдсан.\n2. [Manage] 1:1 хийсэн.'}),
+            ('Engineers', {'exceeds': '1. [Craft] Cache нэмсэн.', 'needs': '1. [A-Team] Review хоцроосон.'})])
+        self.assertEqual([parse_qsl(urlsplit(item['url']).query)[1:3] for item in result['forms']],
+                         [[('entry.100', 'Managers'), ('entry.510', 'Д.Ганбаатар')],
+                          [('entry.100', 'Engineers'), ('entry.210', 'Д.Ганбаатар')]])
 
 
 def feedback_notes(member):
@@ -383,6 +429,17 @@ def feedback_notes(member):
     notes.append({**notes[0], 'id': 'old', 'submittedAt': 9})
     notes.append({**notes[0], 'id': 'elsewhere', 'member': 'Engineers:Э.Номин'})
     return notes
+
+
+def dual_notes():
+    """Someone in two groups: the role chosen for an item, the only role holding its competency,
+    or the group the note was written under."""
+    rows = [('a', 'Managers:Д.Ганбаатар', None, 'team', 'meets', 'Standup-ийг удирдсан.'),
+            ('b', 'Managers:Д.Ганбаатар', None, 'manage', 'meets', '1:1 хийсэн.'),
+            ('c', 'Managers:Д.Ганбаатар', 'Engineers', 'craft', 'exceeds', 'Cache нэмсэн.'),
+            ('d', 'Engineers:Д.Ганбаатар', None, 'team', 'needs', 'Review хоцроосон.')]
+    return [{**note(identity, '', member=key), 'sentence': sentence, 'competency': competency, 'level': level,
+             **({'group': group} if group else {})} for identity, key, group, competency, level, sentence in rows]
 
 
 def native_fixture():
@@ -422,6 +479,16 @@ def native_fixture():
         'bundle': feedback.setup_bundle(FRAMEWORK, form, members),
         'sealed': base64.b64encode(feedback.seal_setup(feedback.setup_bundle(FRAMEWORK, form, members), ['example.mn'], b'0123456789abcdef')).decode(),
         'sealedOpened': {**feedback.setup_bundle(FRAMEWORK, form, members), 'domains': ['example.mn']},
+        'dualForm': form_html(managers=True),
+        'dualMembers': feedback.resolve_members(*setup(managers=True)[:1], FRAMEWORK, members),
+        'dualPayload': feedback.allocation_payload(FRAMEWORK, setup(managers=True)[2]['Managers:Д.Ганбаатар'], NOTES, names),
+        'dualJevAnswers': {'answers': {**JEV_ANSWERS['answers'], 'competency_n1': {'choice': 'c4'}, 'competency_n3': {'choice': 'c2'}}},
+        'dualAllocations': feedback.read_allocation(
+            {'answers': {**JEV_ANSWERS['answers'], 'competency_n1': {'choice': 'c4'}, 'competency_n3': {'choice': 'c2'}}},
+            feedback.allocation_payload(FRAMEWORK, setup(managers=True)[2]['Managers:Д.Ганбаатар'], NOTES, names),
+            setup(managers=True)[2]['Managers:Д.Ганбаатар'], NOTES),
+        'dualNotes': dual_notes(),
+        'dualAnswers': feedback.form_answers(setup(managers=True)[0], FRAMEWORK, setup(managers=True)[2]['Managers:Д.Ганбаатар'], dual_notes()),
         'mergedFromBundle': list(feedback.merge_setup(None, None, {'overrides': {'Engineers:Х.Бат': {'grade': 'G3'}}},
                                                       feedback.setup_bundle(FRAMEWORK, form, members))),
     }
@@ -471,6 +538,14 @@ Same(drafts, "drafts", "Improve");
 var drafted = fixture["drafted"]!.AsArray().Select(n => n!.AsObject()).ToList();
 Same(Feedback.FormAnswers(form, framework, member, drafted), "answers", "Form answers and link");
 Same(Feedback.FormAnswers(form, framework, member, fixture["blockedNotes"]!.AsArray().Select(n => n!.AsObject()).ToList()), "blockedAnswers", "Blocked form answers");
+var dualForm = Feedback.ParseForm(fixture["dualForm"]!.GetValue<string>());
+var dualMembers = Feedback.ResolveMembers(dualForm, framework, new JsonObject { ["people"] = people.DeepClone(), ["overrides"] = new JsonObject() });
+Same(dualMembers, "dualMembers", "Members in two groups");
+var dual = dualMembers.AsArray().First(m => m!["key"]!.GetValue<string>() == "Managers:Д.Ганбаатар")!.AsObject();
+var dualPayload = Feedback.AllocationPayload(framework, dual, notes, names);
+Same(dualPayload, "dualPayload", "Jev payload with roles");
+Same(Feedback.ReadAllocation(fixture["dualJevAnswers"], dualPayload, dual, notes), "dualAllocations", "Jev allocation with roles");
+Same(Feedback.FormAnswers(dualForm, framework, dual, fixture["dualNotes"]!.AsArray().Select(n => n!.AsObject()).ToList()), "dualAnswers", "One form per role");
 Same(Feedback.StaleNotes(fixture["staleInput"]!.AsArray().Select(n => n!.AsObject()), member, framework).Select(n => n["id"]!.GetValue<string>()).ToList(), "stale", "Notes to convert");
 try { await Feedback.ImproveAsync(framework, member, notes, names, "", (u, b, c) => Task.FromResult<JsonNode?>(null)); throw new Exception("Missing key accepted"); }
 catch (FeedbackException) { }
@@ -519,13 +594,23 @@ if (File.ReadAllText(Feedback.NotesFile).Contains("outage")) throw new Exception
 var fresh = FeedbackNotes.New("Engineers:Д.Ганбаатар", "  new note  ", new DateTime(2026, 10, 16, 9, 0, 0));
 if (fresh["text"]!.GetValue<string>() != "new note" || fresh["date"]!.GetValue<string>() != "2026-10-16" || !FeedbackNotes.Converting(fresh)) throw new Exception("New note differs");
 var list = new List<JsonObject> { adopted, fresh };
-if (FeedbackNotes.Ready(list, "Engineers:Д.Ганбаатар")) throw new Exception("A converting note counted as ready");
+if (FeedbackNotes.Ready(list, member)) throw new Exception("A converting note counted as ready");
 list.Remove(fresh);
-if (!FeedbackNotes.Ready(list, "Engineers:Д.Ганбаатар") || FeedbackNotes.Submitted(list, "Engineers:Д.Ганбаатар")) throw new Exception("Ready/submitted differ");
-var lines = FeedbackNotes.FormLines(list, member);
+if (!FeedbackNotes.Ready(list, member) || FeedbackNotes.Submitted(list, member)) throw new Exception("Ready/submitted differ");
+var forms = FeedbackNotes.FormLines(list, member);
+if (forms.Count != 1 || forms[0].Group != "Engineers") throw new Exception("A single role should preview one form");
+var lines = forms[0].Lines;
 if (lines.Count != 5 || lines.Single(line => line.Level == "meets").Items.Count != 1) throw new Exception("Form lines differ");
+if (FeedbackNotes.Unbalanced(lines)) throw new Exception("A met expectation counted as unbalanced");
+adopted["level"] = "needs";
+if (!FeedbackNotes.Unbalanced(FeedbackNotes.FormLines(list, member)[0].Lines)) throw new Exception("Only areas to improve should be unbalanced");
+adopted["level"] = "meets";
+var dualPreview = FeedbackNotes.FormLines(fixture["dualNotes"]!.AsArray().Select(n => n!.AsObject()), dual);
+if (string.Join(";", dualPreview.Select(form => form.Group + ":" + string.Join(",", form.Lines.SelectMany(line => line.Items).Select(n => n["id"]!.GetValue<string>()))))
+    != "Managers:a,b;Engineers:c,d") throw new Exception("Preview per role differs");
+if (FeedbackNotes.Pending(fixture["dualNotes"]!.AsArray().Select(n => n!.AsObject()), dual).Count != 4) throw new Exception("A note under another role's key was lost");
 adopted["submittedAt"] = 1.0;
-if (!FeedbackNotes.Submitted(list, "Engineers:Д.Ганбаатар")) throw new Exception("Submitted differs");
+if (!FeedbackNotes.Submitted(list, member)) throw new Exception("Submitted differs");
 
 var anchor = new DateTime(2026, 10, 1, 17, 30, 0);
 var upcoming = FeedbackReminderSchedule.Occurrences(anchor, 3, 16 * 60, new DateTime(2026, 10, 5, 12, 0, 0), 3);

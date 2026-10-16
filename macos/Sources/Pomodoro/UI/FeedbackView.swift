@@ -13,7 +13,7 @@ struct FeedbackView: View {
     @State private var reminding = false
 
     private var people: Int { Set((desk.setup?.members ?? []).map(\.name)).count }
-    private var submitted: Int { Set((desk.setup?.members ?? []).filter { desk.submitted($0.key) }.map(\.name)).count }
+    private var submitted: Int { Set((desk.setup?.members ?? []).filter { desk.submitted($0) }.map(\.name)).count }
 
     var body: some View {
         PageHeading(title: "Feedback") {
@@ -78,7 +78,7 @@ struct FeedbackView: View {
             .keyboardShortcut("k", modifiers: .command)
             .help("Search members (⌘K)")
             .popover(isPresented: $picking, arrowEdge: .bottom) { FeedbackMemberPicker(desk: desk, isPresented: $picking) }
-            if let member = desk.member { Text(member.group).font(.callout).foregroundStyle(.secondary) }
+            if let member = desk.member { Text(member.groups).font(.callout).foregroundStyle(.secondary) }
             Spacer()
             if let member = desk.member {
                 if desk.openedFor == member.key {
@@ -88,8 +88,8 @@ struct FeedbackView: View {
                 Button { desk.openForm() } label: { Label("Open form", systemImage: "arrow.up.forward.square") }
                     .buttonStyle(.primary)
                     .keyboardShortcut("o", modifiers: .command)
-                    .disabled(!desk.ready(member.key))
-                    .help(desk.ready(member.key) ? "Opens the form filled in" : "Every item needs a competency and a level")
+                    .disabled(!desk.ready(member))
+                    .help(desk.ready(member) ? "Opens the form filled in" : "Every item needs a competency and a level")
             }
         }
     }
@@ -154,9 +154,11 @@ private struct FeedbackMemberPicker: View {
         let members = (desk.setup?.members ?? []).filter {
             query.isEmpty || key($0.name).contains(query) || key($0.latin ?? "").contains(query)
         }
+        // Someone in several groups is listed under each of them.
         var order: [String] = []
+        for member in members { for role in member.roles where !order.contains(role.group) { order.append(role.group) } }
         for member in members where !order.contains(member.group) { order.append(member.group) }
-        return order.map { group in (group, members.filter { $0.group == group }) }
+        return order.map { group in (group, members.filter { $0.group == group || $0.roles.contains { $0.group == group } }) }
     }
 
     var body: some View {
@@ -179,7 +181,7 @@ private struct FeedbackMemberPicker: View {
     }
 
     private func row(_ member: FeedbackMember) -> some View {
-        let pending = desk.pending(member.key).count
+        let pending = desk.pending(member).count
         return Button { choose(member) } label: {
             HStack(spacing: 8) {
                 VStack(alignment: .leading, spacing: 1) {
@@ -192,7 +194,7 @@ private struct FeedbackMemberPicker: View {
                 Spacer(minLength: 4)
                 if member.grade == nil {
                     Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 10)).foregroundStyle(Theme.urgent)
-                } else if desk.submitted(member.key) {
+                } else if desk.submitted(member) {
                     Image(systemName: "checkmark.circle.fill").font(.system(size: 11)).foregroundStyle(Theme.longBreak)
                 } else if pending > 0 {
                     Text("\(pending)").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
@@ -252,7 +254,7 @@ private struct FeedbackWorkspace: View {
     @State private var text = ""
     @FocusState private var writing: Bool
 
-    private var notes: [FeedbackNote] { desk.pending(member.key) }
+    private var notes: [FeedbackNote] { desk.pending(member) }
     private var focused: FeedbackNote? { notes.first { $0.id == desk.focused } ?? notes.last }
     private var unplaced: [FeedbackNote] {
         notes.filter { desk.converting($0) || $0.level == nil || $0.competency == nil }
@@ -370,6 +372,7 @@ private struct FeedbackItemEditor: View {
             case "situation": return "no when/where"
             case "behavior": return "no action"
             case "impact": return "no result"
+            case "action": return "no suggestion"
             case let other where other.hasPrefix("number:") || other.hasPrefix("word:"):
                 return "“\(other.split(separator: ":", maxSplits: 1).last ?? "")” not in note"
             default: return nil
@@ -422,10 +425,25 @@ private struct FeedbackItemEditor: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     SectionLabel("Competency")
-                    FlowLayout(spacing: 6) {
-                        ForEach(member.competencies, id: \.self) { id in
-                            choice(setup.competencies[id] ?? id, selected: note.competency == id, tint: nil) {
-                                desk.choose(competency: id, for: note.id)
+                    if member.severalRoles {
+                        // The choice also says which form the item goes to.
+                        ForEach(member.roles, id: \.group) { role in
+                            Text(role.group).font(.caption).foregroundStyle(.secondary)
+                            FlowLayout(spacing: 6) {
+                                ForEach(role.competencies, id: \.self) { id in
+                                    choice(setup.competencies[id] ?? id,
+                                           selected: note.competency == id && member.group(of: note) == role.group, tint: nil) {
+                                        desk.choose(competency: id, group: role.group, for: note.id)
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        FlowLayout(spacing: 6) {
+                            ForEach(member.competencies, id: \.self) { id in
+                                choice(setup.competencies[id] ?? id, selected: note.competency == id, tint: nil) {
+                                    desk.choose(competency: id, for: note.id)
+                                }
                             }
                         }
                     }
@@ -483,15 +501,42 @@ private struct FeedbackFormPreview: View {
     private static let band = Color(red: 0.36, green: 0.30, blue: 0.86)
     private static let pick = Color(red: 0.84, green: 0.81, blue: 0.99)
 
+    /// Only areas to improve so far. The feedback guide asks for balance: name what went well too.
+    private func unbalanced(_ forms: [(group: String, lines: FeedbackDesk.FormLines)]) -> Bool {
+        let placed = forms.flatMap(\.lines).filter { !$0.items.isEmpty }.map(\.level.id)
+        return !placed.isEmpty && placed.allSatisfy { $0 == "minimum" || $0 == "needs" }
+    }
+
     var body: some View {
+        let forms = desk.formLines(member, levels: setup.levels)
         VStack(alignment: .leading, spacing: 0) {
             Rectangle().fill(Self.band).frame(height: 8)
             VStack(alignment: .leading, spacing: 3) {
                 Text(setup.form).font(.system(size: 17, weight: .semibold))
                 Text("What Open form fills in · \(member.name)").font(.caption).foregroundStyle(Self.faint)
+                if unbalanced(forms) {
+                    Text("Only areas to improve so far. Balanced feedback also names something done well.")
+                        .font(.caption).foregroundStyle(Self.band).padding(.top, 4)
+                }
             }
             .padding(16)
-            ForEach(desk.formLines(member, levels: setup.levels), id: \.level.id) { level, items in
+            ForEach(forms, id: \.group) { group, lines in
+                if forms.count > 1 {
+                    Rectangle().fill(Color.black.opacity(0.07)).frame(height: 1)
+                    Text("\(group) · one response").font(.system(size: 13, weight: .semibold))
+                        .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 2)
+                }
+                levelFields(lines)
+            }
+        }
+        .foregroundStyle(Self.ink)
+        .background(Self.paper)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .environment(\.colorScheme, .light)
+    }
+
+    private func levelFields(_ lines: FeedbackDesk.FormLines) -> some View {
+        ForEach(lines, id: \.level.id) { level, items in
                 Rectangle().fill(Color.black.opacity(0.07)).frame(height: 1)
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 6) {
@@ -517,11 +562,6 @@ private struct FeedbackFormPreview: View {
                     }
                 }
                 .padding(.horizontal, 16).padding(.vertical, 12)
-            }
         }
-        .foregroundStyle(Self.ink)
-        .background(Self.paper)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .environment(\.colorScheme, .light)
     }
 }

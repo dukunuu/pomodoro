@@ -74,7 +74,7 @@ enum Snapshot {
         let feedback = FeedbackDesk()
         feedback.load()
         RunLoop.current.run(until: Date().addingTimeInterval(2))
-        feedback.selected = feedback.setup?.members.first { !feedback.pending($0.key).isEmpty }?.key
+        feedback.selected = feedback.setup?.members.first { !feedback.pending($0).isEmpty }?.key
         feedback.refreshAnswers()
         RunLoop.current.run(until: Date().addingTimeInterval(1.5))
         capture("feedback", size: CGSize(width: 800, height: 1240), SnapshotTab(tab: .feedback, feedback: feedback))

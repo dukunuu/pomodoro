@@ -9,6 +9,7 @@ struct FeedbackNote: Codable, Identifiable, Equatable {
         var basis: String
         var competency: String?
         var level: String?
+        var group: String?
         var sentence: String
         var questions: [String]
     }
@@ -23,6 +24,8 @@ struct FeedbackNote: Codable, Identifiable, Equatable {
     /// Settled by the user, so Jev is not asked again.
     var competency: String?
     var level: String?
+    /// The form group the item goes to, for someone the form lists under several groups.
+    var group: String?
     var additions: [String: String]?
     var omit: [String]?
     var dismissed: [String]?
@@ -34,7 +37,12 @@ struct FeedbackNote: Codable, Identifiable, Equatable {
 }
 
 struct FeedbackMember: Decodable, Identifiable, Equatable {
+    /// One of a person's form groups, with the competencies feedback in it can be about.
+    struct Role: Decodable, Equatable { var group: String; var competencies: [String] }
+
     var key: String
+    /// Every key the person has: one per form group they are listed under.
+    var keys: [String]
     var group: String
     var name: String
     var title: String
@@ -45,8 +53,24 @@ struct FeedbackMember: Decodable, Identifiable, Equatable {
     var gradeName: String
     var role: String?
     var competencies: [String]
+    var roles: [Role]
     var issues: [String]
     var id: String { key }
+
+    var severalRoles: Bool { roles.count > 1 }
+    /// "ETM + Инженер" for someone the form lists under several groups.
+    var groups: String { severalRoles ? roles.map(\.group).joined(separator: " + ") : group }
+
+    /// The form group an item is filed under: the role chosen for it, the only role holding its
+    /// competency, or the group it was written under. As scripts/pomodoro_feedback.py decides it.
+    func group(of note: FeedbackNote) -> String {
+        let names = roles.isEmpty ? [group] : roles.map(\.group)
+        if let chosen = note.group, names.contains(chosen) { return chosen }
+        let holding = roles.filter { role in note.competency.map(role.competencies.contains) ?? false }
+        if holding.count == 1 { return holding[0].group }
+        let written = String(note.member.prefix { $0 != ":" })
+        return names.contains(written) ? written : group
+    }
 }
 
 struct FeedbackSetup: Decodable, Equatable {
@@ -61,9 +85,10 @@ struct FeedbackSetup: Decodable, Equatable {
 
 struct FeedbackAnswers: Decodable, Equatable {
     struct Blocker: Decodable, Equatable { var noteId: String; var reason: String }
-    var fields: [String: String]
+    /// One response per role that has items; a single role is always one.
+    struct Form: Decodable, Equatable { var group: String; var fields: [String: String]; var url: String? }
+    var forms: [Form]
     var blockers: [Blocker]
-    var url: String?
 }
 
 /// The Feedback tab's state: the imported setup, the observation log, and the
@@ -90,12 +115,13 @@ final class FeedbackDesk: ObservableObject {
 
     var member: FeedbackMember? { setup?.members.first { $0.key == selected } }
 
-    func pending(_ key: String) -> [FeedbackNote] {
-        notes.filter { $0.member == key && $0.submittedAt == nil }.sorted { $0.createdAt < $1.createdAt }
+    /// A member's open notes, including any written under another of their roles' keys.
+    func pending(_ member: FeedbackMember) -> [FeedbackNote] {
+        notes.filter { member.keys.contains($0.member) && $0.submittedAt == nil }.sorted { $0.createdAt < $1.createdAt }
     }
 
-    func submitted(_ key: String) -> Bool {
-        pending(key).isEmpty && notes.contains { $0.member == key && $0.submittedAt != nil }
+    func submitted(_ member: FeedbackMember) -> Bool {
+        pending(member).isEmpty && notes.contains { member.keys.contains($0.member) && $0.submittedAt != nil }
     }
 
     // MARK: Loading
@@ -131,6 +157,7 @@ final class FeedbackDesk: ObservableObject {
         if (note.sentence ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { note.sentence = draft.sentence }
         note.competency = note.competency ?? draft.competency
         note.level = note.level ?? draft.level
+        note.group = note.group ?? draft.group
         note.hints = draft.questions.filter { $0 != "competency" && $0 != "level" }
         note.text = ""
         note.draft = nil
@@ -208,9 +235,11 @@ final class FeedbackDesk: ObservableObject {
         update(id) { $0.sentence = text }
     }
 
-    func choose(competency: String? = nil, level: String? = nil, for id: String) {
+    /// For someone in several groups a competency comes with its role, which says which form it goes to.
+    func choose(competency: String? = nil, group: String? = nil, level: String? = nil, for id: String) {
         update(id) { note in
             if let competency { note.competency = competency }
+            if let group { note.group = group }
             if let level { note.level = level }
         }
     }
@@ -236,23 +265,30 @@ final class FeedbackDesk: ObservableObject {
         ((note.sentence ?? "").trimmingCharacters(in: .whitespacesAndNewlines), note.competency, note.level)
     }
 
-    /// The form's five fields as the preview shows them: numbered, in the order Open form sends.
-    func formLines(_ member: FeedbackMember, levels: [FeedbackSetup.Choice]) -> [(level: FeedbackSetup.Choice, items: [FeedbackNote])] {
-        let open = pending(member.key).filter { note in
+    typealias FormLines = [(level: FeedbackSetup.Choice, items: [FeedbackNote])]
+
+    /// The form's five fields as the preview shows them: numbered, in the order Open form sends,
+    /// once per role that has items (always one form for a single role).
+    func formLines(_ member: FeedbackMember, levels: [FeedbackSetup.Choice]) -> [(group: String, lines: FormLines)] {
+        let open = pending(member).filter { note in
             let value = settled(note)
             return !value.sentence.isEmpty && value.competency != nil && value.level != nil
         }
         func rank(_ note: FeedbackNote) -> Int { member.competencies.firstIndex(of: note.competency ?? "") ?? member.competencies.count }
-        return levels.map { level in
-            (level, open.filter { $0.level == level.id }.sorted {
-                (rank($0), $0.date, $0.createdAt) < (rank($1), $1.date, $1.createdAt)
+        let forms: [(group: String, lines: FormLines)] = (member.roles.isEmpty ? [member.group] : member.roles.map(\.group)).map { group in
+            (group, levels.map { level in
+                (level, open.filter { $0.level == level.id && member.group(of: $0) == group }.sorted {
+                    (rank($0), $0.date, $0.createdAt) < (rank($1), $1.date, $1.createdAt)
+                })
             })
         }
+        let filled = forms.filter { $0.lines.contains { !$0.items.isEmpty } }
+        return filled.isEmpty ? Array(forms.prefix(1)) : filled
     }
 
     /// Every open note has a sentence, a competency and a level.
-    func ready(_ key: String) -> Bool {
-        let open = pending(key)
+    func ready(_ member: FeedbackMember) -> Bool {
+        let open = pending(member)
         return !open.isEmpty && !working && open.allSatisfy { note in
             let value = settled(note)
             return !value.sentence.isEmpty && value.competency != nil && value.level != nil
@@ -272,7 +308,7 @@ final class FeedbackDesk: ObservableObject {
             self.finishImproving()
             struct Result: Decodable {
                 struct Item: Decodable {
-                    var noteId: String; var basis: String; var competency: String?; var level: String?
+                    var noteId: String; var basis: String; var competency: String?; var level: String?; var group: String?
                     var sentence: String; var questions: [String]
                 }
                 var drafts: [Item]
@@ -281,7 +317,7 @@ final class FeedbackDesk: ObservableObject {
             self.readNotes()
             for item in result.drafts {
                 guard let index = self.notes.firstIndex(where: { $0.id == item.noteId }) else { continue }
-                Self.adopt(.init(basis: item.basis, competency: item.competency, level: item.level,
+                Self.adopt(.init(basis: item.basis, competency: item.competency, level: item.level, group: item.group,
                                  sentence: item.sentence, questions: item.questions), into: &self.notes[index])
             }
             if let last = result.drafts.last { self.focused = last.noteId }
@@ -310,20 +346,22 @@ final class FeedbackDesk: ObservableObject {
             guard let self else { return }
             let answers = try JSONDecoder().decode(FeedbackAnswers.self, from: Data(output.utf8))
             self.answers = answers
-            guard let link = answers.url, let url = URL(string: link) else {
+            // One form per role: someone in two groups gets two responses.
+            let urls = answers.forms.compactMap { $0.url.flatMap(URL.init(string:)) }
+            guard !urls.isEmpty, urls.count == answers.forms.count else {
                 self.message = "Every item needs a sentence, competency and level."
                 return
             }
-            NSWorkspace.shared.open(url)
+            urls.forEach { NSWorkspace.shared.open($0) }
             self.openedFor = key
         } failed: { [weak self] error in self?.message = error }
     }
 
     /// The user pressed Submit in the browser: these notes are done.
     func markSubmitted() {
-        guard let key = openedFor else { return }
+        guard let key = openedFor, let member = setup?.members.first(where: { $0.key == key }) else { return }
         let now = (Date().timeIntervalSince1970 * 1000).rounded()
-        for index in notes.indices where notes[index].member == key && notes[index].submittedAt == nil {
+        for index in notes.indices where member.keys.contains(notes[index].member) && notes[index].submittedAt == nil {
             notes[index].submittedAt = now
         }
         save()

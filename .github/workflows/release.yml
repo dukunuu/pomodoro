@@ -33,7 +33,10 @@ jobs:
   macos:
     name: macOS
     needs: version
-    runs-on: macos-15
+    # The macOS 26 SDK is what gives the app the current system look on
+    # macOS 26; a binary built against an older SDK runs there in the old
+    # style. The deployment target stays macOS 14 (Package.swift).
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
 
@@ -91,6 +94,9 @@ jobs:
           lipo -archs /tmp/dmgcheck/Pomodoro.app/Contents/MacOS/Pomodoro \
             | tee /dev/stderr | grep -q arm64
           lipo -archs /tmp/dmgcheck/Pomodoro.app/Contents/MacOS/Pomodoro | grep -q x86_64
+          # Every slice must be built against the macOS 26 SDK (see runs-on).
+          vtool -show-build /tmp/dmgcheck/Pomodoro.app/Contents/MacOS/Pomodoro | tee /dev/stderr \
+            | awk '$1 == "sdk" { if ($2 + 0 < 26) old = 1; seen = 1 } END { exit (seen && !old) ? 0 : 1 }'
           hdiutil detach /tmp/dmgcheck -quiet
 
       - uses: actions/upload-artifact@v4

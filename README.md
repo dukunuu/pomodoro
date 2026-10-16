@@ -313,11 +313,22 @@ A note is converted in one step: Jev chooses the competency and the performance
 level (or `unclear`), comparing the note with the member's own grade and the
 grades on either side, while a separate writer model rewords it as one detailed
 Mongolian sentence carrying situation, behavior and impact. Both requests run
-at once. The sentence stays editable; an edit is what the form receives and is
+at once. The writer follows the company's feedback guide (SBI + Actionable):
+it describes what the person did rather than who they are, drops absolutes like
+"дандаа", stays kind but direct, and for something to improve ends with the
+note's own suggestion in a polite, collaborative form. It never invents one: a
+note without a suggestion gets a "no suggestion" hint instead. The form preview
+also notes when a member's items are all areas to improve, since balanced
+feedback names something done well too. The sentence stays editable; an edit is what the form receives and is
 never replaced by a later conversion, and choosing a competency or level does
 not redraft it. The form link opens once every item has a sentence, a
 competency and a level. Parts the note did not state, and numbers or absolute
-words ("always", "үргэлж") it never said, are shown as hints and never block.
+words ("always", "үргэлж", "дандаа") it never said, are shown as hints and never block.
+Someone the form lists under several groups on the same ladder — an ETM who
+is also on the engineer list — is one member with a role per group. Jev
+chooses the role together with the competency ("ETM · A-Team", "Инженер ·
+Problem solving"), the user can change both, and **Open form** opens one
+pre-filled response per role that has items.
 Known people's names are
 replaced with `PERSON_n` before either request and restored afterwards
 (case-sensitively, so short names do not swallow ordinary words).
