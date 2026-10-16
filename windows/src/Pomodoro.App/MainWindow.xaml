@@ -60,6 +60,11 @@
                         <FontIcon Glyph="&#xE8F2;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <NavigationViewItem Content="Feedback" Tag="feedback">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE716;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
             </NavigationView.MenuItems>
 
             <NavigationView.FooterMenuItems>
@@ -247,6 +252,9 @@
 
                         <!-- Standup source review and editable notes -->
                         <StackPanel x:Name="StandupPanel" Visibility="Collapsed" />
+
+                        <!-- Member feedback: notes, SBI items and the filled-in form -->
+                        <StackPanel x:Name="FeedbackPanel" Visibility="Collapsed" />
 
                         <!-- Whistler -->
                         <StackPanel x:Name="WhistlerPanel" Spacing="8" Visibility="Collapsed">

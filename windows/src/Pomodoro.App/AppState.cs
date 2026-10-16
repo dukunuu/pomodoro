@@ -63,8 +63,16 @@ public sealed class AppState
         _minute = _dispatcher.CreateTimer();
         _minute.Interval = TimeSpan.FromSeconds(60);
         _minute.IsRepeating = true;
-        _minute.Tick += (_, _) => Service.MinuteTick();
+        _minute.Tick += (_, _) => { Service.MinuteTick(); CheckFeedbackReminder(); };
         _minute.Start();
+
+        // A reminder opens the Feedback page. Clicks arrive off the UI thread.
+        Notifier.Invoked += action =>
+        {
+            if (action == "feedback") _dispatcher.TryEnqueue(() => { ShowDashboard(); _dashboard?.ShowSection("feedback"); });
+        };
+        // One missed while the app was closed is shown once, now.
+        CheckFeedbackReminder();
 
         CrashLog.Guard("tray", CreateTray);
         CrashLog.Guard("floating window", ApplyFloatingPreference);
@@ -194,6 +202,22 @@ public sealed class AppState
             _trayPanel.Closed += (_, _) => _trayPanel = null;
         }
         _trayPanel.ShowNearTray();
+    }
+
+    /// <summary>
+    /// The feedback reminder, checked once a minute while the app runs. Each
+    /// occurrence shows once; turning it on never fires one already past.
+    /// </summary>
+    private void CheckFeedbackReminder()
+    {
+        if (!Preferences.FeedbackReminderEnabled) return;
+        var due = FeedbackReminderSchedule.Due(FeedbackView.Anchor(Preferences), Preferences.FeedbackReminderDays,
+            Preferences.FeedbackReminderMinute,
+            DateTimeOffset.FromUnixTimeMilliseconds((long)Preferences.FeedbackReminderShownUntil).LocalDateTime, DateTime.Now);
+        if (due is null) return;
+        Preferences.FeedbackReminderShownUntil = new DateTimeOffset(due.Value).ToUnixTimeMilliseconds();
+        Preferences.Save();
+        Notifier.Post("Write feedback", "Jot down what your team did lately. It takes a minute.", "feedback");
     }
 
     public void ShowDashboard()

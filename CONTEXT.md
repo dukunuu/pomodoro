@@ -31,3 +31,25 @@ _Avoid_: Previous event, previous task
 **Out-of-office event**:
 A Calendar status representing non-working time in this workflow, not merely work performed away from an office.
 _Avoid_: Remote work, working location
+
+## Feedback language
+
+**Observation note**:
+A lead's rough, dated note about one member, written whenever something happens. Notes are the only source of facts in feedback.
+_Avoid_: Feedback, comment
+
+**Performance level**:
+One of the feedback form's five fields, from Exceptional Performance to Needs significant improvement, judged against the member's own level and the levels on either side.
+_Avoid_: Rating, score, grade
+
+**Grade**:
+A member's place on their ladder (JE … Staff for engineering; Specialist … System owner for BizOps), derived from their title.
+_Avoid_: Level (reserved for performance level), rank
+
+**Feedback item**:
+One numbered line in a performance-level field: a competency tag and one SBI sentence reworded from one observation note.
+_Avoid_: Bullet, point
+
+**Clarification**:
+A question the user must answer or dismiss before the form opens: an unclear competency or level, a missing SBI part, or a number or absolute word the note never said.
+_Avoid_: Warning, error

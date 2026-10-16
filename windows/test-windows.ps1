@@ -36,6 +36,8 @@ try {
     Write-Host '==> Offline standup tests'
     python (Join-Path $repo 'tools/test_standup.py') --dotnet dotnet
     if ($LASTEXITCODE -ne 0) { throw 'standup tests failed' }
+    python (Join-Path $repo 'tools/test_feedback.py') --dotnet dotnet
+    if ($LASTEXITCODE -ne 0) { throw 'feedback tests failed' }
     python (Join-Path $repo 'tools/test_sync_safety.py') --dotnet dotnet
     if ($LASTEXITCODE -ne 0) { throw 'Calendar sync or single-instance tests failed' }
     python (Join-Path $repo 'tools/test_google_auth.py') --dotnet dotnet

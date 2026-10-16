@@ -17,6 +17,7 @@ public sealed partial class MainWindow : Window
     private UpdateChecker Updates => App.State.Updates;
 
     private StandupView? _standup;
+    private FeedbackView? _feedback;
     private enum ConfigSheet { None, Whistler, Standup }
     private ConfigSheet _sheet = ConfigSheet.None;
     private bool _closingSheet;
@@ -58,6 +59,8 @@ public sealed partial class MainWindow : Window
         // Whistler's configuration; the view owns the controls.
         StandupConfigTab.Children.Add(_standup.ConfigContent);
         _standup.ConfigureRequested += () => ShowSheet(ConfigSheet.Standup);
+        _feedback = new FeedbackView(() => WinRT.Interop.WindowNative.GetWindowHandle(this), App.State.Preferences);
+        FeedbackPanel.Children.Add(_feedback);
         ConfigTabs.SelectionChanged += (_, _) => ShowSelectedTab();
         ModalLayer.KeyDown += OnModalKeyDown;
         SendDate.Date = DateTimeOffset.Now;
@@ -1143,6 +1146,13 @@ public sealed partial class MainWindow : Window
 
     // ---- Navigation -------------------------------------------------------
 
+    /// <summary>Selects a page by its tag, for something outside the window such as a reminder.</summary>
+    public void ShowSection(string tag)
+    {
+        if (Nav.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(item => item.Tag?.ToString() == tag) is { } item)
+            Nav.SelectedItem = item;
+    }
+
     private void OnSectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
         if (args.SelectedItem is not NavigationViewItem item) return;
@@ -1155,6 +1165,8 @@ public sealed partial class MainWindow : Window
         SettingsPanel.Visibility = _section == "settings" ? Visibility.Visible : Visibility.Collapsed;
         StandupPanel.Visibility = _section == "standup" ? Visibility.Visible : Visibility.Collapsed;
         if (_section == "standup") _standup?.RefreshAccount();
+        FeedbackPanel.Visibility = _section == "feedback" ? Visibility.Visible : Visibility.Collapsed;
+        if (_section == "feedback") _feedback?.Load();
 
         // Re-read the credential files on arrival; Changed re-renders.
         if (_section == "whistler") Integrations.Refresh();

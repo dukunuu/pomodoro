@@ -17,6 +17,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     var onSkip: (() -> Void)?
+    var onOpenFeedback: (() -> Void)?
 
     func configure() {
         guard let center else { return }
@@ -57,6 +58,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
                                 withCompletionHandler handler: @escaping () -> Void) {
         if response.actionIdentifier == "skip" {
             DispatchQueue.main.async { [weak self] in self?.onSkip?() }
+        } else if response.notification.request.identifier.hasPrefix("feedback-reminder-") {
+            DispatchQueue.main.async { [weak self] in self?.onOpenFeedback?() }
         }
         handler()
     }

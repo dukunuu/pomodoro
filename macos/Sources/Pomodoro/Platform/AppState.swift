@@ -16,6 +16,9 @@ final class AppState: ObservableObject {
     let updateInstaller = UpdateInstaller()
     let preferences = Preferences.shared
 
+    /// A page something outside the dashboard asked for, such as a reminder.
+    @Published var requestedSection: DashboardSection?
+
     private var dashboardWindow: NSWindow?
     private var dashboardTitle = "Pomodoro"
     private var floatingPanel: FloatingTimerPanel?
@@ -33,6 +36,10 @@ final class AppState: ObservableObject {
         }
         Notifier.shared.onSkip = { [weak self] in
             self?.service.skip()
+        }
+        Notifier.shared.onOpenFeedback = { [weak self] in
+            self?.showDashboard()
+            self?.requestedSection = .feedback
         }
 
         // Dock progress follows the phase, and the panel follows the setting.
@@ -75,6 +82,7 @@ final class AppState: ObservableObject {
 
     func start() {
         Notifier.shared.configure()
+        FeedbackReminder.shared.schedule()
         updates.checkOnLaunch()
         setFloatingPanel(visible: preferences.showFloatingTimer)
         refreshChrome()

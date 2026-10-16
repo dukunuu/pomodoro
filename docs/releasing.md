@@ -134,6 +134,39 @@ Resolution is personal OS-keystore key → runtime `OPENROUTER_API_KEY` environm
 user can supply their own key without replacing the bundle or changing the
 fixed Jev engine. The shared default is not copied into the user's keystore.
 
+## Bundled feedback setup
+
+Releases can carry the Feedback tab's setup — the feedback form's fields, the
+member list (name, Latin spelling, title, department) and the competency
+framework — so a colleague starts with it. Export it from the app
+(**Feedback → Setup → Export setup file…**, or
+`python3 scripts/pomodoro_feedback.py --export-setup feedback-setup.json`) and
+store it as a repository secret:
+
+```sh
+gh secret set FEEDBACK_SETUP_JSON --repo dukunuu/pomodoro < feedback-setup.json
+gh variable set FEEDBACK_EMAIL_DOMAINS --repo dukunuu/pomodoro --body nashatech.com   # optional; this is the default
+```
+
+Secrets are limited to 48 KB; a compact export of 40-odd members is about 33 KB.
+`tools/seal-feedback-setup.py` validates the bundle (the build fails if it is
+malformed) and seals it, together with the allowed email domains, into
+`feedback-setup.dat` beside the scripts (macOS) or the executable (Windows).
+
+The app opens it only while someone is signed in to Whistler with an address on
+one of those domains; anyone else sees "Sign in to Whistler with your
+@nashatech.com account". Anything a user imports by hand takes precedence, and
+grade overrides stay in the user's own data.
+
+**What this does not do.** Releases are public downloads. Sealing keeps the
+names and framework out of plain text, so they are not found by opening the
+bundle or by a secret scanner, but the app contains everything needed to undo
+the seal, and the email check runs on the user's machine. Anyone determined who
+downloads a release can recover the data. GitHub cannot restrict release
+downloads to company accounts; that needs a private distribution channel.
+Leave the secret unset to ship without it. Refresh it when the form, members
+or framework change.
+
 ## Code signing
 
 Neither platform's artifact is signed for distribution yet, so:

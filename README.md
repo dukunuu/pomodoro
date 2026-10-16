@@ -157,7 +157,8 @@ before posting a worklog.
 
 **Jev** (`typesafe/jev-1.13`) is pinned as the project-mapping engine. Old saved
 model selections and `OPENROUTER_MODEL` overrides cannot route imports to Luna,
-chat completions, or `jev-router`. No second text-generation model is used.
+chat completions, or `jev-router`. No second text-generation model touches worklogs;
+the only writer model is the member-feedback one described under [Member feedback](#member-feedback).
 Project and work-category choices are bounded. Task groups use configured
 category names, with source-title details assembled locally; a second model
 never invents category names or worklog text. Offline tests cover request
@@ -266,6 +267,60 @@ uses your existing Jev mapping setup (and mapping key when needed); it does not
 post a worklog or mark the day imported. If there are no accepted timed
 invitations, Jev is not called. A failed source or mapping decision is an error,
 not an empty list or a partially generated standup.
+
+## Member feedback
+
+The feedback engine turns a lead's rough notes about a member into the numbered
+SBI items a Google feedback form asks for, then opens that form pre-filled in
+the default browser, where the user reviews it and presses Submit. It is the
+**Feedback** page on both platforms; the engine is `scripts/pomodoro_feedback.py`
+on macOS and `Pomodoro.Integrations/Feedback.cs` on Windows, held to identical
+output by `tools/test_feedback.py`, which also covers the Windows note store,
+setup files and reminder schedule.
+
+Company data never lives in this repository. Three files are imported into the
+data directory — or arrive together as one setup file (**Setup → Import setup
+file…**), or come sealed inside a release from the `FEEDBACK_SETUP_JSON`
+secret, opened only while someone is signed in to Whistler with a company
+address (see [docs/releasing.md](docs/releasing.md#bundled-feedback-setup));
+anything imported by hand wins over a bundled copy:
+
+- **Form** — a saved copy of the form page (`--import-form page.html`). The
+  group question, each group's member-name list, and the five paragraph fields
+  (Exceptional Performance … Needs significant improvement) are read from it.
+  A level field that is not a paragraph fails the import, since numbered lines
+  would be joined.
+- **Members** — the member sheet as an HTML or CSV export (`--import-members`).
+  Only people the form lists are kept, and only their name, Latin spelling
+  (First and Last name columns), title and department; phone numbers and every
+  other column are dropped. The member picker (⌘K) searches both spellings.
+- **Competency framework** — JSON (`--import-framework`): ladders and their
+  grades, title rules that derive a member's grade and role competency, which
+  competencies each form group uses, and each competency's expectation per
+  grade. A competency marked N/A at a member's grade is never offered.
+
+The tab is laid out around the form: the note box and the selected item on the
+left, and the form as **Open form** will fill it on the right, where clicking a
+line selects its item. The typed note is kept only until it is converted;
+afterwards an item is its sentence, competency, level and date. A bell in the
+tab's heading sets a reminder to write feedback every 1–30 days at a chosen
+time. macOS queues the next occurrences with Notification Center, so they
+arrive while the app is closed; Windows checks once a minute while the app runs
+in the tray and shows a reminder missed while it was closed once, at launch.
+Clicking a reminder opens the Feedback page.
+
+A note is converted in one step: Jev chooses the competency and the performance
+level (or `unclear`), comparing the note with the member's own grade and the
+grades on either side, while a separate writer model rewords it as one detailed
+Mongolian sentence carrying situation, behavior and impact. Both requests run
+at once. The sentence stays editable; an edit is what the form receives and is
+never replaced by a later conversion, and choosing a competency or level does
+not redraft it. The form link opens once every item has a sentence, a
+competency and a level. Parts the note did not state, and numbers or absolute
+words ("always", "үргэлж") it never said, are shown as hints and never block.
+Known people's names are
+replaced with `PERSON_n` before either request and restored afterwards
+(case-sensitively, so short names do not swallow ordinary words).
 
 ## Single-instance and Calendar safety
 

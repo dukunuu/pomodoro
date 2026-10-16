@@ -76,4 +76,5 @@ enum DataPaths {
     static var integrationsScript: URL { script("pomodoro_integrations.py") }
     static var whistlerImportScript: URL { script("pomodoro_whistler_import.py") }
     static var standupScript: URL { script("pomodoro_standup.py") }
+    static var feedbackScript: URL { script("pomodoro_feedback.py") }
 }

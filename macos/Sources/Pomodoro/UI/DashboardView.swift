@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum DashboardSection: String, CaseIterable, Identifiable, Hashable {
-    case today, week, month, allTime, whistler, standup, settings
+    case today, week, month, allTime, whistler, standup, feedback, settings
     var id: String { rawValue }
 
     var title: String {
@@ -12,6 +12,7 @@ enum DashboardSection: String, CaseIterable, Identifiable, Hashable {
         case .allTime: return "All time"
         case .whistler: return "Whistler"
         case .standup: return "Daily standup"
+        case .feedback: return "Feedback"
         case .settings: return "Settings"
         }
     }
@@ -24,6 +25,7 @@ enum DashboardSection: String, CaseIterable, Identifiable, Hashable {
         case .allTime: return "chart.bar.xaxis"
         case .whistler: return "arrow.up.forward.app"
         case .standup: return "text.bubble"
+        case .feedback: return "person.2.wave.2"
         case .settings: return "gearshape"
         }
     }
@@ -52,6 +54,7 @@ struct DashboardView: View {
     @EnvironmentObject private var updates: UpdateChecker
 
     @StateObject private var standup = StandupDraft()
+    @StateObject private var feedback = FeedbackDesk()
     @State private var section: DashboardSection? = .today
     @State private var dayOffset = 0
     @State private var weekOffset = 0
@@ -69,6 +72,7 @@ struct DashboardView: View {
                 Section("Integrations") {
                     row(.whistler, warning: !integrations.whistlerReady)
                     row(.standup)
+                    row(.feedback)
                 }
                 Section {
                     row(.settings)
@@ -96,6 +100,11 @@ struct DashboardView: View {
                 .navigationTitle(section?.title ?? "Pomodoro")
                 .onChange(of: section, initial: true) { _, value in
                     state.setDashboardTitle(value?.title ?? "Pomodoro")
+                }
+                .onChange(of: state.requestedSection, initial: true) { _, value in
+                    guard let value else { return }
+                    section = value
+                    state.requestedSection = nil
                 }
                 .toolbar {
                     ToolbarItem {
@@ -135,7 +144,8 @@ struct DashboardView: View {
             }
             .padding(.horizontal, 28)
             .padding(.vertical, 24)
-            .frame(maxWidth: 800)
+            // Feedback sets the form beside the editor, so it takes more room.
+            .frame(maxWidth: section == .feedback ? 1140 : 800)
             .frame(maxWidth: .infinity, alignment: .center)
         }
         .background(Theme.background)
@@ -156,6 +166,8 @@ struct DashboardView: View {
             WhistlerView()
         case .standup:
             StandupView(draft: standup, today: service.todayKey)
+        case .feedback:
+            FeedbackView(desk: feedback)
         case .settings:
             SettingsPanel()
         }

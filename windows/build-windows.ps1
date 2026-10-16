@@ -13,6 +13,9 @@ Environment:
   GOOGLE_OAUTH_CLIENT_JSON    OAuth client JSON, inline; baked into the build
   GOOGLE_OAUTH_CLIENT_FILE    ...or a path to the same JSON
   OPENROUTER_API_KEY          optional shared default; sealed, still recoverable
+  FEEDBACK_SETUP_JSON         feedback setup bundle, inline; sealed into the build
+  FEEDBACK_SETUP_FILE         ...or a path to the same JSON
+  FEEDBACK_EMAIL_DOMAINS      domains whose Whistler sign-in opens it (default nashatech.com)
 
 Windows on ARM runs x64 under emulation, so an x64-only release works
 everywhere but runs slowly on ARM devices. Both are published.
@@ -111,6 +114,21 @@ foreach ($arch in $archs) {
         Write-Host '    baked in OAuth client'
     } else {
         Write-Host '    no OAuth client supplied; users install their own in Settings'
+    }
+
+    # Optional feedback setup (form, member list, competency framework), sealed
+    # with the email domains allowed to open it (FEEDBACK_EMAIL_DOMAINS, default
+    # nashatech.com). Feedback.LoadSetup uses it only while someone is signed in
+    # to Whistler with such an address. Anyone holding the build can recover it.
+    $setupDest = Join-Path $publish 'feedback-setup.dat'
+    Remove-Item (Join-Path $publish 'feedback-setup.json') -Force -ErrorAction SilentlyContinue
+    if ($env:FEEDBACK_SETUP_JSON -or $env:FEEDBACK_SETUP_FILE) {
+        if (-not (Get-Command python -ErrorAction SilentlyContinue)) { throw 'python is required to seal FEEDBACK_SETUP_JSON into the build' }
+        python (Join-Path (Split-Path $root -Parent) 'tools/seal-feedback-setup.py') $setupDest
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Path $setupDest)) { throw 'sealing the feedback setup failed' }
+    } else {
+        if (Test-Path $setupDest) { Remove-Item $setupDest -Force }
+        Write-Host '    no feedback setup supplied; users import their own in Feedback'
     }
 
     # Never pass the key on MSBuild's command line or generate checked-in source.

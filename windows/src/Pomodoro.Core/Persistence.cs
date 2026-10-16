@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Globalization;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -213,6 +214,13 @@ public static class Persistence
     public static string Compact(JsonNode node) => Serialize(node, indented: false);
 
     /// <summary>
+    /// Compact JSON with a chosen encoder. Text a model reads should keep
+    /// non-ASCII letters as written rather than as \u escapes, as Python's
+    /// ensure_ascii=False does.
+    /// </summary>
+    public static string Compact(JsonNode node, JavaScriptEncoder encoder) => Serialize(node, indented: false, encoder);
+
+    /// <summary>
     /// Writes a node straight through a <see cref="Utf8JsonWriter"/>.
     ///
     /// <c>JsonNode.ToJsonString</c> reaches for <c>JsonSerializerOptions.Default</c>,
@@ -221,10 +229,10 @@ public static class Persistence
     /// with "JsonSerializerOptions instance must specify a TypeInfoResolver".
     /// None of the values below need a converter, so none of them need a resolver.
     /// </summary>
-    private static string Serialize(JsonNode node, bool indented)
+    private static string Serialize(JsonNode node, bool indented, JavaScriptEncoder? encoder = null)
     {
         var buffer = new ArrayBufferWriter<byte>();
-        using (var writer = new Utf8JsonWriter(buffer, new JsonWriterOptions { Indented = indented }))
+        using (var writer = new Utf8JsonWriter(buffer, new JsonWriterOptions { Indented = indented, Encoder = encoder }))
         {
             WriteNode(node, writer);
         }

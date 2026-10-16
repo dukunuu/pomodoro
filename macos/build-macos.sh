@@ -102,6 +102,13 @@ else
     echo "    no OAuth client supplied; users install their own in Settings"
 fi
 
+# Optional feedback setup (form, member list, competency framework), sealed
+# with the email domains allowed to open it (FEEDBACK_EMAIL_DOMAINS, default
+# nashatech.com). The app uses it only while someone is signed in to Whistler
+# with such an address. Anyone holding the bundle can still recover it.
+FEEDBACK_SETUP_JSON="${FEEDBACK_SETUP_JSON:-}" FEEDBACK_SETUP_FILE="${FEEDBACK_SETUP_FILE:-}" \
+    python3 "$REPO/tools/seal-feedback-setup.py" "$APP/Contents/Resources/scripts/feedback-setup.dat"
+
 # Optional shared inference key, supplied by the release job through its
 # environment. It is sealed so it is not readable text in the bundle, but the
 # app can open it and so can anyone determined: use a dedicated capped key.

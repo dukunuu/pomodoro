@@ -48,7 +48,10 @@ jobs:
           test -f "$APP/Contents/Resources/scripts/pomodoro_whistler_import.py"
           test -f "$APP/Contents/Resources/scripts/pomodoro_mapping.py"
           test -f "$APP/Contents/Resources/scripts/pomodoro_standup.py"
+          test -f "$APP/Contents/Resources/scripts/pomodoro_feedback.py"
           test ! -f "$APP/Contents/Resources/build.dat"
+          # Company feedback data ships only in tagged releases.
+          test ! -f "$APP/Contents/Resources/scripts/feedback-setup.dat"
           # A source build must not contain credentials.
           if [ -f "$APP/Contents/Resources/scripts/google-calendar-client.json" ]; then
             echo "unexpected OAuth client in a CI build" >&2
@@ -149,6 +152,7 @@ jobs:
             $publish = "src/Pomodoro.App/bin/$($pair[0])/Release/net8.0-windows10.0.19041.0/$($pair[1])/publish"
             $missing = @()
             if (Test-Path (Join-Path $publish 'build.dat')) { throw 'unexpected inference key in CI artifact' }
+            if (Test-Path (Join-Path $publish 'feedback-setup.dat')) { throw 'unexpected feedback setup in CI artifact' }
             foreach ($file in $required) {
               if (-not (Test-Path (Join-Path $publish $file))) { $missing += $file }
             }

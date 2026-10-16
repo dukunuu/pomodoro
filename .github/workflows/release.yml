@@ -57,7 +57,15 @@ jobs:
           GOOGLE_OAUTH_CLIENT_JSON: ${{ secrets.GOOGLE_OAUTH_CLIENT_JSON }}
           # Distributed defaults are sealed but recoverable; use a dedicated, capped key.
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          # Company feedback setup (form, members, framework), sealed and opened
+          # only for a Whistler sign-in on these domains. Public releases still
+          # carry it recoverably; that was a deliberate choice.
+          FEEDBACK_SETUP_JSON: ${{ secrets.FEEDBACK_SETUP_JSON }}
+          FEEDBACK_EMAIL_DOMAINS: ${{ vars.FEEDBACK_EMAIL_DOMAINS }}
         run: |
+          if [ -z "${FEEDBACK_SETUP_JSON:-}" ]; then
+            echo "::warning::FEEDBACK_SETUP_JSON is not set; users will import the feedback setup themselves"
+          fi
           if [ -z "${GOOGLE_OAUTH_CLIENT_JSON:-}" ]; then
             echo "::warning::GOOGLE_OAUTH_CLIENT_JSON is not set; \
               the release will require each user to install their own client"
@@ -131,6 +139,8 @@ jobs:
           VERSION: ${{ needs.version.outputs.version }}
           GOOGLE_OAUTH_CLIENT_JSON: ${{ secrets.GOOGLE_OAUTH_CLIENT_JSON }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          FEEDBACK_SETUP_JSON: ${{ secrets.FEEDBACK_SETUP_JSON }}
+          FEEDBACK_EMAIL_DOMAINS: ${{ vars.FEEDBACK_EMAIL_DOMAINS }}
         run: ./build-windows.ps1
 
       # The portable zip is always produced; the installer needs Inno Setup on

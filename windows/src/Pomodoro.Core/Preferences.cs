@@ -28,6 +28,14 @@ public sealed class Preferences
     public int FloatingWidth { get; set; } = 252;
     public int FloatingHeight { get; set; } = 132;
 
+    /// <summary>The feedback reminder: every N days at a minute of the day, counted from the anchor.</summary>
+    public bool FeedbackReminderEnabled { get; set; }
+    public int FeedbackReminderDays { get; set; } = 7;
+    public int FeedbackReminderMinute { get; set; } = 16 * 60;
+    public double FeedbackReminderAnchor { get; set; }
+    /// <summary>Occurrences up to here were shown, or predate turning the reminder on.</summary>
+    public double FeedbackReminderShownUntil { get; set; }
+
     public event Action? Changed;
 
     public int Duration(Phase phase) => phase switch
@@ -69,6 +77,11 @@ public sealed class Preferences
         result.FloatingY = (int)(Persistence.Number(obj["floatingY"]) ?? int.MinValue);
         result.FloatingWidth = (int)(Persistence.Number(obj["floatingWidth"]) ?? 252);
         result.FloatingHeight = (int)(Persistence.Number(obj["floatingHeight"]) ?? 132);
+        result.FeedbackReminderEnabled = obj["feedbackReminderEnabled"]?.GetValue<bool>() ?? false;
+        result.FeedbackReminderDays = Math.Max(1, Math.Min(30, (int)(Persistence.Number(obj["feedbackReminderDays"]) ?? 7)));
+        result.FeedbackReminderMinute = Math.Max(0, Math.Min(24 * 60 - 1, (int)(Persistence.Number(obj["feedbackReminderMinute"]) ?? 16 * 60)));
+        result.FeedbackReminderAnchor = Persistence.Number(obj["feedbackReminderAnchor"]) ?? 0;
+        result.FeedbackReminderShownUntil = Persistence.Number(obj["feedbackReminderShownUntil"]) ?? 0;
         return result;
     }
 
@@ -87,7 +100,12 @@ public sealed class Preferences
             ["floatingX"] = FloatingX,
             ["floatingY"] = FloatingY,
             ["floatingWidth"] = FloatingWidth,
-            ["floatingHeight"] = FloatingHeight
+            ["floatingHeight"] = FloatingHeight,
+            ["feedbackReminderEnabled"] = FeedbackReminderEnabled,
+            ["feedbackReminderDays"] = FeedbackReminderDays,
+            ["feedbackReminderMinute"] = FeedbackReminderMinute,
+            ["feedbackReminderAnchor"] = FeedbackReminderAnchor,
+            ["feedbackReminderShownUntil"] = FeedbackReminderShownUntil
         };
         AtomicFile.Write(FilePath, Persistence.Json(payload));
         Changed?.Invoke();

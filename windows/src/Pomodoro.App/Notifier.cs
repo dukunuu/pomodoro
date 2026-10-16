@@ -12,11 +12,19 @@ public static class Notifier
 {
     private static bool _registered;
 
+    /// <summary>A notification carrying an action was clicked; raised off the UI thread.</summary>
+    public static event Action<string>? Invoked;
+
     public static void Register()
     {
         if (_registered) return;
         try
         {
+            // Must be attached before Register, or the first click is lost.
+            AppNotificationManager.Default.NotificationInvoked += (_, args) =>
+            {
+                if (args.Arguments.TryGetValue("action", out var action)) Invoked?.Invoke(action);
+            };
             AppNotificationManager.Default.Register();
             _registered = true;
         }
@@ -35,15 +43,16 @@ public static class Notifier
         _registered = false;
     }
 
-    public static void Post(string title, string body)
+    public static void Post(string title, string body, string? action = null)
     {
         if (!_registered) return;
         try
         {
-            var notification = new AppNotificationBuilder()
+            var builder = new AppNotificationBuilder()
                 .AddText(title)
-                .AddText(body)
-                .BuildNotification();
+                .AddText(body);
+            if (action is not null) builder.AddArgument("action", action);
+            var notification = builder.BuildNotification();
             AppNotificationManager.Default.Show(notification);
         }
         catch (Exception)

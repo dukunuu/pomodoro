@@ -69,6 +69,15 @@ enum Snapshot {
         capture("standup", size: CGSize(width: 800, height: 560), SnapshotTab(tab: .standup))
         capture("standup-replies", size: CGSize(width: 800, height: 720), SnapshotStandupReplies().padding(16))
         capture("settings", size: CGSize(width: 800, height: 980), SnapshotTab(tab: .settings))
+        // The feedback bridge answers asynchronously; give it time, then show
+        // the first member who has notes in the data directory.
+        let feedback = FeedbackDesk()
+        feedback.load()
+        RunLoop.current.run(until: Date().addingTimeInterval(2))
+        feedback.selected = feedback.setup?.members.first { !feedback.pending($0.key).isEmpty }?.key
+        feedback.refreshAnswers()
+        RunLoop.current.run(until: Date().addingTimeInterval(1.5))
+        capture("feedback", size: CGSize(width: 800, height: 1240), SnapshotTab(tab: .feedback, feedback: feedback))
         capture("floating", size: CGSize(width: 260, height: 120),
                 FloatingTimerView(service: state.service, onOpenDashboard: {}).padding(12))
         capture("menubar", size: CGSize(width: 340, height: 590), MenuBarPanel())
@@ -116,6 +125,7 @@ private struct SnapshotStandupReplies: View {
 /// pin one tab at a time.
 private struct SnapshotTab: View {
     var tab: DashboardSection
+    var feedback = FeedbackDesk()
     @State private var offset = 0
 
     // ImageRenderer does not rasterize ScrollView content, so the snapshot
@@ -133,6 +143,7 @@ private struct SnapshotTab: View {
                 case .allTime: AllTimeReportView()
                 case .whistler: WhistlerView()
                 case .standup: StandupView(draft: StandupDraft(), today: Fmt.dateKey(Date()))
+                case .feedback: FeedbackView(desk: feedback)
                 case .settings: SettingsPanel()
                 }
                 Spacer(minLength: 0)

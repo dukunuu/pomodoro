@@ -18,6 +18,7 @@ echo "==> Offline mapping tests"
 python3 "$REPO/tools/test_mapping.py"
 python3 "$REPO/tools/test_worklog_format.py"
 python3 "$REPO/tools/test_standup.py" --swift
+python3 "$REPO/tools/test_feedback.py"
 python3 "$REPO/tools/test_sync_safety.py"
 python3 "$REPO/tools/test_build_key.py" --swift
 python3 "$REPO/tools/test_mapping_preferences.py" --swift
